@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import { localStorageRepository } from '../repositorys/localStorageRepository';
+import { localStorageRepository } from '../repositories/localStorageRepository';
 import type {
   DocumentMetadata,
   DocumentMarkup,

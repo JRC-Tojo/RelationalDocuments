@@ -1,5 +1,5 @@
 import { useBackendApi } from '../apis/backendApi';
-import { localStorageRepository } from '../repositorys/localStorageRepository';
+import { localStorageRepository } from '../repositories/localStorageRepository';
 
 /**
  * アプリケーション初期化用ユーティリティ
