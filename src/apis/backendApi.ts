@@ -1,0 +1,445 @@
+import type {
+  DocumentMetadata,
+  DocumentMarkup,
+  DocumentRevision,
+  MarkupBlock,
+  ComplianceRule,
+  AppSettings,
+  ApiResponse,
+} from '../models/schemas';
+import {
+  documentService,
+  markupService,
+  revisionService,
+  settingsService,
+} from '../services/documentService';
+
+/**
+ * バックエンド統合 API層
+ * フロントエンドから関数呼び出しで各サービスを利用
+ * 将来的なAPI通信化にも対応できるように設計
+ */
+class BackendApi {
+  /**
+   * 初期化
+   */
+  async initialize(): Promise<ApiResponse<void>> {
+    try {
+      const settings = await settingsService.getSettings();
+      if (!settings?.initialized) {
+        await settingsService.initializeDefaultSettings();
+      }
+      return {
+        success: true,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Initialization failed',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  // ============ 文書操作 ============
+
+  /**
+   * 全文書を取得
+   */
+  async getAllDocuments(): Promise<ApiResponse<DocumentMetadata[]>> {
+    try {
+      const documents = await documentService.getAllDocuments();
+      return {
+        success: true,
+        data: documents,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get documents',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 文書を取得
+   */
+  async getDocument(id: string): Promise<ApiResponse<DocumentMetadata | null>> {
+    try {
+      const doc = await documentService.getDocument(id);
+      return {
+        success: true,
+        data: doc,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get document',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 文書を新規登録
+   */
+  async createDocument(
+    title: string,
+    filePath: string,
+    fileName: string,
+    pageCount: number,
+    fileSize: number,
+    description?: string,
+    genre?: string,
+  ): Promise<ApiResponse<DocumentMetadata>> {
+    try {
+      const doc = await documentService.createDocument(
+        title,
+        filePath,
+        fileName,
+        pageCount,
+        fileSize,
+        description,
+        genre,
+      );
+      return {
+        success: true,
+        data: doc,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create document',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 文書を更新
+   */
+  async updateDocument(
+    id: string,
+    updates: Partial<DocumentMetadata>,
+  ): Promise<ApiResponse<DocumentMetadata | null>> {
+    try {
+      const doc = await documentService.updateDocument(id, updates);
+      return {
+        success: true,
+        data: doc,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update document',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 文書を削除
+   */
+  async deleteDocument(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      const result = await documentService.deleteDocument(id);
+      return {
+        success: true,
+        data: result,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete document',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  // ============ マークアップ操作 ============
+
+  /**
+   * 全マークアップを取得
+   */
+  async getAllMarkups(): Promise<ApiResponse<DocumentMarkup[]>> {
+    try {
+      const markups = await markupService.getAllMarkups();
+      return {
+        success: true,
+        data: markups,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get markups',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 文書別マークアップを取得
+   */
+  async getMarkupsByDocument(documentId: string): Promise<ApiResponse<DocumentMarkup[]>> {
+    try {
+      const markups = await markupService.getMarkupsByDocument(documentId);
+      return {
+        success: true,
+        data: markups,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get markups',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * マークアップを新規作成
+   */
+  async createMarkup(
+    documentId: string,
+    pageNumber: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    content?: string,
+    style?: 'highlight' | 'line' | 'box' | 'underline',
+  ): Promise<ApiResponse<DocumentMarkup>> {
+    try {
+      const markup = await markupService.createMarkup(
+        documentId,
+        pageNumber,
+        x,
+        y,
+        width,
+        height,
+        color,
+        content,
+        style,
+      );
+      return {
+        success: true,
+        data: markup,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create markup',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * マークアップを更新
+   */
+  async updateMarkup(
+    id: string,
+    updates: Partial<DocumentMarkup>,
+  ): Promise<ApiResponse<DocumentMarkup | null>> {
+    try {
+      const markup = await markupService.updateMarkup(id, updates);
+      return {
+        success: true,
+        data: markup,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update markup',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * マークアップを削除
+   */
+  async deleteMarkup(id: string): Promise<ApiResponse<boolean>> {
+    try {
+      const result = await markupService.deleteMarkup(id);
+      return {
+        success: true,
+        data: result,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete markup',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * マークアップ同士をリンク
+   */
+  async linkMarkups(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
+    try {
+      await markupService.linkMarkups(sourceId, targetId);
+      return {
+        success: true,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to link markups',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  // ============ 改訂履歴操作 ============
+
+  /**
+   * 文書の改訂履歴を取得
+   */
+  async getDocumentRevisions(documentId: string): Promise<ApiResponse<DocumentRevision[]>> {
+    try {
+      const revisions = await revisionService.getDocumentRevisions(documentId);
+      return {
+        success: true,
+        data: revisions,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get revisions',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * マークアップブロックを作成
+   */
+  async createMarkupBlock(
+    markupId: string,
+    title: string,
+    content: string,
+    genre?: string,
+  ): Promise<ApiResponse<MarkupBlock>> {
+    try {
+      const block = await revisionService.createMarkupBlock(markupId, title, content, genre);
+      return {
+        success: true,
+        data: block,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create markup block',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 整合性ルールを作成
+   */
+  async createComplianceRule(
+    name: string,
+    type: 'exact_match' | 'formula' | 'condition_check',
+    sourceMarkupIds: string[],
+    targetMarkupId: string,
+    ruleExpression: string,
+    description?: string,
+  ): Promise<ApiResponse<ComplianceRule>> {
+    try {
+      const rule = await revisionService.createComplianceRule(
+        name,
+        type,
+        sourceMarkupIds,
+        targetMarkupId,
+        ruleExpression,
+        description,
+      );
+      return {
+        success: true,
+        data: rule,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create compliance rule',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  // ============ 設定操作 ============
+
+  /**
+   * 設定を取得
+   */
+  async getSettings(): Promise<ApiResponse<AppSettings | null>> {
+    try {
+      const settings = await settingsService.getSettings();
+      return {
+        success: true,
+        data: settings,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get settings',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  /**
+   * 設定を保存
+   */
+  async saveSettings(settings: AppSettings): Promise<ApiResponse<void>> {
+    try {
+      await settingsService.saveSettings(settings);
+      return {
+        success: true,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to save settings',
+        timestamp: new Date(),
+      };
+    }
+  }
+}
+
+// グローバルAPIインスタンス
+const backendApi = new BackendApi();
+
+/**
+ * フロントエンドから利用するためのAPI参照
+ * Vue コンポーネント内で: const api = useBackendApi()
+ */
+export function useBackendApi() {
+  return backendApi;
+}
+
+// グローバル登録用（オプション）
+export default backendApi;
