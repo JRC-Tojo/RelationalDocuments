@@ -363,13 +363,13 @@ async function saveDocument() {
  * ドキュメントを削除
  */
 function deleteDocument(id: string) {
-  console.log('Delete doc id: ', id)
+  console.log('Delete doc id: ', id);
   $q.dialog({
     title: $t('button.delete'),
     message: $t('document.deleteConfirm'),
     cancel: true,
     persistent: true,
-  })
+  });
   // .onOk(() => {
   //   const response = await api.deleteDocument(id);
   //   if (response.success) {
