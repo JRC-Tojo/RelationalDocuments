@@ -1,0 +1,109 @@
+name: Frontend CI/CD
+
+on:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint and Format
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run ESLint
+        run: bun run lint
+
+      - name: Auto-fix formatting
+        run: bun run format
+
+      - name: Commit formatting changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: '🚨 Apply Prettier Change'
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install && bun run quasar prepare
+
+      - name: Build
+        run: bun run build
+
+  # test:
+  #   name: Test
+  #   runs-on: ubuntu-latest
+  #   needs: lint
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+
+  #     - name: Setup Bun
+  #       uses: oven-sh/setup-bun@v1
+
+  #     - name: Install dependencies
+  #       run: bun install && bun run quasar prepare
+
+  #     - name: Run tests
+  #       run: bun run test -- --run
+
+  #     - name: Upload coverage
+  #       uses: codecov/codecov-action@v4
+  #       if: always()
+  #       with:
+  #         files: ./coverage/coverage-final.json
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install dependencies
+        run: bun install && bun run quasar prepare
+
+      - name: Type check
+        run: bunx vue-tsc --noEmit
+
+  # セキュリティスキャンは現状GitHub Botに一任
+  # security-scan:
+  #   name: Security Scan
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Run npm audit
+  #       run: npm audit --audit-level=moderate
