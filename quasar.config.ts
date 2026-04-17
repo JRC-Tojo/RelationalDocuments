@@ -5,6 +5,7 @@ import { defineConfig } from '#q-app/wrappers';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig((ctx) => {
+  const ghPagesBase = '/RelationalDocuments/';
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
     // preFetch: true,
@@ -45,13 +46,13 @@ export default defineConfig((ctx) => {
       },
 
       vueRouterMode: 'history', // available values: 'hash', 'history'
-      vueRouterBase: '/RelationalDocuments/',
+      vueRouterBase: ghPagesBase,
       // vueDevtools,
       // vueOptionsAPI: false,
 
       // rebuildCache: true, // rebuilds Vite/linter/etc cache on startup
 
-      publicPath: process.env.NODE_ENV === 'production' ? '/RelationalDocuments/' : '/',
+      publicPath: process.env.NODE_ENV === 'production' ? ghPagesBase : '/',
       // analyze: true,
       // env: {},
       // rawDefine: {}
