@@ -2,6 +2,12 @@
 .thumbs.db
 node_modules
 
+# secret files
+/docs
+/output
+/src-files/files/
+/資料
+
 # Quasar core related directories
 .quasar
 /dist
@@ -16,6 +22,17 @@ node_modules
 # Capacitor related directories and files
 /src-capacitor/www
 /src-capacitor/node_modules
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
 
 # Log files
 npm-debug.log*
