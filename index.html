@@ -21,8 +21,8 @@
     <!-- redirect -->
     <script>
       (function (l) {
-        if (l.hash) {
-          window.history.replaceState(null, null, l.hash.slice(1));
+        if (l.hash.startsWith('#$')) {
+          window.history.replaceState(null, null, l.hash.slice(2));
         }
       })(window.location);
     </script>
