@@ -68,7 +68,7 @@ export async function createDemoData() {
   for (const doc of sampleDocs) {
     const response = await api.createDocument(
       doc.title,
-      '',
+      new URL('/src/assets/sampleDocs/sampleArticle.pdf', import.meta.url).href,
       doc.title,
       doc.pageCount,
       Math.floor(Math.random() * 10000000) + 100000,

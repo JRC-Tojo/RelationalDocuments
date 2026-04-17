@@ -24,12 +24,13 @@
 
           <div class="pdf-container q-pa-md" :style="{ zoom: `${zoomLevel}%` }">
             <p v-if="!pdfLoaded" class="text-center text-grey">{{ $t('message.loading') }}</p>
-            <canvas
-              v-show="pdfLoaded"
-              id="pdf-canvas"
-              class="full-width"
-              style="border: 1px solid #ddd; display: block"
-            ></canvas>
+
+            <!-- PDF描画 -->
+             <VuePdfEmbed
+                :source="document.filePath"
+                annotation-layer
+                text-layer
+             />
 
             <!-- マークアップレイヤー -->
             <svg
@@ -210,7 +211,12 @@ import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
+import VuePdfEmbed from 'vue-pdf-embed';
 import type { DocumentMetadata, DocumentMarkup, DocumentRevision } from 'src/models/schemas';
+
+// Optional styles
+import 'vue-pdf-embed/dist/styles/annotationLayer.css'
+import 'vue-pdf-embed/dist/styles/textLayer.css'
 
 const route = useRoute();
 const { t: $t } = useI18n();
