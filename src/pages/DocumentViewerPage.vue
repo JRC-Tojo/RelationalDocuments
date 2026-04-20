@@ -26,7 +26,7 @@
             <p v-if="!pdfLoaded" class="text-center text-grey">{{ $t('message.loading') }}</p>
 
             <!-- PDF描画 -->
-             <!-- <VuePdfEmbed
+            <!-- <VuePdfEmbed
                 :source="document.filePath"
                 annotation-layer
                 text-layer
