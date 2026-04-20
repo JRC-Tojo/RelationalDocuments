@@ -127,4 +127,27 @@ export default {
     failedToDeleteDocument: 'ドキュメント削除に失敗しました',
     failedToUpdateDocument: 'ドキュメント更新に失敗しました',
   },
+
+  // PDF エディタ関連
+  pdfEditor: {
+    title: 'PDFエディタ',
+    viewMode: '表示モード',
+    singlePage: '単一ページ',
+    continuous: '連続表示',
+    twoPages: '見開き表示',
+    color: '色',
+    page: 'ページ',
+    thumbnails: 'サムネイル',
+    bookmarks: 'ブックマーク',
+    annotations: 'アノテーション',
+    addBookmark: 'ブックマークを追加',
+    bookmarkTitle: 'ブックマークタイトルを入力してください:',
+    noBookmarks: 'ブックマークはありません',
+    noAnnotations: 'アノテーションはありません',
+    highlight: 'ハイライト',
+    line: '直線',
+    box: 'ボックス',
+    circle: '円',
+    image: '画像',
+  },
 };

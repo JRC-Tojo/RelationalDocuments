@@ -128,4 +128,27 @@ export default {
     failedToDeleteDocument: 'Failed to delete document',
     failedToUpdateDocument: 'Failed to update document',
   },
+
+  // PDF Editor related
+  pdfEditor: {
+    title: 'PDF Editor',
+    viewMode: 'View Mode',
+    singlePage: 'Single Page',
+    continuous: 'Continuous',
+    twoPages: 'Two Pages',
+    color: 'Color',
+    page: 'Page',
+    thumbnails: 'Thumbnails',
+    bookmarks: 'Bookmarks',
+    annotations: 'Annotations',
+    addBookmark: 'Add Bookmark',
+    bookmarkTitle: 'Enter bookmark title:',
+    noBookmarks: 'No bookmarks',
+    noAnnotations: 'No annotations',
+    highlight: 'Highlight',
+    line: 'Line',
+    box: 'Box',
+    circle: 'Circle',
+    image: 'Image',
+  },
 };
