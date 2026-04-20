@@ -42,6 +42,7 @@ const lineConfig = computed(() => {
     props.annotation.y2 || 0,
   ];
   return {
+    id: props.annotation.id, // ← IDを追加
     x: props.annotation.x,
     y: props.annotation.y,
     points: points,

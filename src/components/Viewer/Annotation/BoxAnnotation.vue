@@ -36,6 +36,7 @@ const isHovered = ref(false);
  * ボックス矩形の設定を計算
  */
 const rectConfig = computed(() => ({
+  id: props.annotation.id, // ← IDを追加
   x: props.annotation.x,
   y: props.annotation.y,
   width: props.annotation.width || 0,

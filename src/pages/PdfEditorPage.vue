@@ -372,6 +372,10 @@ const selectedAnnotationId = ref<string | null>(null);
 const selectedTool = ref<AnnotationType>('highlight');
 const selectedColor = ref('#FFD700');
 
+// アンドゥ・リドゥ履歴
+const annotationHistory = ref<Annotation[][]>([]);
+const historyIndex = ref(-1);
+
 const annotationTools = [
   { id: 'highlight', icon: 'format_color_highlight', label: 'Highlight' },
   { id: 'line', icon: 'edit', label: 'Line' },
@@ -405,11 +409,16 @@ onMounted(async () => {
   await loadDocument();
   loadBookmarksFromStorage();
   await initializePdf();
+
+  // キーボードショートカットの登録
+  window.addEventListener('keydown', handleKeyboardShortcut);
 });
 
 onBeforeUnmount(() => {
   pdfManager.cleanup();
   annotationDrawingManager.destroy();
+  // キーボードイベントリスナーの削除
+  window.removeEventListener('keydown', handleKeyboardShortcut);
 });
 
 watch(currentPage, async () => {
@@ -690,10 +699,24 @@ function addBookmarkDialog() {
 }
 
 /**
+ * アンドゥ履歴に保存
+ */
+function saveToHistory() {
+  // 現在のインデックスより後の履歴を削除（新しい操作を行ったため）
+  if (historyIndex.value < annotationHistory.value.length - 1) {
+    annotationHistory.value = annotationHistory.value.slice(0, historyIndex.value + 1);
+  }
+  // 現在の状態を履歴に追加
+  annotationHistory.value.push(JSON.parse(JSON.stringify(annotations.value)));
+  historyIndex.value++;
+}
+
+/**
  * アノテーションを追加
  */
 function addAnnotation(annotation: Annotation) {
   annotations.value.push(annotation);
+  saveToHistory();
 }
 
 /**
@@ -703,6 +726,7 @@ function updateAnnotation(annotation: Annotation) {
   const index = annotations.value.findIndex((a) => a.id === annotation.id);
   if (index !== -1) {
     annotations.value[index] = annotation;
+    saveToHistory();
   }
 }
 
@@ -715,6 +739,7 @@ function deleteAnnotation(id: string) {
   if (selectedAnnotationId.value === id) {
     selectedAnnotationId.value = null;
   }
+  saveToHistory();
 }
 
 /**
@@ -746,6 +771,52 @@ function formatDate(date: Date | string): string {
     month: '2-digit',
     day: '2-digit',
   });
+}
+
+/**
+ * キーボードショートカット処理
+ */
+function handleKeyboardShortcut(event: KeyboardEvent) {
+  // Ctrl+Z または Cmd+Z でアンドゥ
+  if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+    event.preventDefault();
+    undo();
+  }
+  // Ctrl+Shift+Z または Cmd+Shift+Z でリドゥ
+  else if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
+    event.preventDefault();
+    redo();
+  }
+  // Ctrl+Y または Cmd+Y でリドゥ（別の方法）
+  else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+    event.preventDefault();
+    redo();
+  }
+  // Delete または Backspace でアノテーション削除
+  else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedAnnotationId.value) {
+    event.preventDefault();
+    deleteAnnotation(selectedAnnotationId.value);
+  }
+}
+
+/**
+ * アンドゥを実行
+ */
+function undo() {
+  if (historyIndex.value > 0) {
+    historyIndex.value--;
+    annotations.value = JSON.parse(JSON.stringify(annotationHistory.value[historyIndex.value]));
+  }
+}
+
+/**
+ * リドゥを実行
+ */
+function redo() {
+  if (historyIndex.value < annotationHistory.value.length - 1) {
+    historyIndex.value++;
+    annotations.value = JSON.parse(JSON.stringify(annotationHistory.value[historyIndex.value]));
+  }
 }
 </script>
 

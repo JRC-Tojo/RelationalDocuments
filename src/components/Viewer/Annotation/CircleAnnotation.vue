@@ -36,6 +36,7 @@ const isHovered = ref(false);
  * 円の設定を計算
  */
 const circleConfig = computed(() => ({
+  id: props.annotation.id, // ← IDを追加
   x: props.annotation.x,
   y: props.annotation.y,
   radius: props.annotation.radius || 20,

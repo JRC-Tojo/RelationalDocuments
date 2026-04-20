@@ -74,14 +74,14 @@
         />
 
         <!-- トランスフォーマー（選択時のリサイズ操作用） -->
-        <v-transformer v-if="selectedAnnotationId && isEditing" ref="transformerRef" />
+        <v-transformer v-if="selectedAnnotationId && isEditing" :config="transformerConfig" />
       </v-layer>
     </v-stage>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, reactive } from 'vue';
 import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
@@ -115,7 +115,6 @@ const emit = defineEmits<{
 }>();
 
 const stageRef = ref<Konva.Stage | null>(null);
-const transformerRef = ref<Konva.Transformer | null>(null);
 const selectedAnnotationId = ref<string | null>(null);
 const isDrawing = ref(false);
 const startPos = ref<{ x: number; y: number } | null>(null);
@@ -133,6 +132,10 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
+// Transformerの設定。nodes プロパティで制御する
+const transformerConfig = reactive({
+  nodes: [] as Node<NodeConfig>[],
+});
 
 /**
  * ステージ設定
@@ -306,19 +309,21 @@ async function selectAnnotation(id: string) {
  * トランスフォーマーをアタッチ
  */
 function attachTransformer(annotationId: string) {
-  if (!transformerRef.value || !stageRef.value) return;
+  if (!stageRef.value) return;
 
   const stage = stageRef.value.getStage();
   const layer = stage.getLayers()[0];
 
   if (!layer) return;
 
+  // IDでシェイプを検索
   const shape = layer.findOne((node: Node<NodeConfig>) => {
-    return node.id?.() === annotationId || node.getAttr?.('id') === annotationId;
+    const attrs = (node as Konva.Shape).getAttrs?.();
+    return attrs?.id === annotationId;
   });
 
   if (shape) {
-    transformerRef.value.attachTo(shape);
+    transformerConfig.nodes = [shape];
     layer.draw();
   }
 }
