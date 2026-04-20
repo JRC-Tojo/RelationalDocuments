@@ -288,7 +288,7 @@ async function refreshDocuments() {
  * ドキュメント詳細ページに遷移
  */
 function goToDocument(id: string) {
-  void router.push(`/document/${id}`);
+  void router.push(`/editor/${id}`);
 }
 
 /**

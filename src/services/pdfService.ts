@@ -5,25 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import * as pdfjsLib from 'pdfjs-dist';
-
-export interface Annotation {
-  id: string;
-  type: 'highlight' | 'line' | 'box' | 'circle' | 'image';
-  pageNumber: number;
-  x: number;
-  y: number;
-  x2?: number;
-  y2?: number;
-  width?: number;
-  height?: number;
-  radius?: number;
-  color: string;
-  opacity?: number;
-  content?: string;
-  imageUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type { Annotation } from 'src/models/schemas';
 
 export interface PDFInfo {
   pageCount: number;

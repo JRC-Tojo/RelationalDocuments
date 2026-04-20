@@ -1,0 +1,99 @@
+<template>
+  <v-circle
+    :config="circleConfig"
+    @mouseenter="onMouseEnter"
+    @mouseleave="onMouseLeave"
+    @mousedown="onMouseDown"
+    @dragmove="onDragMove"
+    @transformend="onTransformEnd"
+  />
+</template>
+
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import type Konva from 'konva';
+import type { Annotation } from 'src/models/schemas';
+
+type KonvaEvent = Konva.KonvaEventObject<Event>;
+
+interface Props {
+  annotation: Annotation;
+  isSelected: boolean;
+  isEditing: boolean;
+}
+
+const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  select: [id: string];
+  update: [annotation: Annotation];
+  delete: [id: string];
+}>();
+
+const isHovered = ref(false);
+
+/**
+ * 円の設定を計算
+ */
+const circleConfig = computed(() => ({
+  x: props.annotation.x,
+  y: props.annotation.y,
+  radius: props.annotation.radius || 20,
+  fill: 'transparent',
+  stroke: props.annotation.color,
+  strokeWidth: props.annotation.strokeWidth || 2,
+  draggable: props.isEditing,
+  opacity: props.annotation.opacity || 1,
+}));
+
+/**
+ * マウスホバー時の処理
+ */
+function onMouseEnter() {
+  isHovered.value = true;
+}
+
+function onMouseLeave() {
+  isHovered.value = false;
+}
+
+/**
+ * マウスダウン時の選択
+ */
+function onMouseDown() {
+  emit('select', props.annotation.id);
+}
+
+/**
+ * ドラッグ移動完了
+ */
+function onDragMove(e: KonvaEvent) {
+  const target = e.target as Konva.Circle;
+  const updatedAnnotation = {
+    ...props.annotation,
+    x: target.x(),
+    y: target.y(),
+    updatedAt: new Date(),
+  };
+  emit('update', updatedAnnotation);
+}
+
+/**
+ * トランスフォーム（リサイズ）完了
+ */
+function onTransformEnd(e: KonvaEvent) {
+  const node = e.target as Konva.Circle;
+  const updatedAnnotation = {
+    ...props.annotation,
+    radius: Math.max(5, node.radius() * Math.max(node.scaleX(), node.scaleY())),
+    updatedAt: new Date(),
+  };
+  node.scaleX(1);
+  node.scaleY(1);
+  emit('update', updatedAnnotation);
+}
+</script>
+
+<style scoped lang="scss">
+// Konvaコンポーネントはスタイル不要
+</style>

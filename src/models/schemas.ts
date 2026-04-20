@@ -128,6 +128,38 @@ export const AppSettingsSchema = z.object({
 export type AppSettings = z.infer<typeof AppSettingsSchema>;
 
 /**
+ * アノテーション型定義（Konva用）
+ */
+export const AnnotationTypeSchema = z.enum(['highlight', 'line', 'box', 'circle']);
+export type AnnotationType = z.infer<typeof AnnotationTypeSchema>;
+
+/**
+ * アノテーションスキーマ
+ */
+export const AnnotationSchema = z.object({
+  id: UUIDSchema,
+  documentId: UUIDSchema,
+  pageNumber: z.number().int().positive(),
+  type: AnnotationTypeSchema,
+  x: z.number(),
+  y: z.number(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  x2: z.number().optional(), // 線の終点X座標
+  y2: z.number().optional(), // 線の終点Y座標
+  radius: z.number().optional(), // 円の半径
+  points: z.array(z.number()).optional(), // 汎用座標配列
+  color: z.string(), // hex color code
+  strokeWidth: z.number().optional().default(2),
+  opacity: z.number().min(0).max(1).optional(),
+  content: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type Annotation = z.infer<typeof AnnotationSchema>;
+
+/**
  * API レスポンススキーマ（汎用）
  */
 export const ApiResponseSchema = z.object({

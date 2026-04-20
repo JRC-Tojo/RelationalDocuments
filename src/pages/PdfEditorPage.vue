@@ -41,7 +41,7 @@
             :icon="tool.icon"
             :title="tool.label"
             :color="selectedTool === tool.id ? 'primary' : 'grey-7'"
-            @click="selectTool(tool.id)"
+            @click="selectTool(tool.id as AnnotationType)"
           />
         </div>
 
@@ -155,95 +155,21 @@
               :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }"
             >
               <canvas ref="canvasRef" class="pdf-canvas" :width="pageWidth" :height="pageHeight" />
-              <!-- アノテーションレイヤー -->
-              <div class="annotation-overlay">
-                <svg ref="svgRef" class="annotation-svg" :width="pageWidth" :height="pageHeight">
-                  <!-- 既존 주석들 -->
-                  <g v-for="annotation in currentPageAnnotations" :key="annotation.id">
-                    <!-- 하이라이트 -->
-                    <rect
-                      v-if="annotation.type === 'highlight'"
-                      :x="annotation.x"
-                      :y="annotation.y"
-                      :width="annotation.width"
-                      :height="annotation.height"
-                      :fill="annotation.color"
-                      :opacity="0.3"
-                      class="annotation-element"
-                      @click="selectAnnotation(annotation.id)"
-                    />
-                    <!-- 라인 -->
-                    <line
-                      v-if="annotation.type === 'line'"
-                      :x1="annotation.x"
-                      :y1="annotation.y"
-                      :x2="annotation.x2"
-                      :y2="annotation.y2"
-                      :stroke="annotation.color"
-                      stroke-width="2"
-                      class="annotation-element"
-                      @click="selectAnnotation(annotation.id)"
-                    />
-                    <!-- 박스 -->
-                    <rect
-                      v-if="annotation.type === 'box'"
-                      :x="annotation.x"
-                      :y="annotation.y"
-                      :width="annotation.width"
-                      :height="annotation.height"
-                      :fill="'none'"
-                      :stroke="annotation.color"
-                      stroke-width="2"
-                      class="annotation-element"
-                      @click="selectAnnotation(annotation.id)"
-                    />
-                    <!-- 원 -->
-                    <circle
-                      v-if="annotation.type === 'circle'"
-                      :cx="annotation.x"
-                      :cy="annotation.y"
-                      :r="annotation.radius || 20"
-                      :fill="'none'"
-                      :stroke="annotation.color"
-                      stroke-width="2"
-                      class="annotation-element"
-                      @click="selectAnnotation(annotation.id)"
-                    />
-                  </g>
-
-                  <!-- 그리는 중인 주석 -->
-                  <g v-if="isDrawing && drawingAnnotation">
-                    <rect
-                      v-if="drawingAnnotation.type === 'highlight'"
-                      :x="drawingAnnotation.x"
-                      :y="drawingAnnotation.y"
-                      :width="drawingAnnotation.width"
-                      :height="drawingAnnotation.height"
-                      :fill="drawingAnnotation.color"
-                      :opacity="0.3"
-                    />
-                    <line
-                      v-if="drawingAnnotation.type === 'line'"
-                      :x1="drawingAnnotation.x"
-                      :y1="drawingAnnotation.y"
-                      :x2="drawingAnnotation.x2"
-                      :y2="drawingAnnotation.y2"
-                      :stroke="drawingAnnotation.color"
-                      stroke-width="2"
-                    />
-                    <rect
-                      v-if="drawingAnnotation.type === 'box'"
-                      :x="drawingAnnotation.x"
-                      :y="drawingAnnotation.y"
-                      :width="drawingAnnotation.width"
-                      :height="drawingAnnotation.height"
-                      :fill="'none'"
-                      :stroke="drawingAnnotation.color"
-                      stroke-width="2"
-                    />
-                  </g>
-                </svg>
-              </div>
+              <!-- Konvaアノテーションレイヤー -->
+              <AnnotationLayer
+                :annotations="currentPageAnnotations"
+                :drawing-type="selectedTool"
+                :selected-color="selectedColor"
+                :page-number="currentPage"
+                :canvas-width="pageWidth"
+                :canvas-height="pageHeight"
+                :zoom-level="zoomLevel"
+                :is-editing="true"
+                @add-annotation="addAnnotation"
+                @update-annotation="updateAnnotation"
+                @delete-annotation="deleteAnnotation"
+                @select-annotation="selectAnnotation"
+              />
             </div>
 
             <!-- 見開き表示の場合、右ページ -->
@@ -397,9 +323,10 @@ import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
-import { pdfManager, type Annotation } from 'src/services/pdfService';
-import { annotationDrawingManager } from 'src/services/annotationDrawingService';
-import type { DocumentMetadata } from 'src/models/schemas';
+import { pdfManager } from 'src/services/pdfService';
+import { annotationDrawingManager } from 'src/components/Viewer/Annotation/annotationDrawingManager';
+import type { DocumentMetadata, Annotation, AnnotationType } from 'src/models/schemas';
+import AnnotationLayer from 'src/components/Viewer/Annotation/AnnotationLayer.vue';
 
 interface Bookmark {
   pageNumber: number;
@@ -438,22 +365,18 @@ const pageHeight = 1000;
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const canvasRefRight = ref<HTMLCanvasElement | null>(null);
 const continuousCanvases = ref<HTMLCanvasElement[]>([]);
-const svgRef = ref<SVGSVGElement | null>(null);
 
 // アノテーション制御
 const annotations = ref<Annotation[]>([]);
 const selectedAnnotationId = ref<string | null>(null);
-const selectedTool = ref<string>('highlight');
+const selectedTool = ref<AnnotationType>('highlight');
 const selectedColor = ref('#FFD700');
-const isDrawing = ref(false);
-const drawingAnnotation = ref<Annotation | null>(null);
 
 const annotationTools = [
   { id: 'highlight', icon: 'format_color_highlight', label: 'Highlight' },
   { id: 'line', icon: 'edit', label: 'Line' },
   { id: 'box', icon: 'crop_square', label: 'Box' },
   { id: 'circle', icon: 'radio_button_unchecked', label: 'Circle' },
-  { id: 'image', icon: 'image', label: 'Image' },
 ];
 
 const colorPalette = [
@@ -482,7 +405,6 @@ onMounted(async () => {
   await loadDocument();
   loadBookmarksFromStorage();
   await initializePdf();
-  await setupDrawingManager();
 });
 
 onBeforeUnmount(() => {
@@ -492,18 +414,16 @@ onBeforeUnmount(() => {
 
 watch(currentPage, async () => {
   await renderCurrentPage();
-  await setupDrawingManager();
 });
 
 watch(viewMode, async () => {
   await nextTick(async () => {
     await renderCurrentPage();
-    await setupDrawingManager();
   });
 });
 
 watch(selectedTool, () => {
-  annotationDrawingManager.setDrawingType(selectedTool.value as Annotation['type']);
+  annotationDrawingManager.setDrawingType(selectedTool.value);
 });
 
 watch(selectedColor, () => {
@@ -522,6 +442,8 @@ async function loadDocument() {
   if (response.success && response.data) {
     document.value = response.data;
     pageCount.value = response.data.pageCount;
+    // アノテーション描画マネージャーにドキュメントIDを設定
+    annotationDrawingManager.setDocumentId(documentId.value);
   }
 }
 
@@ -613,7 +535,7 @@ async function renderCurrentPage() {
 /**
  * ツールを選択
  */
-function selectTool(toolId: string) {
+function selectTool(toolId: AnnotationType) {
   selectedTool.value = toolId;
 }
 
@@ -709,29 +631,12 @@ function selectAnnotation(id: string) {
 }
 
 /**
- * アノテーションを削除
- */
-function deleteAnnotation(id: string) {
-  pdfManager.deleteAnnotation(id);
-  annotations.value = pdfManager.getAllAnnotations();
-  if (selectedAnnotationId.value === id) {
-    selectedAnnotationId.value = null;
-  }
-}
-
-/**
  * アノテーションを保存
  */
 function saveAnnotations() {
   try {
     // ローカルストレージに保存
     pdfManager.saveAnnotationsToStorage(documentId.value);
-
-    // バックエンドに保存（APIが実装されている場合）
-    // const response = await api.saveAnnotations(documentId.value, annotations.value)
-    // if (!response.success) {
-    //   throw new Error('Failed to save annotations to backend')
-    // }
 
     $q.notify({
       type: 'positive',
@@ -785,20 +690,31 @@ function addBookmarkDialog() {
 }
 
 /**
- * 描画マネージャーをセットアップ
+ * アノテーションを追加
  */
-async function setupDrawingManager() {
-  await nextTick(() => {
-    const canvas = canvasRef.value;
-    const svg = svgRef.value;
+function addAnnotation(annotation: Annotation) {
+  annotations.value.push(annotation);
+}
 
-    if (canvas && svg) {
-      annotationDrawingManager.initialize(canvas, svg);
-      annotationDrawingManager.setAnnotationCreatedCallback((annotation) => {
-        annotations.value.push(annotation);
-      });
-    }
-  });
+/**
+ * アノテーションを更新
+ */
+function updateAnnotation(annotation: Annotation) {
+  const index = annotations.value.findIndex((a) => a.id === annotation.id);
+  if (index !== -1) {
+    annotations.value[index] = annotation;
+  }
+}
+
+/**
+ * アノテーションを削除
+ */
+function deleteAnnotation(id: string) {
+  pdfManager.deleteAnnotation(id);
+  annotations.value = pdfManager.getAllAnnotations();
+  if (selectedAnnotationId.value === id) {
+    selectedAnnotationId.value = null;
+  }
 }
 
 /**
@@ -900,6 +816,8 @@ function formatDate(date: Date | string): string {
 .page-wrapper {
   position: relative;
   display: inline-block;
+  width: fit-content;
+  height: fit-content;
 
   .pdf-canvas {
     display: block;
