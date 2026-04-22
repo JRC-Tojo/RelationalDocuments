@@ -408,10 +408,6 @@ async function initializePdf() {
       throw new Error('Document file path is not available');
     }
 
-    // PDFマネージャーからアノテーションを読み込む
-    const annotationRes = await api.getAnnotationsByDocument(documentId.value);
-    if (!annotationRes.success) return;
-
     // PDFファイルを読み込む
     pdfDocument = await loadPdf(document.value.filePath);
     loadingDocument.value = false;
@@ -423,6 +419,10 @@ async function initializePdf() {
         generateThumbnail(pdfDocument as PdfDocument, idx + 1, 120),
       ),
     );
+
+    // PDFマネージャーからアノテーションを読み込む
+    const annotationRes = await api.getAnnotationsByDocument(documentId.value);
+    if (annotationRes.success) annotations.value = annotationRes.data || [];
   } catch (error) {
     $q.notify({
       type: 'negative',
