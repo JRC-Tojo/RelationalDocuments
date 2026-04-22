@@ -3,11 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { localStorageRepository } from '../repositories/localStorageRepository';
 import type {
   DocumentMetadata,
-  DocumentMarkup,
   DocumentRevision,
   MarkupBlock,
   ComplianceRule,
   AppSettings,
+  Annotation,
 } from '../models/schemas';
 
 /**
@@ -135,12 +135,12 @@ class DocumentService {
  * マーカーのCRUD操作と関連性管理を担当
  */
 class MarkupService {
-  private markups = ref<DocumentMarkup[]>([]);
+  private markups = ref<Annotation[]>([]);
 
   /**
    * 全マークアップを取得
    */
-  async getAllMarkups(): Promise<DocumentMarkup[]> {
+  async getAllMarkups(): Promise<Annotation[]> {
     this.markups.value = await localStorageRepository.getAllMarkups();
     return this.markups.value;
   }
@@ -148,100 +148,43 @@ class MarkupService {
   /**
    * 文書別マークアップを取得
    */
-  async getMarkupsByDocument(documentId: string): Promise<DocumentMarkup[]> {
+  async getAnnotationByDocument(documentId: string): Promise<Annotation[]> {
     return await localStorageRepository.getMarkupsByDocument(documentId);
   }
 
   /**
-   * マークアップを新規作成
+   * 文書別マークアップを保存
    */
-  async createMarkup(
-    documentId: string,
-    pageNumber: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    color: string,
-    content?: string,
-    style?: 'highlight' | 'line' | 'box' | 'underline',
-  ): Promise<DocumentMarkup> {
-    const newMarkup: DocumentMarkup = {
-      id: uuidv4(),
-      documentId,
-      pageNumber,
-      x,
-      y,
-      width,
-      height,
-      color,
-      content: content || '',
-      style: style || 'highlight',
-      opacity: 0.3,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      linkedMarkupIds: [],
-      tags: [],
-      relatedDocumentIds: [],
-    };
-
-    await localStorageRepository.saveMarkup(newMarkup);
-    await this.getAllMarkups();
-    return newMarkup;
-  }
-
-  /**
-   * マークアップを更新
-   */
-  async updateMarkup(id: string, updates: Partial<DocumentMarkup>): Promise<DocumentMarkup | null> {
-    const allMarkups = await this.getAllMarkups();
-    const markup = allMarkups.find((m) => m.id === id);
-    if (!markup) return null;
-
-    const updated: DocumentMarkup = {
-      ...markup,
-      ...updates,
-      updatedAt: new Date(),
-    };
-
-    await localStorageRepository.saveMarkup(updated);
-    await this.getAllMarkups();
-    return updated;
-  }
-
-  /**
-   * マークアップを削除
-   */
-  async deleteMarkup(id: string): Promise<boolean> {
-    await localStorageRepository.deleteMarkup(id);
-    await this.getAllMarkups();
-    return true;
+  async saveAnnotationsByDocument(documentId: string, markups: Annotation[]): Promise<void> {
+    console.log(`Saved Mock: documentId = ${documentId}, markups = ${markups.length}`);
+    /** TODO: 仮実装（動作未確認） */
+    await Promise.all(markups.map((m) => localStorageRepository.saveAnnotation(m)));
   }
 
   /**
    * マークアップ同士をリンク
    */
-  async linkMarkups(sourceId: string, targetId: string): Promise<void> {
+  async linkAnnotations(sourceId: string, targetId: string): Promise<void> {
     const allMarkups = await this.getAllMarkups();
     const source = allMarkups.find((m) => m.id === sourceId);
     const target = allMarkups.find((m) => m.id === targetId);
 
     if (!source || !target) throw new Error('Markup not found');
 
-    const updatedSource: DocumentMarkup = {
+    const updatedSource: Annotation = {
       ...source,
       linkedMarkupIds: [...(source.linkedMarkupIds || []), targetId],
       updatedAt: new Date(),
     };
 
-    const updatedTarget: DocumentMarkup = {
+    const updatedTarget: Annotation = {
       ...target,
       linkedMarkupIds: [...(target.linkedMarkupIds || []), sourceId],
       updatedAt: new Date(),
     };
 
-    await localStorageRepository.saveMarkup(updatedSource);
-    await localStorageRepository.saveMarkup(updatedTarget);
+    await localStorageRepository.saveAnnotation(updatedSource);
+    await localStorageRepository.saveAnnotation(updatedTarget);
     await this.getAllMarkups();
   }
 }

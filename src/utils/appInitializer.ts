@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { useBackendApi } from '../apis/backendApi';
 import { localStorageRepository } from '../repositories/localStorageRepository';
 
@@ -88,17 +89,26 @@ export async function createDemoData() {
         const colorIdx = Math.floor(Math.random() * colors.length);
         const color: string = colors[colorIdx] || '#FFD700';
 
-        await api.createMarkup(
-          response.data.id,
-          pageNum,
-          Math.random() * 500,
-          Math.random() * 600,
-          150 + Math.random() * 200,
-          80 + Math.random() * 120,
-          color,
-          `マークアップ ${i + 1}`,
-          'highlight' as const,
-        );
+        await api.saveAnnotationsByDocument(response.data.id, [
+          {
+            id: uuidv4(),
+            documentId: response.data.id,
+            pageNumber: pageNum,
+            x: Math.random() * 500,
+            y: Math.random() * 600,
+            width: 150,
+            height: 80,
+            color: color,
+            opacity: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            linkedMarkupIds: [],
+            tags: [],
+            relatedDocumentIds: [],
+            type: 'box',
+            strokeWidth: 0,
+          },
+        ]);
       }
     }
   }

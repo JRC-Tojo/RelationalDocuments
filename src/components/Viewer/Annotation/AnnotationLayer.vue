@@ -2,60 +2,63 @@
   <div class="annotation-layer-wrapper">
     <v-stage
       ref="stageRef"
-      :config="stageConfig"
+      :config="canvasSize"
       @mousedown="handleMouseDown"
       @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
       @click="handleStageClick"
     >
       <v-layer>
-        <!-- ハイライトアノテーション -->
-        <HighlightAnnotation
-          v-for="annotation in highlightAnnotations"
-          :key="annotation.id"
-          :annotation="annotation"
-          :is-selected="selectedAnnotationId === annotation.id"
-          :is-editing="isEditing"
-          @select="selectAnnotation"
-          @update="updateAnnotation"
-          @delete="deleteAnnotation"
-        />
+        <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
+        <template v-for="annotation in annotations">
+          <!-- ハイライトアノテーション -->
+          <HighlightAnnotation
+            v-if="annotation.type === 'highlight'"
+            :key="annotation.id"
+            :annotation="annotation"
+            :is-selected="selectedIds.has(annotation.id)"
+            :is-editing="isEditing"
+            @select="selectAnnotation"
+            @update="updateAnnotation"
+            @delete="deleteAnnotation"
+          />
 
-        <!-- ボックスアノテーション -->
-        <BoxAnnotation
-          v-for="annotation in boxAnnotations"
-          :key="annotation.id"
-          :annotation="annotation"
-          :is-selected="selectedAnnotationId === annotation.id"
-          :is-editing="isEditing"
-          @select="selectAnnotation"
-          @update="updateAnnotation"
-          @delete="deleteAnnotation"
-        />
+          <!-- ボックスアノテーション -->
+          <BoxAnnotation
+            v-if="annotation.type === 'box'"
+            :key="annotation.id"
+            :annotation="annotation"
+            :is-selected="selectedIds.has(annotation.id)"
+            :is-editing="isEditing"
+            @select="selectAnnotation"
+            @update="updateAnnotation"
+            @delete="deleteAnnotation"
+          />
 
-        <!-- 線アノテーション -->
-        <LineAnnotation
-          v-for="annotation in lineAnnotations"
-          :key="annotation.id"
-          :annotation="annotation"
-          :is-selected="selectedAnnotationId === annotation.id"
-          :is-editing="isEditing"
-          @select="selectAnnotation"
-          @update="updateAnnotation"
-          @delete="deleteAnnotation"
-        />
+          <!-- 線アノテーション -->
+          <LineAnnotation
+            v-if="annotation.type === 'line'"
+            :key="annotation.id"
+            :annotation="annotation"
+            :is-selected="selectedIds.has(annotation.id)"
+            :is-editing="isEditing"
+            @select="selectAnnotation"
+            @update="updateAnnotation"
+            @delete="deleteAnnotation"
+          />
 
-        <!-- 円アノテーション -->
-        <CircleAnnotation
-          v-for="annotation in circleAnnotations"
-          :key="annotation.id"
-          :annotation="annotation"
-          :is-selected="selectedAnnotationId === annotation.id"
-          :is-editing="isEditing"
-          @select="selectAnnotation"
-          @update="updateAnnotation"
-          @delete="deleteAnnotation"
-        />
+          <!-- 円アノテーション -->
+          <CircleAnnotation
+            v-if="annotation.type === 'circle'"
+            :key="annotation.id"
+            :annotation="annotation"
+            :is-selected="selectedIds.has(annotation.id)"
+            :is-editing="isEditing"
+            @select="selectAnnotation"
+            @update="updateAnnotation"
+            @delete="deleteAnnotation"
+          />
+        </template>
 
         <!-- 描画中のプレビュー -->
         <v-rect
@@ -74,19 +77,19 @@
         />
 
         <!-- トランスフォーマー（選択時のリサイズ操作用） -->
-        <v-transformer v-if="selectedAnnotationId && isEditing" :config="transformerConfig" />
+        <v-transformer v-if="isEditing" :config="transformerConfig" />
       </v-layer>
     </v-stage>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, reactive } from 'vue';
+import { ref, watch, nextTick, reactive } from 'vue';
 import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
-import type { Annotation, AnnotationType } from 'src/models/schemas';
+import type { Annotation } from 'src/models/schemas';
 import { annotationDrawingManager } from 'src/components/Viewer/Annotation/annotationDrawingManager';
 import type Konva from 'konva';
 import type { Node, NodeConfig } from 'konva/lib/Node';
@@ -95,29 +98,25 @@ import type { Node, NodeConfig } from 'konva/lib/Node';
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
-  annotations: Annotation[];
-  drawingType: AnnotationType;
-  selectedColor: string;
-  pageNumber: number;
-  canvasWidth: number;
-  canvasHeight: number;
   isEditing: boolean;
-  zoomLevel?: number; // ← ズームレベルを追加
 }
 
 const props = defineProps<Props>();
+const canvasSize = defineModel<{ width: number; height: number }>('canvasSize', { required: true });
+const annotations = defineModel<Annotation[]>('annotations', { required: true });
+const scale = defineModel<number>('scale', { required: true });
 
 const emit = defineEmits<{
   addAnnotation: [annotation: Annotation];
   updateAnnotation: [annotation: Annotation];
   deleteAnnotation: [id: string];
-  selectAnnotation: [id: string];
 }>();
 
 const stageRef = ref<Konva.Stage | null>(null);
-const selectedAnnotationId = ref<string | null>(null);
 const isDrawing = ref(false);
 const startPos = ref<{ x: number; y: number } | null>(null);
+const selectedIds = ref(new Set());
+const drawingType = ref<'highlight' | 'box' | 'line' | 'circle'>('highlight');
 const drawingPreview = ref<{
   rect?: {
     x: number;
@@ -132,28 +131,11 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
+const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
 const transformerConfig = reactive({
   nodes: [] as Node<NodeConfig>[],
 });
-
-/**
- * ステージ設定
- */
-const stageConfig = computed(() => ({
-  width: props.canvasWidth,
-  height: props.canvasHeight,
-}));
-
-/**
- * タイプ別アノテーション（計算プロパティ）
- */
-const highlightAnnotations = computed(() =>
-  props.annotations.filter((a) => a.type === 'highlight'),
-);
-const boxAnnotations = computed(() => props.annotations.filter((a) => a.type === 'box'));
-const lineAnnotations = computed(() => props.annotations.filter((a) => a.type === 'line'));
-const circleAnnotations = computed(() => props.annotations.filter((a) => a.type === 'circle'));
 
 /**
  * マウスダウンイベント
@@ -174,10 +156,9 @@ function handleMouseDown(e: KonvaMouseEvent) {
   if (!pos) return;
 
   // ズームレベルで座標を調整（スケール倍率を適用）
-  const scale = props.zoomLevel ? props.zoomLevel / 100 : 1;
   const adjustedPos = {
-    x: pos.x / scale,
-    y: pos.y / scale,
+    x: pos.x / scale.value,
+    y: pos.y / scale.value,
   };
 
   isDrawing.value = true;
@@ -199,10 +180,9 @@ function handleMouseMove(e: KonvaMouseEvent) {
   if (!pos) return;
 
   // ズームレベルで座標を調整
-  const scale = props.zoomLevel ? props.zoomLevel / 100 : 1;
   const adjustedPos = {
-    x: pos.x / scale,
-    y: pos.y / scale,
+    x: pos.x / scale.value,
+    y: pos.y / scale.value,
   };
 
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
@@ -221,10 +201,9 @@ function handleMouseUp(e: KonvaMouseEvent) {
   if (!pos) return;
 
   // ズームレベルで座標を調整
-  const scale = props.zoomLevel ? props.zoomLevel / 100 : 1;
   const adjustedPos = {
-    x: pos.x / scale,
-    y: pos.y / scale,
+    x: pos.x / scale.value,
+    y: pos.y / scale.value,
   };
 
   isDrawing.value = false;
@@ -243,7 +222,7 @@ function handleMouseUp(e: KonvaMouseEvent) {
  */
 function handleStageClick(e: KonvaMouseEvent) {
   if (e.target === e.target.getStage()) {
-    selectedAnnotationId.value = null;
+    selectedIds.value.clear();
   }
 }
 
@@ -256,37 +235,37 @@ function updateDrawingPreview(endX: number, endY: number) {
   const deltaX = endX - startPos.value.x;
   const deltaY = endY - startPos.value.y;
 
-  if (props.drawingType === 'highlight' || props.drawingType === 'box') {
+  if (drawingType.value === 'highlight' || drawingType.value === 'box') {
     drawingPreview.value = {
       rect: {
         x: Math.min(startPos.value.x, endX),
         y: Math.min(startPos.value.y, endY),
         width: Math.abs(deltaX),
         height: Math.abs(deltaY),
-        fill: props.drawingType === 'highlight' ? props.selectedColor : 'transparent',
-        opacity: props.drawingType === 'highlight' ? 0.3 : 1,
-        stroke: props.drawingType === 'box' ? props.selectedColor : 'transparent',
-        strokeWidth: props.drawingType === 'box' ? 2 : 0,
+        fill: drawingType.value === 'highlight' ? DEFAULT_COLOR : 'transparent',
+        opacity: drawingType.value === 'highlight' ? 0.3 : 1,
+        stroke: drawingType.value === 'box' ? DEFAULT_COLOR : 'transparent',
+        strokeWidth: drawingType.value === 'box' ? 2 : 0,
       },
     };
-  } else if (props.drawingType === 'line') {
+  } else if (drawingType.value === 'line') {
     drawingPreview.value = {
       line: {
         x: startPos.value.x,
         y: startPos.value.y,
         points: [0, 0, deltaX, deltaY],
-        stroke: props.selectedColor,
+        stroke: DEFAULT_COLOR,
         strokeWidth: 2,
       },
     };
-  } else if (props.drawingType === 'circle') {
+  } else if (drawingType.value === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;
     drawingPreview.value = {
       circle: {
         x: startPos.value.x + deltaX / 2,
         y: startPos.value.y + deltaY / 2,
         radius,
-        stroke: props.selectedColor,
+        stroke: DEFAULT_COLOR,
         strokeWidth: 2,
       },
     };
@@ -297,8 +276,7 @@ function updateDrawingPreview(endX: number, endY: number) {
  * アノテーションを選択
  */
 async function selectAnnotation(id: string) {
-  selectedAnnotationId.value = id;
-  emit('selectAnnotation', id);
+  selectedIds.value.add(id);
 
   await nextTick(() => {
     attachTransformer(id);
@@ -340,32 +318,17 @@ function updateAnnotation(annotation: Annotation) {
  */
 function deleteAnnotation(id: string) {
   emit('deleteAnnotation', id);
-  if (selectedAnnotationId.value === id) {
-    selectedAnnotationId.value = null;
-  }
+  selectedIds.value.delete(id);
 }
 
 /**
  * 設定変更の監視
  */
 watch(
-  () => props.drawingType,
+  () => drawingType.value,
   (newType) => {
+    if (newType === null) return;
     annotationDrawingManager.setDrawingType(newType);
-  },
-);
-
-watch(
-  () => props.selectedColor,
-  (newColor) => {
-    annotationDrawingManager.setColor(newColor);
-  },
-);
-
-watch(
-  () => props.pageNumber,
-  (newPage) => {
-    annotationDrawingManager.setPageNumber(newPage);
   },
 );
 </script>

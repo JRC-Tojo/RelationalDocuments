@@ -1,6 +1,6 @@
 import type {
   DocumentMetadata,
-  DocumentMarkup,
+  Annotation,
   DocumentRevision,
   MarkupBlock,
   ComplianceRule,
@@ -166,31 +166,11 @@ class BackendApi {
   // ============ マークアップ操作 ============
 
   /**
-   * 全マークアップを取得
-   */
-  async getAllMarkups(): Promise<ApiResponse<DocumentMarkup[]>> {
-    try {
-      const markups = await markupService.getAllMarkups();
-      return {
-        success: true,
-        data: markups,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get markups',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
    * 文書別マークアップを取得
    */
-  async getMarkupsByDocument(documentId: string): Promise<ApiResponse<DocumentMarkup[]>> {
+  async getAnnotationsByDocument(documentId: string): Promise<ApiResponse<Annotation[]>> {
     try {
-      const markups = await markupService.getMarkupsByDocument(documentId);
+      const markups = await markupService.getAnnotationByDocument(documentId);
       return {
         success: true,
         data: markups,
@@ -206,83 +186,22 @@ class BackendApi {
   }
 
   /**
-   * マークアップを新規作成
+   * 文書別マークアップを保存
    */
-  async createMarkup(
+  async saveAnnotationsByDocument(
     documentId: string,
-    pageNumber: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    color: string,
-    content?: string,
-    style?: 'highlight' | 'line' | 'box' | 'underline',
-  ): Promise<ApiResponse<DocumentMarkup>> {
+    annotations: Annotation[],
+  ): Promise<ApiResponse<void>> {
     try {
-      const markup = await markupService.createMarkup(
-        documentId,
-        pageNumber,
-        x,
-        y,
-        width,
-        height,
-        color,
-        content,
-        style,
-      );
+      await markupService.saveAnnotationsByDocument(documentId, annotations);
       return {
         success: true,
-        data: markup,
         timestamp: new Date(),
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create markup',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップを更新
-   */
-  async updateMarkup(
-    id: string,
-    updates: Partial<DocumentMarkup>,
-  ): Promise<ApiResponse<DocumentMarkup | null>> {
-    try {
-      const markup = await markupService.updateMarkup(id, updates);
-      return {
-        success: true,
-        data: markup,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to update markup',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップを削除
-   */
-  async deleteMarkup(id: string): Promise<ApiResponse<boolean>> {
-    try {
-      const result = await markupService.deleteMarkup(id);
-      return {
-        success: true,
-        data: result,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete markup',
+        error: error instanceof Error ? error.message : 'Failed to save markups',
         timestamp: new Date(),
       };
     }
@@ -291,9 +210,9 @@ class BackendApi {
   /**
    * マークアップ同士をリンク
    */
-  async linkMarkups(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
+  async linkAnnotations(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
     try {
-      await markupService.linkMarkups(sourceId, targetId);
+      await markupService.linkAnnotations(sourceId, targetId);
       return {
         success: true,
         timestamp: new Date(),

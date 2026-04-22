@@ -6,31 +6,6 @@ import { z } from 'zod';
 export const UUIDSchema = z.string().uuid();
 
 /**
- * 文書マークアップスキーマ
- * マーカーの基本情報（位置、色、内容など）を定義
- */
-export const DocumentMarkupSchema = z.object({
-  id: UUIDSchema,
-  documentId: UUIDSchema,
-  pageNumber: z.number().int().positive(),
-  x: z.number().min(0),
-  y: z.number().min(0),
-  width: z.number().positive(),
-  height: z.number().positive(),
-  color: z.string(), // hex color code
-  content: z.string().optional(),
-  style: z.enum(['highlight', 'line', 'box', 'underline']).optional(),
-  opacity: z.number().min(0).max(1),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  linkedMarkupIds: z.array(UUIDSchema).optional().default([]),
-  tags: z.array(z.string()).optional().default([]),
-  relatedDocumentIds: z.array(UUIDSchema).optional().default([]),
-});
-
-export type DocumentMarkup = z.infer<typeof DocumentMarkupSchema>;
-
-/**
  * 文書メタデータスキーマ
  */
 export const DocumentMetadataSchema = z.object({
@@ -155,6 +130,9 @@ export const AnnotationSchema = z.object({
   content: z.string().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
+  linkedMarkupIds: z.array(UUIDSchema).optional().default([]),
+  tags: z.array(z.string()).optional().default([]),
+  relatedDocumentIds: z.array(UUIDSchema).optional().default([]),
 });
 
 export type Annotation = z.infer<typeof AnnotationSchema>;

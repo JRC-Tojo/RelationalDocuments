@@ -146,42 +146,22 @@
 
       <!-- PDF表示エリア -->
       <div class="pdf-display-area">
-        <div class="pdf-viewer-container" @wheel.prevent="handleZoomWheel">
+        <div
+          v-if="!loadingDocument && pdfDocument !== null"
+          class="pdf-viewer-container"
+          @wheel.prevent="handleZoomWheel"
+        >
           <!-- 単一ページまたは見開き表示 -->
-          <div v-if="viewMode === 'single' || viewMode === 'spread'" class="pages-container">
-            <!-- 最初のページ -->
+          <div v-if="viewMode === 'single'" class="pages-container">
             <div
               class="page-wrapper"
               :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }"
             >
-              <canvas ref="canvasRef" class="pdf-canvas" :width="pageWidth" :height="pageHeight" />
-              <!-- Konvaアノテーションレイヤー -->
-              <AnnotationLayer
-                :annotations="currentPageAnnotations"
-                :drawing-type="selectedTool"
-                :selected-color="selectedColor"
-                :page-number="currentPage"
-                :canvas-width="pageWidth"
-                :canvas-height="pageHeight"
-                :zoom-level="zoomLevel"
-                :is-editing="true"
-                @add-annotation="addAnnotation"
-                @update-annotation="updateAnnotation"
-                @delete-annotation="deleteAnnotation"
-                @select-annotation="selectAnnotation"
-              />
-            </div>
-
-            <!-- 見開き表示の場合、右ページ -->
-            <div
-              v-if="viewMode === 'spread' && currentPage < pageCount"
-              class="page-wrapper q-ml-md"
-            >
-              <canvas
-                ref="canvasRefRight"
-                class="pdf-canvas"
-                :width="pageWidth"
-                :height="pageHeight"
+              <PdfPage
+                v-model:page="currentPage"
+                v-model:doc="pdfDocument"
+                v-model:annotations="annotations"
+                v-model:scale="scale"
               />
             </div>
           </div>
@@ -189,15 +169,11 @@
           <!-- 連続表示 -->
           <div v-if="viewMode === 'continuous'" class="continuous-pages">
             <div v-for="page in pageCount" :key="page" class="page-wrapper q-mb-md">
-              <canvas
-                :ref="
-                  (el) => {
-                    if (el) continuousCanvases.push(el as HTMLCanvasElement);
-                  }
-                "
-                class="pdf-canvas"
-                :width="pageWidth"
-                :height="pageHeight"
+              <PdfPage
+                :page="page"
+                v-model:doc="pdfDocument"
+                v-model:annotations="annotations"
+                v-model:scale="scale"
               />
             </div>
           </div>
@@ -248,27 +224,17 @@
         <q-tab-panels v-model="rightTabActive" animated class="right-panel-content">
           <!-- アノテーション一覧 -->
           <q-tab-panel name="annotations" class="q-pa-md">
-            <div v-if="currentPageAnnotations.length > 0" class="annotations-list">
+            <div v-if="annotations.length > 0" class="annotations-list">
               <div
-                v-for="annotation in currentPageAnnotations"
+                v-for="annotation in annotations"
                 :key="annotation.id"
                 class="annotation-item q-mb-md p-md bg-grey-2 rounded"
-                :class="{ selected: selectedAnnotationId === annotation.id }"
-                @click="selectAnnotation(annotation.id)"
               >
                 <div class="row items-center justify-between q-mb-sm">
                   <div class="row items-center gap-sm">
                     <div class="color-box" :style="{ backgroundColor: annotation.color }" />
                     <span class="text-weight-bold">{{ annotation.type }}</span>
                   </div>
-                  <q-btn
-                    flat
-                    dense
-                    size="sm"
-                    icon="delete"
-                    color="negative"
-                    @click.stop="deleteAnnotation(annotation.id)"
-                  />
                 </div>
                 <div v-if="annotation.content" class="text-body2 text-grey-8 q-mt-sm">
                   {{ annotation.content }}
@@ -318,15 +284,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
-import { pdfManager } from 'src/services/pdfService';
 import { annotationDrawingManager } from 'src/components/Viewer/Annotation/annotationDrawingManager';
-import type { DocumentMetadata, Annotation, AnnotationType } from 'src/models/schemas';
-import AnnotationLayer from 'src/components/Viewer/Annotation/AnnotationLayer.vue';
+import type { DocumentMetadata, AnnotationType, Annotation } from 'src/models/schemas';
+import PdfPage from 'src/components/Viewer/PdfPage.vue';
+import type { PdfDocument } from 'src/components/Viewer/pdfManager';
+import { generateThumbnail, loadPdf } from 'src/components/Viewer/pdfManager';
 
 interface Bookmark {
   pageNumber: number;
@@ -338,43 +305,35 @@ const { t: $t } = useI18n();
 const $q = useQuasar();
 const api = useBackendApi();
 
+// PDF全体制御
+const loadingDocument = ref(true);
+let pdfDocument: PdfDocument | null = null;
+
 // ドキュメント情報
 const document = ref<DocumentMetadata | null>(null);
 const documentId = computed(() => route.params.id as string);
 
 // 表示制御
-const viewMode = ref<'single' | 'continuous' | 'spread'>('single');
+const viewMode = ref<'single' | 'continuous'>('single');
 const viewModeOptions = [
   { label: $t('pdfEditor.singlePage'), value: 'single' },
   { label: $t('pdfEditor.continuous'), value: 'continuous' },
-  { label: $t('pdfEditor.twoPages'), value: 'spread' },
 ];
 
 // ズーム制御
 const zoomLevel = ref(100);
+const scale = computed(() => zoomLevel.value / 100);
 const MIN_ZOOM = 50;
 const MAX_ZOOM = 300;
 
 // ページ制御
 const currentPage = ref(1);
 const pageCount = ref(1);
-const pageWidth = 800;
-const pageHeight = 1000;
-
-// キャンバス参照
-const canvasRef = ref<HTMLCanvasElement | null>(null);
-const canvasRefRight = ref<HTMLCanvasElement | null>(null);
-const continuousCanvases = ref<HTMLCanvasElement[]>([]);
 
 // アノテーション制御
 const annotations = ref<Annotation[]>([]);
-const selectedAnnotationId = ref<string | null>(null);
 const selectedTool = ref<AnnotationType>('highlight');
 const selectedColor = ref('#FFD700');
-
-// アンドゥ・リドゥ履歴
-const annotationHistory = ref<Annotation[][]>([]);
-const historyIndex = ref(-1);
 
 const annotationTools = [
   { id: 'highlight', icon: 'format_color_highlight', label: 'Highlight' },
@@ -400,35 +359,19 @@ const rightTabActive = ref('annotations');
 const thumbnails = ref<string[]>([]);
 const bookmarks = ref<Bookmark[]>([]);
 
-// 計算プロパティ
-const currentPageAnnotations = computed(() => {
-  return annotations.value.filter((a) => a.pageNumber === currentPage.value);
-});
-
 onMounted(async () => {
   await loadDocument();
   loadBookmarksFromStorage();
   await initializePdf();
 
   // キーボードショートカットの登録
-  window.addEventListener('keydown', handleKeyboardShortcut);
+  // window.addEventListener('keydown', handleKeyboardShortcut);
 });
 
 onBeforeUnmount(() => {
-  pdfManager.cleanup();
   annotationDrawingManager.destroy();
   // キーボードイベントリスナーの削除
-  window.removeEventListener('keydown', handleKeyboardShortcut);
-});
-
-watch(currentPage, async () => {
-  await renderCurrentPage();
-});
-
-watch(viewMode, async () => {
-  await nextTick(async () => {
-    await renderCurrentPage();
-  });
+  // window.removeEventListener('keydown', handleKeyboardShortcut);
 });
 
 watch(selectedTool, () => {
@@ -466,76 +409,24 @@ async function initializePdf() {
     }
 
     // PDFマネージャーからアノテーションを読み込む
-    pdfManager.loadAnnotationsFromStorage(documentId.value);
+    const annotationRes = await api.getAnnotationsByDocument(documentId.value);
+    if (!annotationRes.success) return;
 
     // PDFファイルを読み込む
-    const pdfInfo = await pdfManager.loadPdf(document.value.filePath);
-    pageCount.value = pdfInfo.pageCount;
+    pdfDocument = await loadPdf(document.value.filePath);
+    loadingDocument.value = false;
+    pageCount.value = pdfDocument.numPages;
 
     // サムネイルを生成
-    for (let i = 1; i <= pdfInfo.pageCount; i++) {
-      const thumbnail = await pdfManager.generateThumbnail(i, 120);
-      thumbnails.value.push(thumbnail);
-    }
-
-    // 保存されたアノテーションを取得
-    const savedAnnotations = pdfManager.getAllAnnotations();
-    annotations.value = savedAnnotations;
-
-    // 初回レンダリング
-    await renderCurrentPage();
+    thumbnails.value = await Promise.all(
+      Array.from({ length: pageCount.value }, (_, idx) =>
+        generateThumbnail(pdfDocument as PdfDocument, idx + 1, 120),
+      ),
+    );
   } catch (error) {
     $q.notify({
       type: 'negative',
       message: `PDFの初期化に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      position: 'top',
-    });
-  }
-}
-
-/**
- * 現在のページを描画
- */
-async function renderCurrentPage() {
-  try {
-    if (viewMode.value === 'single' || viewMode.value === 'spread') {
-      if (canvasRef.value) {
-        const scale = zoomLevel.value / 100;
-        await pdfManager.renderPage(currentPage.value, canvasRef.value, scale);
-      }
-
-      // 見開き表示の場合、右ページも描画
-      if (
-        viewMode.value === 'spread' &&
-        canvasRefRight.value &&
-        currentPage.value < pageCount.value
-      ) {
-        const scale = zoomLevel.value / 100;
-        await pdfManager.renderPage(currentPage.value + 1, canvasRefRight.value, scale);
-      }
-    } else if (viewMode.value === 'continuous') {
-      // 連続表示の場合、すべてのページを描画
-      continuousCanvases.value = [];
-      await nextTick();
-
-      const containerEl = (globalThis as typeof window).document?.querySelector(
-        '.continuous-pages',
-      );
-      if (containerEl) {
-        const canvases = containerEl.querySelectorAll('canvas');
-        for (let i = 0; i < canvases.length; i++) {
-          const canvas = canvases[i];
-          if (canvas) {
-            const scale = zoomLevel.value / 100;
-            await pdfManager.renderPage(i + 1, canvas, scale);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    $q.notify({
-      type: 'negative',
-      message: `ページのレンダリングに失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
       position: 'top',
     });
   }
@@ -633,30 +524,22 @@ function goToPage(pageNumber: number) {
 }
 
 /**
- * アノテーションを選択
- */
-function selectAnnotation(id: string) {
-  selectedAnnotationId.value = id;
-}
-
-/**
  * アノテーションを保存
  */
-function saveAnnotations() {
-  try {
-    // ローカルストレージに保存
-    pdfManager.saveAnnotationsToStorage(documentId.value);
+async function saveAnnotations() {
+  const apiRes = await api.saveAnnotationsByDocument(documentId.value, annotations.value);
 
+  if (apiRes.success) {
     $q.notify({
       type: 'positive',
       message: $t('message.success'),
       position: 'top',
       timeout: 2000,
     });
-  } catch (error) {
+  } else {
     $q.notify({
       type: 'negative',
-      message: `アノテーションの保存に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: `アノテーションの保存に失敗しました: ${apiRes.error || 'Unknown error'}`,
       position: 'top',
     });
   }
@@ -699,48 +582,12 @@ function addBookmarkDialog() {
 }
 
 /**
- * アンドゥ履歴に保存
- */
-function saveToHistory() {
-  // 現在のインデックスより後の履歴を削除（新しい操作を行ったため）
-  if (historyIndex.value < annotationHistory.value.length - 1) {
-    annotationHistory.value = annotationHistory.value.slice(0, historyIndex.value + 1);
-  }
-  // 現在の状態を履歴に追加
-  annotationHistory.value.push(JSON.parse(JSON.stringify(annotations.value)));
-  historyIndex.value++;
-}
-
-/**
- * アノテーションを追加
- */
-function addAnnotation(annotation: Annotation) {
-  annotations.value.push(annotation);
-  saveToHistory();
-}
-
-/**
- * アノテーションを更新
- */
-function updateAnnotation(annotation: Annotation) {
-  const index = annotations.value.findIndex((a) => a.id === annotation.id);
-  if (index !== -1) {
-    annotations.value[index] = annotation;
-    saveToHistory();
-  }
-}
-
-/**
  * アノテーションを削除
  */
-function deleteAnnotation(id: string) {
-  pdfManager.deleteAnnotation(id);
-  annotations.value = pdfManager.getAllAnnotations();
-  if (selectedAnnotationId.value === id) {
-    selectedAnnotationId.value = null;
-  }
-  saveToHistory();
-}
+// function deleteAnnotation(id: string) {
+//   console.log(id);
+//   // manager.deleteAnnotation(id);
+// }
 
 /**
  * ブックマークを追加
@@ -776,48 +623,28 @@ function formatDate(date: Date | string): string {
 /**
  * キーボードショートカット処理
  */
-function handleKeyboardShortcut(event: KeyboardEvent) {
-  // Ctrl+Z または Cmd+Z でアンドゥ
-  if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
-    event.preventDefault();
-    undo();
-  }
-  // Ctrl+Shift+Z または Cmd+Shift+Z でリドゥ
-  else if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
-    event.preventDefault();
-    redo();
-  }
-  // Ctrl+Y または Cmd+Y でリドゥ（別の方法）
-  else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
-    event.preventDefault();
-    redo();
-  }
-  // Delete または Backspace でアノテーション削除
-  else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedAnnotationId.value) {
-    event.preventDefault();
-    deleteAnnotation(selectedAnnotationId.value);
-  }
-}
-
-/**
- * アンドゥを実行
- */
-function undo() {
-  if (historyIndex.value > 0) {
-    historyIndex.value--;
-    annotations.value = JSON.parse(JSON.stringify(annotationHistory.value[historyIndex.value]));
-  }
-}
-
-/**
- * リドゥを実行
- */
-function redo() {
-  if (historyIndex.value < annotationHistory.value.length - 1) {
-    historyIndex.value++;
-    annotations.value = JSON.parse(JSON.stringify(annotationHistory.value[historyIndex.value]));
-  }
-}
+// function handleKeyboardShortcut(event: KeyboardEvent) {
+//   // Ctrl+Z または Cmd+Z でアンドゥ
+//   if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
+//     event.preventDefault();
+//     undo();
+//   }
+//   // Ctrl+Shift+Z または Cmd+Shift+Z でリドゥ
+//   else if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
+//     event.preventDefault();
+//     redo();
+//   }
+//   // Ctrl+Y または Cmd+Y でリドゥ（別の方法）
+//   else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+//     event.preventDefault();
+//     redo();
+//   }
+//   // Delete または Backspace でアノテーション削除
+//   else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedAnnotationId.value) {
+//     event.preventDefault();
+//     deleteAnnotation(selectedAnnotationId.value);
+//   }
+// }
 </script>
 
 <style scoped lang="scss">
@@ -889,31 +716,6 @@ function redo() {
   display: inline-block;
   width: fit-content;
   height: fit-content;
-
-  .pdf-canvas {
-    display: block;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .annotation-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-
-    .annotation-svg {
-      display: block;
-    }
-  }
-}
-
-.annotation-element {
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-
-  &:hover {
-    opacity: 0.7 !important;
-  }
 }
 
 .color-swatch {

@@ -76,6 +76,9 @@ export class AnnotationDrawingManager {
       strokeWidth: 2,
       createdAt: new Date(),
       updatedAt: new Date(),
+      linkedMarkupIds: [],
+      tags: [],
+      relatedDocumentIds: []
     };
 
     if (this.drawingType === 'highlight' || this.drawingType === 'box') {
@@ -131,20 +134,6 @@ export class AnnotationDrawingManager {
    */
   setDocumentId(documentId: string) {
     this.documentId = documentId;
-  }
-
-  /**
-   * アノテーション作成コールバックを設定
-   */
-  setAnnotationCreatedCallback(callback: (annotation: Annotation) => void) {
-    this.onAnnotationCreated = callback;
-  }
-
-  /**
-   * 描画中状態を取得
-   */
-  getIsDrawing(): boolean {
-    return this.isDrawing;
   }
 
   /**

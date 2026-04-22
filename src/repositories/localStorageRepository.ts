@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import type {
   DocumentMetadata,
-  DocumentMarkup,
+  Annotation,
   DocumentRevision,
   DocumentFolder,
   AppSettings,
@@ -143,9 +143,9 @@ class LocalStorageRepository {
   /**
    * マークアップ全件取得
    */
-  async getAllMarkups(): Promise<DocumentMarkup[]> {
+  async getAllMarkups(): Promise<Annotation[]> {
     if (!this.db) await this.initialize();
-    return new Promise<DocumentMarkup[]>((resolve, reject) => {
+    return new Promise<Annotation[]>((resolve, reject) => {
       const transaction = this.db!.transaction([this.markupStore], 'readonly');
       const store = transaction.objectStore(this.markupStore);
       const request = store.getAll();
@@ -161,7 +161,7 @@ class LocalStorageRepository {
   /**
    * ドキュメント別マークアップ取得
    */
-  async getMarkupsByDocument(documentId: string): Promise<DocumentMarkup[]> {
+  async getMarkupsByDocument(documentId: string): Promise<Annotation[]> {
     const allMarkups = await this.getAllMarkups();
     return allMarkups.filter((m) => m.documentId === documentId);
   }
@@ -169,7 +169,7 @@ class LocalStorageRepository {
   /**
    * マークアップ保存
    */
-  async saveMarkup(markup: DocumentMarkup): Promise<void> {
+  async saveAnnotation(markup: Annotation): Promise<void> {
     if (!this.db) await this.initialize();
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.markupStore], 'readwrite');
