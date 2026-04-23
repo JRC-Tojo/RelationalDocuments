@@ -93,6 +93,8 @@ function createAnnotation(
   } else if (drawingType === 'line') {
     return {
       ...baseAnnotation,
+      x: startX,
+      y: startY,
       x2: endX,
       y2: endY,
       points: [0, 0, deltaX, deltaY],
