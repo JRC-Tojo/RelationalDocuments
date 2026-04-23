@@ -84,8 +84,9 @@ onMounted(async () => {
   }
 });
 
-watch(scale, () => debounce(() => render(scale.value)));
-watch(page, () => render(scale.value));
+const debouncedRender = debounce((s: number) => void render(s), 100);
+watch(scale, (s) => debouncedRender(s));
+watch(page, () => void render(scale.value));
 </script>
 
 <style lang="scss" scoped>
