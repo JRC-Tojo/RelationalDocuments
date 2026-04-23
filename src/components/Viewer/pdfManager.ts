@@ -80,7 +80,7 @@ export async function generateThumbnail(
 ): Promise<string> {
   try {
     const canvas = document.createElement('canvas');
-    await renderPage(pdfDocument, pageNumber, canvas, 1, maxWidth)
+    await renderPage(pdfDocument, pageNumber, canvas, 1, maxWidth);
     return canvas.toDataURL('image/jpeg', 0.8);
   } catch (error) {
     console.error(

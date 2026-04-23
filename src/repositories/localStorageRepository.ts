@@ -1,10 +1,5 @@
 import { ref } from 'vue';
-import type {
-  DocumentMetadata,
-  Annotation,
-  DocumentFolder,
-  AppSettings,
-} from '../models/schemas';
+import type { DocumentMetadata, Annotation, DocumentFolder, AppSettings } from '../models/schemas';
 
 /**
  * ローカルストレージリポジトリ
@@ -166,7 +161,8 @@ class LocalStorageRepository {
       const request = store.put(JSON.parse(JSON.stringify(annotation)));
 
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error(request.error?.message || 'Failed to save annotation'));
+      request.onerror = () =>
+        reject(new Error(request.error?.message || 'Failed to save annotation'));
     });
   }
 
