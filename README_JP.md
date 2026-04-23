@@ -164,10 +164,7 @@ bun run format
 システムはブラウザ内のIndexedDBにすべてのデータを保存します：
 
 - **documents**: 文書メタデータ
-- **markups**: マークアップ情報
-- **revisions**: 改訂履歴
-- **markupBlocks**: マークアップブロック
-- **complianceRules**: 整合性ルール
+- **annotations**: マークアップ情報
 - **folders**: フォルダ構造
 - **settings**: アプリケーション設定
 

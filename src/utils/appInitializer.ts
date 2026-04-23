@@ -81,10 +81,10 @@ export async function createDemoData() {
       console.log(`✓ "${doc.title}" を作成しました`);
 
       // 各ドキュメントに複数のマークアップを追加
-      const markupCount = Math.floor(Math.random() * 3) + 2;
+      const annotationCount = Math.floor(Math.random() * 3) + 2;
       const colors: string[] = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
 
-      for (let i = 0; i < markupCount; i++) {
+      for (let i = 0; i < annotationCount; i++) {
         const pageNum = Math.floor(Math.random() * Math.min(doc.pageCount, 5)) + 1;
         const colorIdx = Math.floor(Math.random() * colors.length);
         const color: string = colors[colorIdx] || '#FFD700';
@@ -102,7 +102,7 @@ export async function createDemoData() {
             opacity: 0,
             createdAt: new Date(),
             updatedAt: new Date(),
-            linkedMarkupIds: [],
+            linkedAnnotationIds: [],
             tags: [],
             relatedDocumentIds: [],
             type: 'box',

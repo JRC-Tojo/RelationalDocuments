@@ -1,6 +1,6 @@
 # RelationalDocuments (rd)
 
-Documents base on the relational model of markup text blocks
+Documents base on the relational model of annotation text blocks
 
 ## Install the dependencies
 

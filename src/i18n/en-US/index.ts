@@ -36,35 +36,6 @@ export default {
     noDocuments: 'No documents available',
     createNew: 'Create New Document',
     deleteConfirm: 'Are you sure you want to delete this document?',
-    viewRevisions: 'View Revision History',
-  },
-
-  // Markup related
-  markup: {
-    title: 'Markup',
-    color: 'Color',
-    style: 'Style',
-    content: 'Content',
-    tags: 'Tags',
-    linkedMarkups: 'Linked Markups',
-    linkMarkup: 'Link Markup',
-    highlight: 'Highlight',
-    line: 'Line',
-    box: 'Box',
-    underline: 'Underline',
-    opacity: 'Opacity',
-    deleteConfirm: 'Are you sure you want to delete this markup?',
-    createNew: 'Create New Markup',
-  },
-
-  // Revision history
-  revision: {
-    title: 'Revision History',
-    revisionNumber: 'Revision Number',
-    changedAt: 'Changed At',
-    changeDescription: 'Change Description',
-    changedPages: 'Changed Pages',
-    noRevisions: 'No revision history',
   },
 
   // View modes

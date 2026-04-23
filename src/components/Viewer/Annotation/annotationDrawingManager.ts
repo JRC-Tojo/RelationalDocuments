@@ -76,9 +76,9 @@ export class AnnotationDrawingManager {
       strokeWidth: 2,
       createdAt: new Date(),
       updatedAt: new Date(),
-      linkedMarkupIds: [],
+      linkedAnnotationIds: [],
       tags: [],
-      relatedDocumentIds: []
+      relatedDocumentIds: [],
     };
 
     if (this.drawingType === 'highlight' || this.drawingType === 'box') {

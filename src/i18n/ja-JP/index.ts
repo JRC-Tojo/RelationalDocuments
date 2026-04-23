@@ -35,35 +35,6 @@ export default {
     noDocuments: 'ドキュメントがありません',
     createNew: '新規ドキュメント',
     deleteConfirm: 'このドキュメントを削除しますか？',
-    viewRevisions: '改訂履歴を表示',
-  },
-
-  // マークアップ関連
-  markup: {
-    title: 'マークアップ',
-    color: '色',
-    style: 'スタイル',
-    content: 'コンテンツ',
-    tags: 'タグ',
-    linkedMarkups: 'リンク済みマークアップ',
-    linkMarkup: 'マークアップをリンク',
-    highlight: 'ハイライト',
-    line: '直線',
-    box: 'ボックス',
-    underline: 'アンダーライン',
-    opacity: '透明度',
-    deleteConfirm: 'このマークアップを削除しますか？',
-    createNew: '新規マークアップ',
-  },
-
-  // 改訂履歴
-  revision: {
-    title: '改訂履歴',
-    revisionNumber: '改訂番号',
-    changedAt: '変更日時',
-    changeDescription: '変更説明',
-    changedPages: '変更ページ',
-    noRevisions: '改訂履歴がありません',
   },
 
   // ビューモード

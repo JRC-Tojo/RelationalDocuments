@@ -1,16 +1,12 @@
 import type {
   DocumentMetadata,
   Annotation,
-  DocumentRevision,
-  MarkupBlock,
-  ComplianceRule,
   AppSettings,
   ApiResponse,
 } from '../models/schemas';
 import {
   documentService,
-  markupService,
-  revisionService,
+  annotationService,
   settingsService,
 } from '../services/documentService';
 
@@ -170,16 +166,16 @@ class BackendApi {
    */
   async getAnnotationsByDocument(documentId: string): Promise<ApiResponse<Annotation[]>> {
     try {
-      const markups = await markupService.getAnnotationByDocument(documentId);
+      const annotations = await annotationService.getAnnotationByDocument(documentId);
       return {
         success: true,
-        data: markups,
+        data: annotations,
         timestamp: new Date(),
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to get markups',
+        error: error instanceof Error ? error.message : 'Failed to get annotations',
         timestamp: new Date(),
       };
     }
@@ -193,7 +189,7 @@ class BackendApi {
     annotations: Annotation[],
   ): Promise<ApiResponse<void>> {
     try {
-      await markupService.saveAnnotationsByDocument(documentId, annotations);
+      await annotationService.saveAnnotationsByDocument(documentId, annotations);
       return {
         success: true,
         timestamp: new Date(),
@@ -201,7 +197,7 @@ class BackendApi {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to save markups',
+        error: error instanceof Error ? error.message : 'Failed to save annotations',
         timestamp: new Date(),
       };
     }
@@ -212,7 +208,7 @@ class BackendApi {
    */
   async linkAnnotations(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
     try {
-      await markupService.linkAnnotations(sourceId, targetId);
+      await annotationService.linkAnnotations(sourceId, targetId);
       return {
         success: true,
         timestamp: new Date(),
@@ -220,88 +216,7 @@ class BackendApi {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to link markups',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  // ============ 改訂履歴操作 ============
-
-  /**
-   * 文書の改訂履歴を取得
-   */
-  async getDocumentRevisions(documentId: string): Promise<ApiResponse<DocumentRevision[]>> {
-    try {
-      const revisions = await revisionService.getDocumentRevisions(documentId);
-      return {
-        success: true,
-        data: revisions,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get revisions',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップブロックを作成
-   */
-  async createMarkupBlock(
-    markupId: string,
-    title: string,
-    content: string,
-    genre?: string,
-  ): Promise<ApiResponse<MarkupBlock>> {
-    try {
-      const block = await revisionService.createMarkupBlock(markupId, title, content, genre);
-      return {
-        success: true,
-        data: block,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create markup block',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * 整合性ルールを作成
-   */
-  async createComplianceRule(
-    name: string,
-    type: 'exact_match' | 'formula' | 'condition_check',
-    sourceMarkupIds: string[],
-    targetMarkupId: string,
-    ruleExpression: string,
-    description?: string,
-  ): Promise<ApiResponse<ComplianceRule>> {
-    try {
-      const rule = await revisionService.createComplianceRule(
-        name,
-        type,
-        sourceMarkupIds,
-        targetMarkupId,
-        ruleExpression,
-        description,
-      );
-      return {
-        success: true,
-        data: rule,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create compliance rule',
+        error: error instanceof Error ? error.message : 'Failed to link annotations',
         timestamp: new Date(),
       };
     }

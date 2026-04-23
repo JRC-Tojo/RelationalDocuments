@@ -1,7 +1,7 @@
 {
   "name": "rd",
   "version": "0.0.1",
-  "description": "Documents base on the relational model of markup text blocks",
+  "description": "Documents base on the relational model of annotation text blocks",
   "productName": "RelationalDocuments",
   "author": "JRC-Tojo <jrc.tojo@gmail.com>",
   "type": "module",
