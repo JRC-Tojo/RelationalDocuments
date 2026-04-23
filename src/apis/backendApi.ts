@@ -1,14 +1,5 @@
-import type {
-  DocumentMetadata,
-  Annotation,
-  AppSettings,
-  ApiResponse,
-} from '../models/schemas';
-import {
-  documentService,
-  annotationService,
-  settingsService,
-} from '../services/documentService';
+import type { DocumentMetadata, Annotation, AppSettings, ApiResponse } from '../models/schemas';
+import { documentService, annotationService, settingsService } from '../services/documentService';
 
 /**
  * バックエンド統合 API層
