@@ -158,10 +158,11 @@
               :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }"
             >
               <PdfPage
+                :document-id="documentId"
                 v-model:page="currentPage"
                 v-model:doc="pdfDocument"
                 v-model:annotations="annotations"
-                v-model:is-edit="isEdit"
+                v-model:drawing-type="selectedTool"
                 v-model:scale="scale"
               />
             </div>
@@ -171,10 +172,11 @@
           <div v-if="viewMode === 'continuous'" class="continuous-pages">
             <div v-for="page in pageCount" :key="page" class="page-wrapper q-mb-md">
               <PdfPage
+                :document-id="documentId"
                 :page="page"
                 v-model:doc="pdfDocument"
                 v-model:annotations="annotations"
-                v-model:is-edit="isEdit"
+                v-model:drawing-type="selectedTool"
                 v-model:scale="scale"
               />
             </div>
@@ -286,12 +288,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
-import { annotationDrawingManager } from 'src/components/Viewer/Annotation/annotationDrawingManager';
 import type { DocumentMetadata, AnnotationType, Annotation } from 'src/models/schemas';
 import PdfPage from 'src/components/Viewer/PdfPage.vue';
 import type { PdfDocument } from 'src/components/Viewer/pdfManager';
@@ -336,7 +337,6 @@ const pageCount = ref(1);
 const annotations = ref<Annotation[]>([]);
 const selectedTool = ref<AnnotationType | 'default'>('default');
 const selectedColor = ref('#FFD700');
-const isEdit = ref(false)
 
 const annotationTools = [
   { id: 'default', icon: 'do_not_touch', label: 'Default' },
@@ -373,23 +373,8 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  annotationDrawingManager.destroy();
   // キーボードイベントリスナーの削除
   // window.removeEventListener('keydown', handleKeyboardShortcut);
-});
-
-watch(selectedTool, () => {
-  if (selectedTool.value !== 'default') {
-    annotationDrawingManager.setDrawingType(selectedTool.value);
-  }
-});
-
-watch(selectedColor, () => {
-  annotationDrawingManager.setColor(selectedColor.value);
-});
-
-watch(currentPage, () => {
-  annotationDrawingManager.setPageNumber(currentPage.value);
 });
 
 /**
@@ -400,8 +385,6 @@ async function loadDocument() {
   if (response.success && response.data) {
     document.value = response.data;
     pageCount.value = response.data.pageCount;
-    // アノテーション描画マネージャーにドキュメントIDを設定
-    annotationDrawingManager.setDocumentId(documentId.value);
   }
 }
 
@@ -442,7 +425,6 @@ async function initializePdf() {
  * ツールを選択
  */
 function selectTool(toolId: AnnotationType | 'default') {
-  isEdit.value = toolId != 'default'
   selectedTool.value = toolId;
 }
 

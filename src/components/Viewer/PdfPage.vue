@@ -7,10 +7,12 @@
     <!-- Konvaアノテーションレイヤー -->
     <AnnotationLayer
       v-if="canvasRendered"
+      :document-id="documentId"
+      v-model:page="page"
       v-model:annotations="currentPageAnnotations"
       v-model:scale="scale"
       v-model:canvas-size="canvasSize"
-      :is-editing="isEdit"
+      v-model:drawing-type="drawingType"
       @add-annotation="addAnnotation"
       @update-annotation="updateAnnotation"
       @delete-annotation="deleteAnnotation"
@@ -24,12 +26,16 @@ import AnnotationLayer from './Annotation/AnnotationLayer.vue';
 import { debounce, useQuasar } from 'quasar';
 import type { PdfDocument } from './pdfManager';
 import { renderPage } from './pdfManager';
-import type { Annotation } from 'src/models/schemas';
+import type { Annotation, AnnotationType } from 'src/models/schemas';
 
+interface Props {
+  documentId: string;
+}
+defineProps<Props>();
 const page = defineModel<number>('page', { required: true });
 const doc = defineModel<PdfDocument>('doc', { required: true });
 const annotations = defineModel<Annotation[]>('annotations', { required: true });
-const isEdit = defineModel<boolean>('isEdit', { required: true });
+const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const $q = useQuasar();

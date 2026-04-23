@@ -7,7 +7,7 @@
       @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
       @click="handleStageClick"
-      :style="{ 'cursor': cursorStyle }"
+      :style="{ cursor: cursorStyle }"
     >
       <v-layer>
         <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
@@ -85,26 +85,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, reactive, computed } from 'vue';
+import { ref, nextTick, reactive, computed } from 'vue';
 import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
-import type { Annotation } from 'src/models/schemas';
-import { annotationDrawingManager } from 'src/components/Viewer/Annotation/annotationDrawingManager';
+import type { Annotation, AnnotationType } from 'src/models/schemas';
 import type Konva from 'konva';
 import type { Node, NodeConfig } from 'konva/lib/Node';
+import { startDrawingAnnotation } from './annotationDrawingManager';
 
 // Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
-  isEditing: boolean;
+  documentId: string;
 }
 
 const props = defineProps<Props>();
+const page = defineModel<number>('page', { required: true });
 const canvasSize = defineModel<{ width: number; height: number }>('canvasSize', { required: true });
 const annotations = defineModel<Annotation[]>('annotations', { required: true });
+const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const emit = defineEmits<{
@@ -117,7 +119,6 @@ const stageRef = ref<Konva.Stage | null>(null);
 const isDrawing = ref(false);
 const startPos = ref<{ x: number; y: number } | null>(null);
 const selectedIds = ref(new Set());
-const drawingType = ref<'highlight' | 'box' | 'line' | 'circle'>('highlight');
 const drawingPreview = ref<{
   rect?: {
     x: number;
@@ -132,19 +133,22 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
-const cursorStyle = computed(() => props.isEditing ? 'crosshair' : 'default' )
+const isEditing = computed(() => drawingType.value !== 'default');
+const cursorStyle = computed(() => (isEditing.value ? 'crosshair' : 'default'));
 const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
 const transformerConfig = reactive({
   nodes: [] as Node<NodeConfig>[],
 });
 
+let endDrawingAnnotation: ((endX: number, endY: number) => Annotation | null) | undefined;
+
 /**
  * マウスダウンイベント
  */
 function handleMouseDown(e: KonvaMouseEvent) {
   // 編集モードが有効でない場合はスキップ
-  if (!props.isEditing) {
+  if (drawingType.value === 'default') {
     return;
   }
 
@@ -165,7 +169,13 @@ function handleMouseDown(e: KonvaMouseEvent) {
 
   isDrawing.value = true;
   startPos.value = adjustedPos;
-  annotationDrawingManager.startDrawing(adjustedPos.x, adjustedPos.y);
+  endDrawingAnnotation = startDrawingAnnotation(
+    props.documentId,
+    page.value,
+    adjustedPos.x,
+    adjustedPos.y,
+    drawingType.value,
+  );
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }
 
@@ -211,9 +221,11 @@ function handleMouseUp(e: KonvaMouseEvent) {
   isDrawing.value = false;
   drawingPreview.value = null;
 
-  const annotation = annotationDrawingManager.endDrawing(adjustedPos.x, adjustedPos.y);
-  if (annotation) {
-    emit('addAnnotation', annotation);
+  if (endDrawingAnnotation) {
+    const annotation = endDrawingAnnotation(adjustedPos.x, adjustedPos.y);
+    if (annotation) {
+      emit('addAnnotation', annotation);
+    }
   }
 
   startPos.value = null;
@@ -322,17 +334,6 @@ function deleteAnnotation(id: string) {
   emit('deleteAnnotation', id);
   selectedIds.value.delete(id);
 }
-
-/**
- * 設定変更の監視
- */
-watch(
-  () => drawingType.value,
-  (newType) => {
-    if (newType === null) return;
-    annotationDrawingManager.setDrawingType(newType);
-  },
-);
 </script>
 
 <style scoped lang="scss">
