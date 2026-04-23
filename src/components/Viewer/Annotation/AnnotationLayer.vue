@@ -7,7 +7,7 @@
       @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
       @click="handleStageClick"
-      :style="{ 'cursor': cursorStyle }"
+      :style="{ cursor: cursorStyle }"
     >
       <v-layer>
         <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
@@ -132,7 +132,7 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
-const cursorStyle = computed(() => props.isEditing ? 'crosshair' : 'default' )
+const cursorStyle = computed(() => (props.isEditing ? 'crosshair' : 'default'));
 const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
 const transformerConfig = reactive({

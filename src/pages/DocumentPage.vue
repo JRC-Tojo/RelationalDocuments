@@ -336,7 +336,7 @@ const pageCount = ref(1);
 const annotations = ref<Annotation[]>([]);
 const selectedTool = ref<AnnotationType | 'default'>('default');
 const selectedColor = ref('#FFD700');
-const isEdit = ref(false)
+const isEdit = ref(false);
 
 const annotationTools = [
   { id: 'default', icon: 'do_not_touch', label: 'Default' },
@@ -442,7 +442,7 @@ async function initializePdf() {
  * ツールを選択
  */
 function selectTool(toolId: AnnotationType | 'default') {
-  isEdit.value = toolId != 'default'
+  isEdit.value = toolId != 'default';
   selectedTool.value = toolId;
 }
 
