@@ -61,9 +61,9 @@ src/
 ├── models/                  # Zodスキーマ定義
 │   └── schemas.ts
 ├── pages/                   # ページコンポーネント
-│   ├── IndexPage.vue       # 文書一覧
-│   ├── DocumentViewerPage.vue  # 文書表示
-│   └── SettingsPage.vue    # 設定
+│   ├── DocListPage.vue      # 文書一覧
+│   ├── DocumentPage.vue     # 文書表示
+│   └── SettingsPage.vue     # 設定
 ├── layouts/                 # レイアウトコンポーネント
 │   └── MainLayout.vue
 ├── components/              # UI コンポーネント
