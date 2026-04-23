@@ -26,7 +26,7 @@
             suffix="%"
           />
           <q-btn flat dense icon="zoom_in" @click="increaseZoom" />
-          <q-btn flat dense icon="zoom_to_fit" @click="fitToPage" />
+          <q-btn flat dense icon="fit_screen" @click="fitToPage" />
         </div>
 
         <q-separator vertical class="q-mx-md" />
@@ -41,7 +41,7 @@
             :icon="tool.icon"
             :title="tool.label"
             :color="selectedTool === tool.id ? 'primary' : 'grey-7'"
-            @click="selectTool(tool.id as AnnotationType)"
+            @click="selectTool(tool.id)"
           />
         </div>
 
@@ -161,6 +161,7 @@
                 v-model:page="currentPage"
                 v-model:doc="pdfDocument"
                 v-model:annotations="annotations"
+                v-model:is-edit="isEdit"
                 v-model:scale="scale"
               />
             </div>
@@ -173,6 +174,7 @@
                 :page="page"
                 v-model:doc="pdfDocument"
                 v-model:annotations="annotations"
+                v-model:is-edit="isEdit"
                 v-model:scale="scale"
               />
             </div>
@@ -332,15 +334,17 @@ const pageCount = ref(1);
 
 // アノテーション制御
 const annotations = ref<Annotation[]>([]);
-const selectedTool = ref<AnnotationType>('highlight');
+const selectedTool = ref<AnnotationType | 'default'>('default');
 const selectedColor = ref('#FFD700');
+const isEdit = ref(false)
 
 const annotationTools = [
-  { id: 'highlight', icon: 'format_color_highlight', label: 'Highlight' },
+  { id: 'default', icon: 'do_not_touch', label: 'Default' },
+  { id: 'highlight', icon: 'highlight', label: 'Highlight' },
   { id: 'line', icon: 'edit', label: 'Line' },
   { id: 'box', icon: 'crop_square', label: 'Box' },
   { id: 'circle', icon: 'radio_button_unchecked', label: 'Circle' },
-];
+] as const;
 
 const colorPalette = [
   '#FFD700', // Gold
@@ -375,7 +379,9 @@ onBeforeUnmount(() => {
 });
 
 watch(selectedTool, () => {
-  annotationDrawingManager.setDrawingType(selectedTool.value);
+  if (selectedTool.value !== 'default') {
+    annotationDrawingManager.setDrawingType(selectedTool.value);
+  }
 });
 
 watch(selectedColor, () => {
@@ -435,7 +441,8 @@ async function initializePdf() {
 /**
  * ツールを選択
  */
-function selectTool(toolId: AnnotationType) {
+function selectTool(toolId: AnnotationType | 'default') {
+  isEdit.value = toolId != 'default'
   selectedTool.value = toolId;
 }
 

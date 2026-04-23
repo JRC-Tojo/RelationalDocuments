@@ -7,6 +7,7 @@
       @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
       @click="handleStageClick"
+      :style="{ 'cursor': cursorStyle }"
     >
       <v-layer>
         <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
@@ -84,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, reactive } from 'vue';
+import { ref, watch, nextTick, reactive, computed } from 'vue';
 import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
@@ -131,6 +132,7 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
+const cursorStyle = computed(() => props.isEditing ? 'crosshair' : 'default' )
 const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
 const transformerConfig = reactive({
@@ -341,9 +343,5 @@ watch(
   z-index: 10;
   width: 100%;
   height: 100%;
-
-  :deep(canvas) {
-    cursor: crosshair;
-  }
 }
 </style>

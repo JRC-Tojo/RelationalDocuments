@@ -10,7 +10,7 @@
       v-model:annotations="currentPageAnnotations"
       v-model:scale="scale"
       v-model:canvas-size="canvasSize"
-      :is-editing="true"
+      :is-editing="isEdit"
       @add-annotation="addAnnotation"
       @update-annotation="updateAnnotation"
       @delete-annotation="deleteAnnotation"
@@ -29,6 +29,7 @@ import type { Annotation } from 'src/models/schemas';
 const page = defineModel<number>('page', { required: true });
 const doc = defineModel<PdfDocument>('doc', { required: true });
 const annotations = defineModel<Annotation[]>('annotations', { required: true });
+const isEdit = defineModel<boolean>('isEdit', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const $q = useQuasar();
