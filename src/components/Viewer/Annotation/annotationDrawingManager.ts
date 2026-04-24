@@ -5,6 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { Annotation, AnnotationType } from 'src/models/schemas';
+import dayjs from 'dayjs';
 
 /**
  * アノテーションの描画開始時に呼び出す
@@ -67,8 +68,8 @@ function createAnnotation(
     y: Math.min(startY, endY),
     color: color,
     strokeWidth: 2,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: dayjs().toISOString(),
+    updatedAt: dayjs().toISOString(),
     linkedAnnotationIds: [],
     tags: [],
     relatedDocumentIds: [],

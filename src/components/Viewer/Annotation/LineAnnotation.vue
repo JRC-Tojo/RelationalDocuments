@@ -12,6 +12,7 @@
 import { computed, ref } from 'vue';
 import type Konva from 'konva';
 import type { Annotation } from 'src/models/schemas';
+import dayjs from 'dayjs';
 
 type KonvaEvent = Konva.KonvaEventObject<Event>;
 
@@ -82,7 +83,7 @@ function onDragMove(e: KonvaEvent) {
     ...props.annotation,
     x: target.x(),
     y: target.y(),
-    updatedAt: new Date(),
+    updatedAt: dayjs().toISOString(),
   };
   emit('update', updatedAnnotation);
 }

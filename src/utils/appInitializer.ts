@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { useBackendApi } from '../apis/backendApi';
 import { localStorageRepository } from '../repositories/localStorageRepository';
+import dayjs from 'dayjs';
 
 /**
  * アプリケーション初期化用ユーティリティ
@@ -100,8 +101,8 @@ export async function createDemoData() {
             height: 80,
             color: color,
             opacity: 0,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: dayjs().toISOString(),
+            updatedAt: dayjs().toISOString(),
             linkedAnnotationIds: [],
             tags: [],
             relatedDocumentIds: [],

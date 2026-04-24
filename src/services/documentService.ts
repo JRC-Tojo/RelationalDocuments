@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 import { localStorageRepository } from '../repositories/localStorageRepository';
 import type { DocumentMetadata, AppSettings, Annotation } from '../models/schemas';
+import dayjs from 'dayjs';
 
 /**
  * 文書管理サービス
@@ -139,13 +140,13 @@ class AnnotationService {
     const updatedSource: Annotation = {
       ...source,
       linkedAnnotationIds: [...(source.linkedAnnotationIds || []), targetId],
-      updatedAt: new Date(),
+      updatedAt: dayjs().toISOString(),
     };
 
     const updatedTarget: Annotation = {
       ...target,
       linkedAnnotationIds: [...(target.linkedAnnotationIds || []), sourceId],
-      updatedAt: new Date(),
+      updatedAt: dayjs().toISOString(),
     };
 
     await localStorageRepository.saveAnnotation(updatedSource);
