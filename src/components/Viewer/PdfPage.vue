@@ -21,16 +21,14 @@
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import AnnotationLayer from './Annotation/AnnotationLayer.vue';
 import { debounce, useQuasar } from 'quasar';
-import type { PdfDocument } from './pdfManager';
-import { renderPage } from './pdfManager';
 import type { Annotation, AnnotationType } from 'src/models/schemas';
 
 interface Props {
   documentId: string;
+  onRender: (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 }
-defineProps<Props>();
+const props = defineProps<Props>();
 const page = defineModel<number>('page', { required: true });
-const doc = defineModel<PdfDocument>('doc', { required: true });
 const annotations = defineModel<Annotation[]>('annotations', { required: true });
 const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
@@ -47,7 +45,7 @@ const currentPageAnnotations = computed(() => {
 
 async function render(scale: number) {
   if (canvas.value === null) return;
-  await renderPage(doc.value, page.value, canvas.value, scale);
+  await props.onRender(page.value, canvas.value, scale)
   canvasSize.value = {
     width: canvas.value.width,
     height: canvas.value.height,

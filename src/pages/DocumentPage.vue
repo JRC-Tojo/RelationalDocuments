@@ -147,7 +147,7 @@
       <!-- PDF表示エリア -->
       <div class="pdf-display-area">
         <div
-          v-if="!loadingDocument && pdfDocument !== null"
+          v-if="onRender !== undefined"
           class="pdf-viewer-container"
           @wheel.prevent="handleZoomWheel"
         >
@@ -156,10 +156,10 @@
             <PdfPage
               :document-id="documentId"
               v-model:page="currentPage"
-              v-model:doc="pdfDocument"
               v-model:annotations="annotations"
               v-model:drawing-type="selectedTool"
               v-model:scale="scale"
+              @render="onRender"
             />
           </div>
 
@@ -169,10 +169,10 @@
               <PdfPage
                 :document-id="documentId"
                 :page="page"
-                v-model:doc="pdfDocument"
                 v-model:annotations="annotations"
                 v-model:drawing-type="selectedTool"
                 v-model:scale="scale"
+                @render="onRender"
               />
             </div>
           </div>
@@ -290,8 +290,7 @@ import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
 import type { DocumentMetadata, AnnotationType, Annotation } from 'src/models/schemas';
 import PdfPage from 'src/components/Viewer/PdfPage.vue';
-import type { PdfDocument } from 'src/components/Viewer/pdfManager';
-import { generateThumbnail, loadPdf } from 'src/components/Viewer/pdfManager';
+import { generateThumbnail, loadPdf, renderPage } from 'src/components/Viewer/pdfManager';
 
 interface Bookmark {
   pageNumber: number;
@@ -303,9 +302,8 @@ const { t: $t } = useI18n();
 const $q = useQuasar();
 const api = useBackendApi();
 
-// PDF全体制御
-const loadingDocument = ref(true);
-let pdfDocument: PdfDocument | null = null;
+// 特定のドキュメントのレンダリング関数
+let onRender = undefined;
 
 // ドキュメント情報
 const document = ref<DocumentMetadata | null>(null);
@@ -393,14 +391,22 @@ async function initializePdf() {
     }
 
     // PDFファイルを読み込む
-    pdfDocument = await loadPdf(document.value.filePath);
-    loadingDocument.value = false;
-    pageCount.value = pdfDocument.numPages;
+    const loadDocument = await loadPdf(document.value.filePath);
+    pageCount.value = loadDocument.numPages;
+
+    // レンダリング関数を設定
+    onRender = async (
+      pageNumber: number,
+      canvas: HTMLCanvasElement,
+      scale: number,
+    ): Promise<void> => {
+      return await renderPage(loadDocument, pageNumber, canvas, scale);
+    };
 
     // サムネイルを生成
     thumbnails.value = await Promise.all(
       Array.from({ length: pageCount.value }, (_, idx) =>
-        generateThumbnail(pdfDocument as PdfDocument, idx + 1, 120),
+        generateThumbnail(loadDocument, idx + 1, 120),
       ),
     );
 
