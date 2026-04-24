@@ -125,17 +125,17 @@ class LocalStorageRepository {
   }
 
   /**
-   * マークアップ全件取得
+   * ドキュメント別マークアップ取得
    */
-  async getAllAnnotations(): Promise<Annotation[]> {
+  async getAnnotationsByDocument(documentId: string): Promise<Annotation[]> {
     if (!this.db) await this.initialize();
     return new Promise<Annotation[]>((resolve, reject) => {
       const transaction = this.db!.transaction([this.annotationStore], 'readonly');
       const store = transaction.objectStore(this.annotationStore);
-      const request = store.getAll();
+      const request = store.get(documentId);
 
       request.onsuccess = () => {
-        resolve(request.result);
+        resolve(request.result['annotations']);
       };
       request.onerror = () =>
         reject(new Error(request.error?.message || 'Failed to get all annotations'));
@@ -143,22 +143,14 @@ class LocalStorageRepository {
   }
 
   /**
-   * ドキュメント別マークアップ取得
-   */
-  async getAnnotationsByDocument(documentId: string): Promise<Annotation[]> {
-    const allAnnotations = await this.getAllAnnotations();
-    return allAnnotations.filter((m) => m.documentId === documentId);
-  }
-
-  /**
    * マークアップ保存
    */
-  async saveAnnotation(annotation: Annotation): Promise<void> {
+  async saveAnnotationsByDocument(documentId: string, annotations: Annotation[]): Promise<void> {
     if (!this.db) await this.initialize();
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.annotationStore], 'readwrite');
       const store = transaction.objectStore(this.annotationStore);
-      const request = store.put(JSON.parse(JSON.stringify(annotation)));
+      const request = store.put(JSON.parse(JSON.stringify({ id: documentId, annotations })));
 
       request.onsuccess = () => resolve();
       request.onerror = () =>

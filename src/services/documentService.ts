@@ -2,7 +2,6 @@ import { ref } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 import { localStorageRepository } from '../repositories/localStorageRepository';
 import type { DocumentMetadata, AppSettings, Annotation } from '../models/schemas';
-import dayjs from 'dayjs';
 
 /**
  * 文書管理サービス
@@ -106,14 +105,6 @@ class AnnotationService {
   private annotations = ref<Annotation[]>([]);
 
   /**
-   * 全マークアップを取得
-   */
-  async getAllAnnotations(): Promise<Annotation[]> {
-    this.annotations.value = await localStorageRepository.getAllAnnotations();
-    return this.annotations.value;
-  }
-
-  /**
    * 文書別マークアップを取得
    */
   async getAnnotationByDocument(documentId: string): Promise<Annotation[]> {
@@ -124,34 +115,15 @@ class AnnotationService {
    * 文書別マークアップを保存
    */
   async saveAnnotationsByDocument(documentId: string, annotations: Annotation[]): Promise<void> {
-    await Promise.all(annotations.map((m) => localStorageRepository.saveAnnotation(m)));
+    await localStorageRepository.saveAnnotationsByDocument(documentId, annotations);
   }
 
   /**
    * マークアップ同士をリンク
    */
   async linkAnnotations(sourceId: string, targetId: string): Promise<void> {
-    const allAnnotations = await this.getAllAnnotations();
-    const source = allAnnotations.find((m) => m.id === sourceId);
-    const target = allAnnotations.find((m) => m.id === targetId);
-
-    if (!source || !target) throw new Error('Annotation not found');
-
-    const updatedSource: Annotation = {
-      ...source,
-      linkedAnnotationIds: [...(source.linkedAnnotationIds || []), targetId],
-      updatedAt: dayjs().toISOString(),
-    };
-
-    const updatedTarget: Annotation = {
-      ...target,
-      linkedAnnotationIds: [...(target.linkedAnnotationIds || []), sourceId],
-      updatedAt: dayjs().toISOString(),
-    };
-
-    await localStorageRepository.saveAnnotation(updatedSource);
-    await localStorageRepository.saveAnnotation(updatedTarget);
-    await this.getAllAnnotations();
+    console.log(`MOCK: LINKED ANNOTATIONS (${sourceId} <---> ${targetId})`)
+    return Promise.resolve()
   }
 }
 
