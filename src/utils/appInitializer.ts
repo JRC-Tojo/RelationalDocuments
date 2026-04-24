@@ -1,5 +1,7 @@
+import { v4 as uuidv4 } from 'uuid';
 import { useBackendApi } from '../apis/backendApi';
 import { localStorageRepository } from '../repositories/localStorageRepository';
+import dayjs from 'dayjs';
 
 /**
  * アプリケーション初期化用ユーティリティ
@@ -15,7 +17,7 @@ export async function initializeApp() {
 
   // 初期データの確認
   const docsResponse = await api.getAllDocuments();
-  console.log('初期化完了。登録済みドキュメント数:', docsResponse.data?.length || 0);
+  console.log('初期化完了。登録済みドキュメント数:', docsResponse.data?.length ?? 0);
 }
 
 /**
@@ -68,7 +70,7 @@ export async function createDemoData() {
   for (const doc of sampleDocs) {
     const response = await api.createDocument(
       doc.title,
-      '',
+      new URL('../assets/sampleDocs/sampleArticle.pdf', import.meta.url).href,
       doc.title,
       doc.pageCount,
       Math.floor(Math.random() * 10000000) + 100000,
@@ -79,26 +81,35 @@ export async function createDemoData() {
     if (response.success && response.data) {
       console.log(`✓ "${doc.title}" を作成しました`);
 
-      // 各ドキュメントに複数のマークアップを追加
-      const markupCount = Math.floor(Math.random() * 3) + 2;
+      // 各ドキュメントに複数のアノテーションを追加
+      const annotationCount = Math.floor(Math.random() * 3) + 2;
       const colors: string[] = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
 
-      for (let i = 0; i < markupCount; i++) {
+      for (let i = 0; i < annotationCount; i++) {
         const pageNum = Math.floor(Math.random() * Math.min(doc.pageCount, 5)) + 1;
         const colorIdx = Math.floor(Math.random() * colors.length);
         const color: string = colors[colorIdx] || '#FFD700';
 
-        await api.createMarkup(
-          response.data.id,
-          pageNum,
-          Math.random() * 500,
-          Math.random() * 600,
-          150 + Math.random() * 200,
-          80 + Math.random() * 120,
-          color,
-          `マークアップ ${i + 1}`,
-          'highlight' as const,
-        );
+        await api.saveAnnotationsByDocument(response.data.id, [
+          {
+            id: uuidv4(),
+            documentId: response.data.id,
+            pageNumber: pageNum,
+            x: Math.random() * 500,
+            y: Math.random() * 600,
+            width: 150,
+            height: 80,
+            color: color,
+            opacity: 0.3,
+            createdAt: dayjs().toISOString(),
+            updatedAt: dayjs().toISOString(),
+            linkedAnnotationIds: [],
+            tags: [],
+            relatedDocumentIds: [],
+            type: 'box',
+            strokeWidth: 0,
+          },
+        ]);
       }
     }
   }

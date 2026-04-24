@@ -1,14 +1,7 @@
 import { ref } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 import { localStorageRepository } from '../repositories/localStorageRepository';
-import type {
-  DocumentMetadata,
-  DocumentMarkup,
-  DocumentRevision,
-  MarkupBlock,
-  ComplianceRule,
-  AppSettings,
-} from '../models/schemas';
+import type { DocumentMetadata, AppSettings, Annotation } from '../models/schemas';
 
 /**
  * 文書管理サービス
@@ -57,22 +50,11 @@ class DocumentService {
       description: description || '',
       genre: genre || '',
       tags: [],
-      markupIds: [],
+      annotationIds: [],
     };
 
     await localStorageRepository.saveDocument(newDoc);
     await this.getAllDocuments();
-
-    // 改訂履歴を自動作成
-    const revision: DocumentRevision = {
-      id: uuidv4(),
-      documentId: newDoc.id,
-      revisionNumber: 1,
-      changedAt: new Date(),
-      changeDescription: '初期登録',
-      changedPages: [],
-    };
-    await localStorageRepository.saveRevision(revision);
 
     return newDoc;
   }
@@ -96,21 +78,6 @@ class DocumentService {
     await localStorageRepository.saveDocument(updated);
     await this.getAllDocuments();
 
-    // 更新時に改訂履歴を追加
-    const revisions = await localStorageRepository.getRevisionsByDocument(id);
-    const nextRevisionNumber = Math.max(...revisions.map((r) => r.revisionNumber), 0) + 1;
-
-    const revision: DocumentRevision = {
-      id: uuidv4(),
-      documentId: id,
-      revisionNumber: nextRevisionNumber,
-      changedAt: new Date(),
-      changeDescription: updates.description || '更新',
-      changedPages: [],
-      previousVersionId: revisions[0]?.id,
-    };
-    await localStorageRepository.saveRevision(revision);
-
     return updated;
   }
 
@@ -118,11 +85,8 @@ class DocumentService {
    * 文書を削除
    */
   async deleteDocument(id: string): Promise<boolean> {
-    // マークアップも一緒に削除
-    const markups = await localStorageRepository.getMarkupsByDocument(id);
-    for (const markup of markups) {
-      await localStorageRepository.deleteMarkup(markup.id);
-    }
+    // アノテーションも一緒に削除
+    await localStorageRepository.deleteAnnotationsByDocument(id);
 
     await localStorageRepository.deleteDocument(id);
     await this.getAllDocuments();
@@ -131,181 +95,32 @@ class DocumentService {
 }
 
 /**
- * マークアップ管理サービス
+ * アノテーション管理サービス
  * マーカーのCRUD操作と関連性管理を担当
  */
-class MarkupService {
-  private markups = ref<DocumentMarkup[]>([]);
+class AnnotationService {
+  private annotations = ref<Annotation[]>([]);
 
   /**
-   * 全マークアップを取得
+   * 文書別アノテーションを取得
    */
-  async getAllMarkups(): Promise<DocumentMarkup[]> {
-    this.markups.value = await localStorageRepository.getAllMarkups();
-    return this.markups.value;
+  async getAnnotationByDocument(documentId: string): Promise<Annotation[]> {
+    return await localStorageRepository.getAnnotationsByDocument(documentId);
   }
 
   /**
-   * 文書別マークアップを取得
+   * 文書別アノテーションを保存
    */
-  async getMarkupsByDocument(documentId: string): Promise<DocumentMarkup[]> {
-    return await localStorageRepository.getMarkupsByDocument(documentId);
+  async saveAnnotationsByDocument(documentId: string, annotations: Annotation[]): Promise<void> {
+    await localStorageRepository.saveAnnotationsByDocument(documentId, annotations);
   }
 
   /**
-   * マークアップを新規作成
+   * アノテーション同士をリンク
    */
-  async createMarkup(
-    documentId: string,
-    pageNumber: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    color: string,
-    content?: string,
-    style?: 'highlight' | 'line' | 'box' | 'underline',
-  ): Promise<DocumentMarkup> {
-    const newMarkup: DocumentMarkup = {
-      id: uuidv4(),
-      documentId,
-      pageNumber,
-      x,
-      y,
-      width,
-      height,
-      color,
-      content: content || '',
-      style: style || 'highlight',
-      opacity: 0.3,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      linkedMarkupIds: [],
-      tags: [],
-      relatedDocumentIds: [],
-    };
-
-    await localStorageRepository.saveMarkup(newMarkup);
-    await this.getAllMarkups();
-    return newMarkup;
-  }
-
-  /**
-   * マークアップを更新
-   */
-  async updateMarkup(id: string, updates: Partial<DocumentMarkup>): Promise<DocumentMarkup | null> {
-    const allMarkups = await this.getAllMarkups();
-    const markup = allMarkups.find((m) => m.id === id);
-    if (!markup) return null;
-
-    const updated: DocumentMarkup = {
-      ...markup,
-      ...updates,
-      updatedAt: new Date(),
-    };
-
-    await localStorageRepository.saveMarkup(updated);
-    await this.getAllMarkups();
-    return updated;
-  }
-
-  /**
-   * マークアップを削除
-   */
-  async deleteMarkup(id: string): Promise<boolean> {
-    await localStorageRepository.deleteMarkup(id);
-    await this.getAllMarkups();
-    return true;
-  }
-
-  /**
-   * マークアップ同士をリンク
-   */
-  async linkMarkups(sourceId: string, targetId: string): Promise<void> {
-    const allMarkups = await this.getAllMarkups();
-    const source = allMarkups.find((m) => m.id === sourceId);
-    const target = allMarkups.find((m) => m.id === targetId);
-
-    if (!source || !target) throw new Error('Markup not found');
-
-    const updatedSource: DocumentMarkup = {
-      ...source,
-      linkedMarkupIds: [...(source.linkedMarkupIds || []), targetId],
-      updatedAt: new Date(),
-    };
-
-    const updatedTarget: DocumentMarkup = {
-      ...target,
-      linkedMarkupIds: [...(target.linkedMarkupIds || []), sourceId],
-      updatedAt: new Date(),
-    };
-
-    await localStorageRepository.saveMarkup(updatedSource);
-    await localStorageRepository.saveMarkup(updatedTarget);
-    await this.getAllMarkups();
-  }
-}
-
-/**
- * 改訂履歴サービス
- * 文書の変更履歴を管理
- */
-class RevisionService {
-  /**
-   * 文書の改訂履歴を取得
-   */
-  async getDocumentRevisions(documentId: string): Promise<DocumentRevision[]> {
-    return await localStorageRepository.getRevisionsByDocument(documentId);
-  }
-
-  /**
-   * マークアップブロックを作成
-   */
-  async createMarkupBlock(
-    markupId: string,
-    title: string,
-    content: string,
-    genre?: string,
-  ): Promise<MarkupBlock> {
-    const block: MarkupBlock = {
-      id: uuidv4(),
-      markupId,
-      title,
-      content,
-      genre: genre || '',
-      revisionIds: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    await localStorageRepository.saveMarkupBlock(block);
-    return block;
-  }
-
-  /**
-   * 整合性ルールを作成
-   */
-  async createComplianceRule(
-    name: string,
-    type: 'exact_match' | 'formula' | 'condition_check',
-    sourceMarkupIds: string[],
-    targetMarkupId: string,
-    ruleExpression: string,
-    description?: string,
-  ): Promise<ComplianceRule> {
-    const rule: ComplianceRule = {
-      id: uuidv4(),
-      name,
-      description: description || '',
-      type,
-      sourceMarkupIds,
-      targetMarkupId,
-      ruleExpression,
-      createdAt: new Date(),
-    };
-
-    await localStorageRepository.saveComplianceRule(rule);
-    return rule;
+  async linkAnnotations(sourceId: string, targetId: string): Promise<void> {
+    console.log(`MOCK: LINKED ANNOTATIONS (${sourceId} <---> ${targetId})`);
+    return Promise.resolve();
   }
 }
 
@@ -345,6 +160,5 @@ class SettingsService {
 
 // シングルトンインスタンスをエクスポート
 export const documentService = new DocumentService();
-export const markupService = new MarkupService();
-export const revisionService = new RevisionService();
+export const annotationService = new AnnotationService();
 export const settingsService = new SettingsService();

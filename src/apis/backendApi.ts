@@ -1,18 +1,5 @@
-import type {
-  DocumentMetadata,
-  DocumentMarkup,
-  DocumentRevision,
-  MarkupBlock,
-  ComplianceRule,
-  AppSettings,
-  ApiResponse,
-} from '../models/schemas';
-import {
-  documentService,
-  markupService,
-  revisionService,
-  settingsService,
-} from '../services/documentService';
+import type { DocumentMetadata, Annotation, AppSettings, ApiResponse } from '../models/schemas';
+import { documentService, annotationService, settingsService } from '../services/documentService';
 
 /**
  * バックエンド統合 API層
@@ -163,137 +150,56 @@ class BackendApi {
     }
   }
 
-  // ============ マークアップ操作 ============
+  // ============ アノテーション操作 ============
 
   /**
-   * 全マークアップを取得
+   * 文書別アノテーションを取得
    */
-  async getAllMarkups(): Promise<ApiResponse<DocumentMarkup[]>> {
+  async getAnnotationsByDocument(documentId: string): Promise<ApiResponse<Annotation[]>> {
     try {
-      const markups = await markupService.getAllMarkups();
+      const annotations = await annotationService.getAnnotationByDocument(documentId);
       return {
         success: true,
-        data: markups,
+        data: annotations,
         timestamp: new Date(),
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to get markups',
+        error: error instanceof Error ? error.message : 'Failed to get annotations',
         timestamp: new Date(),
       };
     }
   }
 
   /**
-   * 文書別マークアップを取得
+   * 文書別アノテーションを保存
    */
-  async getMarkupsByDocument(documentId: string): Promise<ApiResponse<DocumentMarkup[]>> {
-    try {
-      const markups = await markupService.getMarkupsByDocument(documentId);
-      return {
-        success: true,
-        data: markups,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get markups',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップを新規作成
-   */
-  async createMarkup(
+  async saveAnnotationsByDocument(
     documentId: string,
-    pageNumber: number,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    color: string,
-    content?: string,
-    style?: 'highlight' | 'line' | 'box' | 'underline',
-  ): Promise<ApiResponse<DocumentMarkup>> {
+    annotations: Annotation[],
+  ): Promise<ApiResponse<void>> {
     try {
-      const markup = await markupService.createMarkup(
-        documentId,
-        pageNumber,
-        x,
-        y,
-        width,
-        height,
-        color,
-        content,
-        style,
-      );
+      await annotationService.saveAnnotationsByDocument(documentId, annotations);
       return {
         success: true,
-        data: markup,
         timestamp: new Date(),
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to create markup',
+        error: error instanceof Error ? error.message : 'Failed to save annotations',
         timestamp: new Date(),
       };
     }
   }
 
   /**
-   * マークアップを更新
+   * アノテーション同士をリンク
    */
-  async updateMarkup(
-    id: string,
-    updates: Partial<DocumentMarkup>,
-  ): Promise<ApiResponse<DocumentMarkup | null>> {
+  async linkAnnotations(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
     try {
-      const markup = await markupService.updateMarkup(id, updates);
-      return {
-        success: true,
-        data: markup,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to update markup',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップを削除
-   */
-  async deleteMarkup(id: string): Promise<ApiResponse<boolean>> {
-    try {
-      const result = await markupService.deleteMarkup(id);
-      return {
-        success: true,
-        data: result,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete markup',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップ同士をリンク
-   */
-  async linkMarkups(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
-    try {
-      await markupService.linkMarkups(sourceId, targetId);
+      await annotationService.linkAnnotations(sourceId, targetId);
       return {
         success: true,
         timestamp: new Date(),
@@ -301,88 +207,7 @@ class BackendApi {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to link markups',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  // ============ 改訂履歴操作 ============
-
-  /**
-   * 文書の改訂履歴を取得
-   */
-  async getDocumentRevisions(documentId: string): Promise<ApiResponse<DocumentRevision[]>> {
-    try {
-      const revisions = await revisionService.getDocumentRevisions(documentId);
-      return {
-        success: true,
-        data: revisions,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get revisions',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * マークアップブロックを作成
-   */
-  async createMarkupBlock(
-    markupId: string,
-    title: string,
-    content: string,
-    genre?: string,
-  ): Promise<ApiResponse<MarkupBlock>> {
-    try {
-      const block = await revisionService.createMarkupBlock(markupId, title, content, genre);
-      return {
-        success: true,
-        data: block,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create markup block',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * 整合性ルールを作成
-   */
-  async createComplianceRule(
-    name: string,
-    type: 'exact_match' | 'formula' | 'condition_check',
-    sourceMarkupIds: string[],
-    targetMarkupId: string,
-    ruleExpression: string,
-    description?: string,
-  ): Promise<ApiResponse<ComplianceRule>> {
-    try {
-      const rule = await revisionService.createComplianceRule(
-        name,
-        type,
-        sourceMarkupIds,
-        targetMarkupId,
-        ruleExpression,
-        description,
-      );
-      return {
-        success: true,
-        data: rule,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create compliance rule',
+        error: error instanceof Error ? error.message : 'Failed to link annotations',
         timestamp: new Date(),
       };
     }

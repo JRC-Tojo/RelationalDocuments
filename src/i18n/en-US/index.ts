@@ -36,35 +36,6 @@ export default {
     noDocuments: 'No documents available',
     createNew: 'Create New Document',
     deleteConfirm: 'Are you sure you want to delete this document?',
-    viewRevisions: 'View Revision History',
-  },
-
-  // Markup related
-  markup: {
-    title: 'Markup',
-    color: 'Color',
-    style: 'Style',
-    content: 'Content',
-    tags: 'Tags',
-    linkedMarkups: 'Linked Markups',
-    linkMarkup: 'Link Markup',
-    highlight: 'Highlight',
-    line: 'Line',
-    box: 'Box',
-    underline: 'Underline',
-    opacity: 'Opacity',
-    deleteConfirm: 'Are you sure you want to delete this markup?',
-    createNew: 'Create New Markup',
-  },
-
-  // Revision history
-  revision: {
-    title: 'Revision History',
-    revisionNumber: 'Revision Number',
-    changedAt: 'Changed At',
-    changeDescription: 'Change Description',
-    changedPages: 'Changed Pages',
-    noRevisions: 'No revision history',
   },
 
   // View modes
@@ -127,5 +98,28 @@ export default {
     failedToCreateDocument: 'Failed to create document',
     failedToDeleteDocument: 'Failed to delete document',
     failedToUpdateDocument: 'Failed to update document',
+  },
+
+  // PDF Editor related
+  pdfEditor: {
+    title: 'PDF Editor',
+    viewMode: 'View Mode',
+    singlePage: 'Single Page',
+    continuous: 'Continuous',
+    twoPages: 'Two Pages',
+    color: 'Color',
+    page: 'Page',
+    thumbnails: 'Thumbnails',
+    bookmarks: 'Bookmarks',
+    annotations: 'Annotations',
+    addBookmark: 'Add Bookmark',
+    bookmarkTitle: 'Enter bookmark title:',
+    noBookmarks: 'No bookmarks',
+    noAnnotations: 'No annotations',
+    highlight: 'Highlight',
+    line: 'Line',
+    box: 'Box',
+    circle: 'Circle',
+    image: 'Image',
   },
 };

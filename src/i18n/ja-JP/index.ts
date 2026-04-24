@@ -35,35 +35,6 @@ export default {
     noDocuments: 'ドキュメントがありません',
     createNew: '新規ドキュメント',
     deleteConfirm: 'このドキュメントを削除しますか？',
-    viewRevisions: '改訂履歴を表示',
-  },
-
-  // マークアップ関連
-  markup: {
-    title: 'マークアップ',
-    color: '色',
-    style: 'スタイル',
-    content: 'コンテンツ',
-    tags: 'タグ',
-    linkedMarkups: 'リンク済みマークアップ',
-    linkMarkup: 'マークアップをリンク',
-    highlight: 'ハイライト',
-    line: '直線',
-    box: 'ボックス',
-    underline: 'アンダーライン',
-    opacity: '透明度',
-    deleteConfirm: 'このマークアップを削除しますか？',
-    createNew: '新規マークアップ',
-  },
-
-  // 改訂履歴
-  revision: {
-    title: '改訂履歴',
-    revisionNumber: '改訂番号',
-    changedAt: '変更日時',
-    changeDescription: '変更説明',
-    changedPages: '変更ページ',
-    noRevisions: '改訂履歴がありません',
   },
 
   // ビューモード
@@ -126,5 +97,28 @@ export default {
     failedToCreateDocument: 'ドキュメント作成に失敗しました',
     failedToDeleteDocument: 'ドキュメント削除に失敗しました',
     failedToUpdateDocument: 'ドキュメント更新に失敗しました',
+  },
+
+  // PDF エディタ関連
+  pdfEditor: {
+    title: 'PDFエディタ',
+    viewMode: '表示モード',
+    singlePage: '単一ページ',
+    continuous: '連続表示',
+    twoPages: '見開き表示',
+    color: '色',
+    page: 'ページ',
+    thumbnails: 'サムネイル',
+    bookmarks: 'ブックマーク',
+    annotations: 'アノテーション',
+    addBookmark: 'ブックマークを追加',
+    bookmarkTitle: 'ブックマークタイトルを入力してください:',
+    noBookmarks: 'ブックマークはありません',
+    noAnnotations: 'アノテーションはありません',
+    highlight: 'ハイライト',
+    line: '直線',
+    box: 'ボックス',
+    circle: '円',
+    image: '画像',
   },
 };

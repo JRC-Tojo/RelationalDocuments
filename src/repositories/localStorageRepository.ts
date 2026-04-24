@@ -1,13 +1,5 @@
 import { ref } from 'vue';
-import type {
-  DocumentMetadata,
-  DocumentMarkup,
-  DocumentRevision,
-  DocumentFolder,
-  AppSettings,
-  MarkupBlock,
-  ComplianceRule,
-} from '../models/schemas';
+import type { DocumentMetadata, Annotation, DocumentFolder, AppSettings } from '../models/schemas';
 
 /**
  * ローカルストレージリポジトリ
@@ -16,11 +8,9 @@ import type {
 class LocalStorageRepository {
   private dbName = 'RelationalDocumentsDB';
   private documentStore = 'documents';
-  private markupStore = 'markups';
-  private revisionStore = 'revisions';
+  private annotationStore = 'annotations';
   private folderStore = 'folders';
   private settingsStore = 'settings';
-  private blockStore = 'markupBlocks';
   private ruleStore = 'complianceRules';
 
   private db: IDBDatabase | null = null;
@@ -45,20 +35,14 @@ class LocalStorageRepository {
         if (!db.objectStoreNames.contains(this.documentStore)) {
           db.createObjectStore(this.documentStore, { keyPath: 'id' });
         }
-        if (!db.objectStoreNames.contains(this.markupStore)) {
-          db.createObjectStore(this.markupStore, { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains(this.revisionStore)) {
-          db.createObjectStore(this.revisionStore, { keyPath: 'id' });
+        if (!db.objectStoreNames.contains(this.annotationStore)) {
+          db.createObjectStore(this.annotationStore, { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains(this.folderStore)) {
           db.createObjectStore(this.folderStore, { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains(this.settingsStore)) {
           db.createObjectStore(this.settingsStore, { keyPath: 'key' });
-        }
-        if (!db.objectStoreNames.contains(this.blockStore)) {
-          db.createObjectStore(this.blockStore, { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains(this.ruleStore)) {
           db.createObjectStore(this.ruleStore, { keyPath: 'id' });
@@ -141,103 +125,52 @@ class LocalStorageRepository {
   }
 
   /**
-   * マークアップ全件取得
+   * ドキュメント別アノテーション取得
    */
-  async getAllMarkups(): Promise<DocumentMarkup[]> {
+  async getAnnotationsByDocument(documentId: string): Promise<Annotation[]> {
     if (!this.db) await this.initialize();
-    return new Promise<DocumentMarkup[]>((resolve, reject) => {
-      const transaction = this.db!.transaction([this.markupStore], 'readonly');
-      const store = transaction.objectStore(this.markupStore);
-      const request = store.getAll();
+    return new Promise<Annotation[]>((resolve, reject) => {
+      const transaction = this.db!.transaction([this.annotationStore], 'readonly');
+      const store = transaction.objectStore(this.annotationStore);
+      const request = store.get(documentId);
 
       request.onsuccess = () => {
-        resolve(request.result);
+        resolve(request.result?.annotations ?? []);
       };
       request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to get all markups'));
+        reject(new Error(request.error?.message || 'Failed to get all annotations'));
     });
   }
 
   /**
-   * ドキュメント別マークアップ取得
+   * アノテーション保存
    */
-  async getMarkupsByDocument(documentId: string): Promise<DocumentMarkup[]> {
-    const allMarkups = await this.getAllMarkups();
-    return allMarkups.filter((m) => m.documentId === documentId);
-  }
-
-  /**
-   * マークアップ保存
-   */
-  async saveMarkup(markup: DocumentMarkup): Promise<void> {
+  async saveAnnotationsByDocument(documentId: string, annotations: Annotation[]): Promise<void> {
     if (!this.db) await this.initialize();
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.markupStore], 'readwrite');
-      const store = transaction.objectStore(this.markupStore);
-      const request = store.put(markup);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error(request.error?.message || 'Failed to save markup'));
-    });
-  }
-
-  /**
-   * マークアップ削除
-   */
-  async deleteMarkup(id: string): Promise<void> {
-    if (!this.db) await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.markupStore], 'readwrite');
-      const store = transaction.objectStore(this.markupStore);
-      const request = store.delete(id);
+      const transaction = this.db!.transaction([this.annotationStore], 'readwrite');
+      const store = transaction.objectStore(this.annotationStore);
+      const request = store.put(JSON.parse(JSON.stringify({ id: documentId, annotations })));
 
       request.onsuccess = () => resolve();
       request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to delete markup'));
+        reject(new Error(request.error?.message || 'Failed to save annotation'));
     });
   }
 
   /**
-   * 改訂履歴全件取得
+   * アノテーション削除
    */
-  async getAllRevisions(): Promise<DocumentRevision[]> {
-    if (!this.db) await this.initialize();
-    return new Promise<DocumentRevision[]>((resolve, reject) => {
-      const transaction = this.db!.transaction([this.revisionStore], 'readonly');
-      const store = transaction.objectStore(this.revisionStore);
-      const request = store.getAll();
-
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
-      request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to get all revisions'));
-    });
-  }
-
-  /**
-   * ドキュメント別改訂履歴取得
-   */
-  async getRevisionsByDocument(documentId: string): Promise<DocumentRevision[]> {
-    const allRevisions = await this.getAllRevisions();
-    return allRevisions
-      .filter((r) => r.documentId === documentId)
-      .sort((a, b) => b.revisionNumber - a.revisionNumber);
-  }
-
-  /**
-   * 改訂履歴保存
-   */
-  async saveRevision(revision: DocumentRevision): Promise<void> {
+  async deleteAnnotationsByDocument(documentId: string): Promise<void> {
     if (!this.db) await this.initialize();
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.revisionStore], 'readwrite');
-      const store = transaction.objectStore(this.revisionStore);
-      const request = store.put(revision);
+      const transaction = this.db!.transaction([this.annotationStore], 'readwrite');
+      const store = transaction.objectStore(this.annotationStore);
+      const request = store.delete(documentId);
 
       request.onsuccess = () => resolve();
       request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to save revision'));
+        reject(new Error(request.error?.message || 'Failed to delete all annotations in document'));
     });
   }
 
@@ -308,49 +241,15 @@ class LocalStorageRepository {
   }
 
   /**
-   * マークアップブロック保存
-   */
-  async saveMarkupBlock(block: MarkupBlock): Promise<void> {
-    if (!this.db) await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.blockStore], 'readwrite');
-      const store = transaction.objectStore(this.blockStore);
-      const request = store.put(block);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to save markup block'));
-    });
-  }
-
-  /**
-   * 整合性ルール保存
-   */
-  async saveComplianceRule(rule: ComplianceRule): Promise<void> {
-    if (!this.db) await this.initialize();
-    return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction([this.ruleStore], 'readwrite');
-      const store = transaction.objectStore(this.ruleStore);
-      const request = store.put(rule);
-
-      request.onsuccess = () => resolve();
-      request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to save compliance rule'));
-    });
-  }
-
-  /**
    * クリア（テスト用）
    */
   async clear(): Promise<void> {
     if (!this.db) await this.initialize();
     const stores = [
       this.documentStore,
-      this.markupStore,
-      this.revisionStore,
+      this.annotationStore,
       this.folderStore,
       this.settingsStore,
-      this.blockStore,
       this.ruleStore,
     ];
 
