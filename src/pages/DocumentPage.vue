@@ -303,7 +303,7 @@ const $q = useQuasar();
 const api = useBackendApi();
 
 // 特定のドキュメントのレンダリング関数
-type RenderFunc = (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>
+type RenderFunc = (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 const onRender = ref<RenderFunc>();
 
 // ドキュメント情報

@@ -99,7 +99,7 @@ import { startDrawingAnnotation } from './annotationDrawingManager';
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
-  annotations:Annotation[]
+  annotations: Annotation[];
   documentId: string;
 }
 const props = defineProps<Props>();
