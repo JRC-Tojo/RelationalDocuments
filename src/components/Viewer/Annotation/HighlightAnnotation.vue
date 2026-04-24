@@ -35,18 +35,21 @@ const isHovered = ref(false);
 /**
  * ハイライト矩形の設定を計算
  */
-const rectConfig = computed(() => ({
-  id: props.annotation.id, // ← IDを追加
-  x: props.annotation.x,
-  y: props.annotation.y,
-  width: props.annotation.width || 0,
-  height: props.annotation.height || 0,
-  fill: props.annotation.color,
-  opacity: props.annotation.opacity || 0.3,
-  draggable: props.isEditing,
-  stroke: props.isSelected ? '#000000' : 'transparent',
-  strokeWidth: props.isSelected ? 2 : 0,
-}));
+const rectConfig = computed(() => {
+  if (props.annotation.type !== 'highlight') return;
+  return {
+    id: props.annotation.id, // ← IDを追加
+    x: props.annotation.x,
+    y: props.annotation.y,
+    width: props.annotation.width || 0,
+    height: props.annotation.height || 0,
+    fill: props.annotation.color,
+    opacity: props.annotation.opacity || 0.3,
+    draggable: props.isEditing,
+    stroke: props.isSelected ? '#000000' : 'transparent',
+    strokeWidth: props.isSelected ? 2 : 0,
+  };
+});
 
 /**
  * マウスホバー時の処理

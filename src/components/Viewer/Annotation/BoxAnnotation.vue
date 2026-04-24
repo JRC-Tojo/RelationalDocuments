@@ -35,18 +35,21 @@ const isHovered = ref(false);
 /**
  * ボックス矩形の設定を計算
  */
-const rectConfig = computed(() => ({
-  id: props.annotation.id, // ← IDを追加
-  x: props.annotation.x,
-  y: props.annotation.y,
-  width: props.annotation.width || 0,
-  height: props.annotation.height || 0,
-  fill: 'transparent',
-  stroke: props.annotation.color,
-  strokeWidth: props.annotation.strokeWidth || 2,
-  draggable: props.isEditing,
-  opacity: props.annotation.opacity || 1,
-}));
+const rectConfig = computed(() => {
+  if (props.annotation.type !== 'box') return;
+  return {
+    id: props.annotation.id, // ← IDを追加
+    x: props.annotation.x,
+    y: props.annotation.y,
+    width: props.annotation.width || 0,
+    height: props.annotation.height || 0,
+    fill: 'transparent',
+    stroke: props.annotation.color,
+    strokeWidth: props.annotation.strokeWidth || 2,
+    draggable: props.isEditing,
+    opacity: props.annotation.opacity || 1,
+  };
+});
 
 /**
  * マウスホバー時の処理

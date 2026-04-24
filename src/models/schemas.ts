@@ -64,20 +64,13 @@ export type AnnotationType = z.infer<typeof AnnotationTypeSchema>;
 /**
  * アノテーションスキーマ
  */
-export const AnnotationSchema = z.object({
+const AnnotationBaseSchema = z.object({
   id: UUIDSchema,
   documentId: UUIDSchema,
   pageNumber: z.number().int().positive(),
-  type: AnnotationTypeSchema,
   x: z.number(),
   y: z.number(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  x2: z.number().optional(), // 線の終点X座標
-  y2: z.number().optional(), // 線の終点Y座標
-  radius: z.number().optional(), // 円の半径
-  points: z.array(z.number()).optional(), // 汎用座標配列
-  color: z.string(), // hex color code
+  color: z.string(), // 16進カラーコード
   strokeWidth: z.number().optional().default(2),
   opacity: z.number().min(0).max(1).optional(),
   content: z.string().optional(),
@@ -87,6 +80,29 @@ export const AnnotationSchema = z.object({
   tags: z.array(z.string()).optional().default([]),
   relatedDocumentIds: z.array(UUIDSchema).optional().default([]),
 });
+
+export const AnnotationSchema = z.discriminatedUnion('type', [
+  AnnotationBaseSchema.extend({
+    type: z.literal('highlight'),
+    width: z.number().nonnegative(),
+    height: z.number().nonnegative(),
+  }),
+  AnnotationBaseSchema.extend({
+    type: z.literal('box'),
+    width: z.number().nonnegative(),
+    height: z.number().nonnegative(),
+  }),
+  AnnotationBaseSchema.extend({
+    type: z.literal('circle'),
+    radius: z.number().positive(),
+  }),
+  AnnotationBaseSchema.extend({
+    type: z.literal('line'),
+    x2: z.number(),
+    y2: z.number(),
+    points: z.array(z.number()).length(4),
+  }),
+]);
 
 export type Annotation = z.infer<typeof AnnotationSchema>;
 

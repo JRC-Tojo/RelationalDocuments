@@ -59,11 +59,10 @@ function createAnnotation(
   const deltaX = endX - startX;
   const deltaY = endY - startY;
 
-  const baseAnnotation: Annotation = {
+  const baseAnnotation = {
     id: uuidv4(),
     documentId: documentId,
     pageNumber: pageNumber,
-    type: drawingType,
     x: Math.min(startX, endX),
     y: Math.min(startY, endY),
     color: color,
@@ -78,6 +77,7 @@ function createAnnotation(
   if (drawingType === 'highlight' || drawingType === 'box') {
     return {
       ...baseAnnotation,
+      type: drawingType,
       width: Math.abs(deltaX),
       height: Math.abs(deltaY),
       opacity: drawingType === 'highlight' ? 0.3 : 1,
@@ -86,6 +86,7 @@ function createAnnotation(
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;
     return {
       ...baseAnnotation,
+      type: drawingType,
       x: startX + deltaX / 2,
       y: startY + deltaY / 2,
       radius,
@@ -93,6 +94,7 @@ function createAnnotation(
   } else if (drawingType === 'line') {
     return {
       ...baseAnnotation,
+      type: drawingType,
       x: startX,
       y: startY,
       x2: endX,

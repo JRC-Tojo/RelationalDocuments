@@ -35,6 +35,7 @@ const isHovered = ref(false);
  * 線の設定を計算
  */
 const lineConfig = computed(() => {
+  if (props.annotation.type !== 'line') return;
   const points = props.annotation.points || [
     0,
     0,

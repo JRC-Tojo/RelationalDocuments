@@ -35,17 +35,20 @@ const isHovered = ref(false);
 /**
  * 円の設定を計算
  */
-const circleConfig = computed(() => ({
-  id: props.annotation.id, // ← IDを追加
-  x: props.annotation.x,
-  y: props.annotation.y,
-  radius: props.annotation.radius || 20,
-  fill: 'transparent',
-  stroke: props.annotation.color,
-  strokeWidth: props.annotation.strokeWidth || 2,
-  draggable: props.isEditing,
-  opacity: props.annotation.opacity || 1,
-}));
+const circleConfig = computed(() => {
+  if (props.annotation.type !== 'circle') return;
+  return {
+    id: props.annotation.id, // ← IDを追加
+    x: props.annotation.x,
+    y: props.annotation.y,
+    radius: props.annotation.radius || 20,
+    fill: 'transparent',
+    stroke: props.annotation.color,
+    strokeWidth: props.annotation.strokeWidth || 2,
+    draggable: props.isEditing,
+    opacity: props.annotation.opacity || 1,
+  };
+});
 
 /**
  * マウスホバー時の処理
