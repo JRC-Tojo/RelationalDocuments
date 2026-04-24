@@ -42,8 +42,8 @@ const rectConfig = computed(() => {
     id: props.annotation.id, // ← IDを追加
     x: props.annotation.x,
     y: props.annotation.y,
-    width: props.annotation.width || 0,
-    height: props.annotation.height || 0,
+    width: props.annotation.width ?? 0,
+    height: props.annotation.height ?? 0,
     fill: 'transparent',
     stroke: props.annotation.color,
     strokeWidth: props.annotation.strokeWidth || 2,

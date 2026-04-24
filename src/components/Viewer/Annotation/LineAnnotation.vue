@@ -40,8 +40,8 @@ const lineConfig = computed(() => {
   const points = props.annotation.points || [
     0,
     0,
-    props.annotation.x2 || 0,
-    props.annotation.y2 || 0,
+    props.annotation.x2 ?? 0,
+    props.annotation.y2 ?? 0,
   ];
   return {
     id: props.annotation.id, // ← IDを追加
