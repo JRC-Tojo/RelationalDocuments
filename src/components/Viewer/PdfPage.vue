@@ -5,8 +5,8 @@
     <AnnotationLayer
       v-if="canvasRendered"
       :document-id="documentId"
+      :annotations="currentPageAnnotations"
       v-model:page="page"
-      v-model:annotations="currentPageAnnotations"
       v-model:scale="scale"
       v-model:canvas-size="canvasSize"
       v-model:drawing-type="drawingType"
