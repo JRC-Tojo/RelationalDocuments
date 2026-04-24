@@ -61,11 +61,13 @@ function addAnnotation(annotation: Annotation) {
 
 function updateAnnotation(annotation: Annotation) {
   const targetIdx = annotations.value.findIndex((a) => a.id === annotation.id);
+  if (targetIdx === -1) return;
   annotations.value[targetIdx] = annotation;
 }
 
 function deleteAnnotation(id: string) {
   const targetIdx = annotations.value.findIndex((a) => a.id === id);
+  if (targetIdx === -1) return;
   annotations.value.splice(targetIdx, 1);
 }
 // ================= TODO: 暫定実装（本来はコマンド化して呼び出し）=================

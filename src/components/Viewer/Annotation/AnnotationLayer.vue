@@ -99,13 +99,13 @@ import { startDrawingAnnotation } from './annotationDrawingManager';
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
+  annotations:Annotation[]
   documentId: string;
 }
-
 const props = defineProps<Props>();
+
 const page = defineModel<number>('page', { required: true });
 const canvasSize = defineModel<{ width: number; height: number }>('canvasSize', { required: true });
-const annotations = defineModel<Annotation[]>('annotations', { required: true });
 const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 

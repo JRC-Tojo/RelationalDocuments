@@ -86,10 +86,7 @@ class DocumentService {
    */
   async deleteDocument(id: string): Promise<boolean> {
     // アノテーションも一緒に削除
-    const annotations = await localStorageRepository.getAnnotationsByDocument(id);
-    for (const annotation of annotations) {
-      await localStorageRepository.deleteAnnotation(annotation.id);
-    }
+    await localStorageRepository.deleteAnnotationsByDocument(id);
 
     await localStorageRepository.deleteDocument(id);
     await this.getAllDocuments();

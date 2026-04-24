@@ -60,6 +60,8 @@ export async function renderPage(
     const dpr = window.devicePixelRatio || 1;
     canvas.width = viewport.width * dpr;
     canvas.height = viewport.height * dpr;
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
 
     // レンダリングコンテキストをDPRに合わせてスケール
     context.scale(dpr, dpr);

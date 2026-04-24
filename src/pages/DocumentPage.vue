@@ -303,7 +303,8 @@ const $q = useQuasar();
 const api = useBackendApi();
 
 // 特定のドキュメントのレンダリング関数
-let onRender = undefined;
+type RenderFunc = (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>
+const onRender = ref<RenderFunc>();
 
 // ドキュメント情報
 const document = ref<DocumentMetadata | null>(null);
@@ -395,7 +396,7 @@ async function initializePdf() {
     pageCount.value = loadDocument.numPages;
 
     // レンダリング関数を設定
-    onRender = async (
+    onRender.value = async (
       pageNumber: number,
       canvas: HTMLCanvasElement,
       scale: number,

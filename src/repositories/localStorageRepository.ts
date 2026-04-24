@@ -135,7 +135,7 @@ class LocalStorageRepository {
       const request = store.get(documentId);
 
       request.onsuccess = () => {
-        resolve(request.result['annotations']);
+        resolve(request.result?.annotations ?? []);
       };
       request.onerror = () =>
         reject(new Error(request.error?.message || 'Failed to get all annotations'));
@@ -161,16 +161,16 @@ class LocalStorageRepository {
   /**
    * アノテーション削除
    */
-  async deleteAnnotation(id: string): Promise<void> {
+  async deleteAnnotationsByDocument(documentId: string): Promise<void> {
     if (!this.db) await this.initialize();
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.annotationStore], 'readwrite');
       const store = transaction.objectStore(this.annotationStore);
-      const request = store.delete(id);
+      const request = store.delete(documentId);
 
       request.onsuccess = () => resolve();
       request.onerror = () =>
-        reject(new Error(request.error?.message || 'Failed to delete annotation'));
+        reject(new Error(request.error?.message || 'Failed to delete all annotations in document'));
     });
   }
 
