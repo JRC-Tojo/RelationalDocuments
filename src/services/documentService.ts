@@ -122,8 +122,8 @@ class AnnotationService {
    * マークアップ同士をリンク
    */
   async linkAnnotations(sourceId: string, targetId: string): Promise<void> {
-    console.log(`MOCK: LINKED ANNOTATIONS (${sourceId} <---> ${targetId})`)
-    return Promise.resolve()
+    console.log(`MOCK: LINKED ANNOTATIONS (${sourceId} <---> ${targetId})`);
+    return Promise.resolve();
   }
 }
 

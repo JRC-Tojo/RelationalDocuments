@@ -45,7 +45,7 @@ const currentPageAnnotations = computed(() => {
 
 async function render(scale: number) {
   if (canvas.value === null) return;
-  await props.onRender(page.value, canvas.value, scale)
+  await props.onRender(page.value, canvas.value, scale);
   canvasSize.value = {
     width: canvas.value.width,
     height: canvas.value.height,
