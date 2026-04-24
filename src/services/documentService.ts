@@ -85,7 +85,7 @@ class DocumentService {
    * 文書を削除
    */
   async deleteDocument(id: string): Promise<boolean> {
-    // マークアップも一緒に削除
+    // アノテーションも一緒に削除
     const annotations = await localStorageRepository.getAnnotationsByDocument(id);
     for (const annotation of annotations) {
       await localStorageRepository.deleteAnnotation(annotation.id);
@@ -98,28 +98,28 @@ class DocumentService {
 }
 
 /**
- * マークアップ管理サービス
+ * アノテーション管理サービス
  * マーカーのCRUD操作と関連性管理を担当
  */
 class AnnotationService {
   private annotations = ref<Annotation[]>([]);
 
   /**
-   * 文書別マークアップを取得
+   * 文書別アノテーションを取得
    */
   async getAnnotationByDocument(documentId: string): Promise<Annotation[]> {
     return await localStorageRepository.getAnnotationsByDocument(documentId);
   }
 
   /**
-   * 文書別マークアップを保存
+   * 文書別アノテーションを保存
    */
   async saveAnnotationsByDocument(documentId: string, annotations: Annotation[]): Promise<void> {
     await localStorageRepository.saveAnnotationsByDocument(documentId, annotations);
   }
 
   /**
-   * マークアップ同士をリンク
+   * アノテーション同士をリンク
    */
   async linkAnnotations(sourceId: string, targetId: string): Promise<void> {
     console.log(`MOCK: LINKED ANNOTATIONS (${sourceId} <---> ${targetId})`);

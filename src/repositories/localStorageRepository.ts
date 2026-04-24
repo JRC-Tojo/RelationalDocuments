@@ -125,7 +125,7 @@ class LocalStorageRepository {
   }
 
   /**
-   * ドキュメント別マークアップ取得
+   * ドキュメント別アノテーション取得
    */
   async getAnnotationsByDocument(documentId: string): Promise<Annotation[]> {
     if (!this.db) await this.initialize();
@@ -143,7 +143,7 @@ class LocalStorageRepository {
   }
 
   /**
-   * マークアップ保存
+   * アノテーション保存
    */
   async saveAnnotationsByDocument(documentId: string, annotations: Annotation[]): Promise<void> {
     if (!this.db) await this.initialize();
@@ -159,7 +159,7 @@ class LocalStorageRepository {
   }
 
   /**
-   * マークアップ削除
+   * アノテーション削除
    */
   async deleteAnnotation(id: string): Promise<void> {
     if (!this.db) await this.initialize();

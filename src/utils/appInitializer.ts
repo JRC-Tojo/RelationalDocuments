@@ -81,7 +81,7 @@ export async function createDemoData() {
     if (response.success && response.data) {
       console.log(`✓ "${doc.title}" を作成しました`);
 
-      // 各ドキュメントに複数のマークアップを追加
+      // 各ドキュメントに複数のアノテーションを追加
       const annotationCount = Math.floor(Math.random() * 3) + 2;
       const colors: string[] = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
 

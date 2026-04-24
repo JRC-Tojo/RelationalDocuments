@@ -150,10 +150,10 @@ class BackendApi {
     }
   }
 
-  // ============ マークアップ操作 ============
+  // ============ アノテーション操作 ============
 
   /**
-   * 文書別マークアップを取得
+   * 文書別アノテーションを取得
    */
   async getAnnotationsByDocument(documentId: string): Promise<ApiResponse<Annotation[]>> {
     try {
@@ -173,7 +173,7 @@ class BackendApi {
   }
 
   /**
-   * 文書別マークアップを保存
+   * 文書別アノテーションを保存
    */
   async saveAnnotationsByDocument(
     documentId: string,
@@ -195,7 +195,7 @@ class BackendApi {
   }
 
   /**
-   * マークアップ同士をリンク
+   * アノテーション同士をリンク
    */
   async linkAnnotations(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
     try {
