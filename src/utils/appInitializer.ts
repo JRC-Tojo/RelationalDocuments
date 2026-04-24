@@ -100,7 +100,7 @@ export async function createDemoData() {
             width: 150,
             height: 80,
             color: color,
-            opacity: 0,
+            opacity: 0.3,
             createdAt: dayjs().toISOString(),
             updatedAt: dayjs().toISOString(),
             linkedAnnotationIds: [],
