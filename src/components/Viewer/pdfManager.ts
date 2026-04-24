@@ -56,8 +56,13 @@ export async function renderPage(
       throw new Error('Canvas context not available');
     }
 
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+    // 高解像度ディスプレイ（Retina等）対応
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = viewport.width * dpr;
+    canvas.height = viewport.height * dpr;
+
+    // レンダリングコンテキストをDPRに合わせてスケール
+    context.scale(dpr, dpr);
 
     const renderContext = {
       canvasContext: context,

@@ -153,24 +153,19 @@
         >
           <!-- 単一ページまたは見開き表示 -->
           <div v-if="viewMode === 'single'" class="pages-container">
-            <div
-              class="page-wrapper"
-              :style="{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }"
-            >
-              <PdfPage
-                :document-id="documentId"
-                v-model:page="currentPage"
-                v-model:doc="pdfDocument"
-                v-model:annotations="annotations"
-                v-model:drawing-type="selectedTool"
-                v-model:scale="scale"
-              />
-            </div>
+            <PdfPage
+              :document-id="documentId"
+              v-model:page="currentPage"
+              v-model:doc="pdfDocument"
+              v-model:annotations="annotations"
+              v-model:drawing-type="selectedTool"
+              v-model:scale="scale"
+            />
           </div>
 
           <!-- 連続表示 -->
           <div v-if="viewMode === 'continuous'" class="continuous-pages">
-            <div v-for="page in pageCount" :key="page" class="page-wrapper q-mb-md">
+            <div v-for="page in pageCount" :key="page" class="q-mb-md">
               <PdfPage
                 :document-id="documentId"
                 :page="page"
@@ -698,13 +693,6 @@ function formatDate(date: Date | string): string {
     overflow-y: auto;
     border-left: 1px solid #e0e0e0;
   }
-}
-
-.page-wrapper {
-  position: relative;
-  display: inline-block;
-  width: fit-content;
-  height: fit-content;
 }
 
 .color-swatch {

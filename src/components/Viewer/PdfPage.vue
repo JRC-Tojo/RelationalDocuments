@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="page-wrapper"
-    :style="{ transform: `scale(${scale})`, transformOrigin: 'top center' }"
-  >
+  <div class="page-wrapper">
     <canvas ref="canvasRef" class="pdf-canvas" />
     <!-- Konvaアノテーションレイヤー -->
     <AnnotationLayer
@@ -42,9 +39,7 @@ const $q = useQuasar();
 
 const canvas = useTemplateRef('canvasRef');
 const canvasRendered = ref(false);
-const canvasSize = computed(() => {
-  return { width: canvas.value?.width || 0, height: canvas.value?.height || 0 };
-});
+const canvasSize = ref({ width: 0, height: 0, scaleX: 1, scaleY: 1 });
 
 const currentPageAnnotations = computed(() => {
   return annotations.value.filter((a) => a.pageNumber === page.value);
@@ -53,6 +48,12 @@ const currentPageAnnotations = computed(() => {
 async function render(scale: number) {
   if (canvas.value === null) return;
   await renderPage(doc.value, page.value, canvas.value, scale);
+  canvasSize.value = {
+    width: canvas.value.width,
+    height: canvas.value.height,
+    scaleX: scale,
+    scaleY: scale,
+  };
 }
 
 // ================= TODO: 暫定実装（本来はコマンド化して呼び出し）=================
@@ -94,5 +95,9 @@ watch(page, () => void render(scale.value));
   display: block;
   background: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.page-wrapper {
+  position: relative;
 }
 </style>
