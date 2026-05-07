@@ -1,66 +1,70 @@
 <template>
-  <q-layout view="hHh Lpr lFf">
-    <q-header elevated class="bg-primary text-white">
-      <q-toolbar>
-        <q-btn
-          flat
-          dense
-          round
-          icon="menu"
-          :aria-label="$t('button.close')"
-          @click="toggleLeftDrawer"
-        />
-
-        <q-toolbar-title>{{ $t('title.documents') }}</q-toolbar-title>
-
-        <q-btn flat dense round icon="settings" to="/settings" />
-      </q-toolbar>
+  <q-layout view="hHh LpR fFf">
+    <q-header>
+      <q-bar>
+        <q-toolbar-title class="text-center">{{ $t('title.app') }}</q-toolbar-title>
+      </q-bar>
     </q-header>
 
-    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
-      <q-list>
-        <q-item-label header>{{ $t('title.documents') }}</q-item-label>
+    <q-splitter v-model="splitModel" unit="px" emit-immediately :class="splitterClass">
+      <template #before>
+        <q-drawer v-model="showLeftDrawer" :width="drawerWidth" show-if-above bordered :breakpoint="0" class="row">
+          <q-tabs v-model="selectedTab" vertical switch-indicator>
+            <q-tab name="docs" icon="library_books" />
+            <q-tab name="exts" icon="extension" />
+            <q-tab name="settings" icon="settings" />
+          </q-tabs>
 
-        <q-item clickable to="/" exact>
-          <q-item-section avatar>
-            <q-icon name="description" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>{{ $t('document.title') }}</q-item-label>
-          </q-item-section>
-        </q-item>
+          <q-separator vertical />
+    
+          <q-tab-panels v-model="selectedTab" class="panels">
+            <q-tab-panel name="docs">
+              This is Docs
+            </q-tab-panel>
+            <q-tab-panel name="exts">
+              This is Extensions
+            </q-tab-panel>
+            <q-tab-panel name="settings">
+              This is Settings
+            </q-tab-panel>
+          </q-tab-panels>
+        </q-drawer>
+      </template>
 
-        <q-separator />
-
-        <q-item-label header>{{ $t('title.settings') }}</q-item-label>
-
-        <q-item clickable to="/settings">
-          <q-item-section avatar>
-            <q-icon name="settings" />
-          </q-item-section>
-          <q-item-section>
-            <q-item-label>{{ $t('settings.title') }}</q-item-label>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-drawer>
-
-    <q-page-container>
-      <router-view />
-    </q-page-container>
+      <template #after>
+        <q-page-container :style="compPadding">
+          <router-view />
+        </q-page-container>
+      </template>
+    </q-splitter>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 const { t: $t } = useI18n();
-const leftDrawerOpen = ref(false);
+const showLeftDrawer = ref(true);
+const selectedTab = ref('docs')
 
-const toggleLeftDrawer = () => {
-  leftDrawerOpen.value = !leftDrawerOpen.value;
-};
+const splitModel = ref(300)
+const drawerWidth = computed(() => splitModel.value + 1)
+
+const splitterClass = computed(() => !showLeftDrawer.value ? 'splitt' : '')
+const compPadding = computed(() => showLeftDrawer.value ? { paddingLeft: '0px' } : '')
 </script>
 
-<style scoped></style>
+<style scoped lang="scss">
+.splitt {
+  .q-splitter__before {
+    transition: width 0.2s ease-out;
+    width: 0px !important;
+  }
+}
+
+.panels {
+  flex: 1 1 0;
+  overflow-x: hidden;
+}
+</style>

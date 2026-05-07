@@ -1,6 +1,7 @@
 export default {
   // ページタイトル
   title: {
+    app: '関係性文書アプリ',
     documents: 'ドキュメント一覧',
     viewer: 'ドキュメント表示',
     settings: '設定',

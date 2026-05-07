@@ -2,6 +2,7 @@
 export default {
   // Page titles
   title: {
+    app: 'Relational Documents',
     documents: 'Documents',
     viewer: 'Document Viewer',
     settings: 'Settings',
