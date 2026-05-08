@@ -21,7 +21,7 @@ export const useEditorStore = defineStore('editor', {
     visibleAnnotations: true,
 
     // TODO: タイルモードに対応
-    tileMode: 'none' as string
+    tileMode: 'none' as string,
   }),
 
   actions: {

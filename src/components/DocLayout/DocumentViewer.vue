@@ -44,8 +44,8 @@ interface Prop {
   pageCount: number;
   viewMode: ViewMode;
   onRender: RenderFunc;
-  onZoomIn: () => void
-  onZoomOut: () => void
+  onZoomIn: () => void;
+  onZoomOut: () => void;
 }
 const prop = defineProps<Prop>();
 

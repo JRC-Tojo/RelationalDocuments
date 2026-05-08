@@ -1,4 +1,4 @@
-import type { DocumentId } from "./schemas";
+import type { DocumentId } from './schemas';
 
 /**
  * ツールアクション型

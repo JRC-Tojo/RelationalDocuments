@@ -82,9 +82,7 @@
         :key="side"
         v-model="docpageStore.tabs[side]"
       /> -->
-      <doc-tabs-page
-        v-model="docpageStore.tabs.ul"
-      />
+      <doc-tabs-page v-model="docpageStore.tabs.ul" />
     </div>
   </q-page>
 </template>

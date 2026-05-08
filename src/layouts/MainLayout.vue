@@ -8,7 +8,14 @@
 
     <q-splitter v-model="splitModel" unit="px" emit-immediately :class="splitterClass">
       <template #before>
-        <q-drawer v-model="showLeftDrawer" :width="drawerWidth" show-if-above bordered :breakpoint="0" class="row">
+        <q-drawer
+          v-model="showLeftDrawer"
+          :width="drawerWidth"
+          show-if-above
+          bordered
+          :breakpoint="0"
+          class="row"
+        >
           <q-tabs v-model="selectedTab" vertical switch-indicator>
             <q-tab name="docs" icon="library_books" />
             <q-tab name="exts" icon="extension" />
@@ -16,17 +23,11 @@
           </q-tabs>
 
           <q-separator vertical />
-    
+
           <q-tab-panels v-model="selectedTab" class="panels">
-            <q-tab-panel name="docs">
-              This is Docs
-            </q-tab-panel>
-            <q-tab-panel name="exts">
-              This is Extensions
-            </q-tab-panel>
-            <q-tab-panel name="settings">
-              This is Settings
-            </q-tab-panel>
+            <q-tab-panel name="docs"> This is Docs </q-tab-panel>
+            <q-tab-panel name="exts"> This is Extensions </q-tab-panel>
+            <q-tab-panel name="settings"> This is Settings </q-tab-panel>
           </q-tab-panels>
         </q-drawer>
       </template>
@@ -46,13 +47,13 @@ import { useI18n } from 'vue-i18n';
 
 const { t: $t } = useI18n();
 const showLeftDrawer = ref(true);
-const selectedTab = ref('docs')
+const selectedTab = ref('docs');
 
-const splitModel = ref(300)
-const drawerWidth = computed(() => splitModel.value + 1)
+const splitModel = ref(300);
+const drawerWidth = computed(() => splitModel.value + 1);
 
-const splitterClass = computed(() => !showLeftDrawer.value ? 'splitt' : '')
-const compPadding = computed(() => showLeftDrawer.value ? { paddingLeft: '0px' } : '')
+const splitterClass = computed(() => (!showLeftDrawer.value ? 'splitt' : ''));
+const compPadding = computed(() => (showLeftDrawer.value ? { paddingLeft: '0px' } : ''));
 </script>
 
 <style scoped lang="scss">

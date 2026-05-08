@@ -280,4 +280,4 @@ export class DocPageService {
   }
 }
 
-export const docPageService = new DocPageService()
+export const docPageService = new DocPageService();

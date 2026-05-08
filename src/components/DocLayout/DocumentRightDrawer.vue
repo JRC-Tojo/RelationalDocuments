@@ -79,8 +79,8 @@
 import { computed, ref } from 'vue';
 import type { Annotation } from 'src/models/schemas';
 
-const drawerOpen = defineModel<boolean>('drawerOpen', { required: true })
-const selectedAnnotations = defineModel<Annotation[]>('selectedAnt', { required: true })
+const drawerOpen = defineModel<boolean>('drawerOpen', { required: true });
+const selectedAnnotations = defineModel<Annotation[]>('selectedAnt', { required: true });
 
 // アノテーションのプロパティ（デモ用）
 const annotationColor = ref('#000000');

@@ -5,8 +5,8 @@ import { z } from 'zod';
  */
 export const UUIDSchema = z.string().uuid();
 
-export const DocumentId = z.uuidv4().brand('documentId')
-export type DocumentId = z.infer<typeof DocumentId>
+export const DocumentId = z.uuidv4().brand('documentId');
+export type DocumentId = z.infer<typeof DocumentId>;
 
 /**
  * 文書メタデータスキーマ
@@ -113,13 +113,13 @@ export type Annotation = z.infer<typeof AnnotationSchema>;
  * API レスポンススキーマ（汎用）
  */
 type ApiResponseSuccess<T> = {
-  success: true,
-  timestamp: Date,
-} & (T extends void ? object : { data: T });;
+  success: true;
+  timestamp: Date;
+} & (T extends void ? object : { data: T });
 type ApiResponseFail = {
-  success: false,
-  error: string,
-  timestamp: Date,
+  success: false;
+  error: string;
+  timestamp: Date;
 };
 
-export type ApiResponse<T = unknown> = ApiResponseSuccess<T> | ApiResponseFail
+export type ApiResponse<T = unknown> = ApiResponseSuccess<T> | ApiResponseFail;

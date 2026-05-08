@@ -193,8 +193,8 @@ const goToLastPage = (): void => {
 // ================================
 
 onMounted(async () => {
-  await loadDocument(documentId.value)
-})
+  await loadDocument(documentId.value);
+});
 
 watch(documentId, async (newDocId) => {
   clearDocument();

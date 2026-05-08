@@ -16,10 +16,10 @@ export async function initializeApp() {
   // アプリの初期化
   await api.initialize();
 
-  const editorStore = useEditorStore()
-  const tools = await api.getEditTools()
+  const editorStore = useEditorStore();
+  const tools = await api.getEditTools();
   if (tools.success) {
-    editorStore.initStore(tools.data)
+    editorStore.initStore(tools.data);
   }
 }
 
