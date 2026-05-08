@@ -9,7 +9,6 @@
       v-model:page="page"
       v-model:scale="scale"
       v-model:canvas-size="canvasSize"
-      v-model:drawing-type="drawingType"
       @add-annotation="addAnnotation"
       @update-annotation="updateAnnotation"
       @delete-annotation="deleteAnnotation"
@@ -21,16 +20,15 @@
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import AnnotationLayer from './Annotation/AnnotationLayer.vue';
 import { debounce, useQuasar } from 'quasar';
-import type { Annotation, AnnotationType } from 'src/models/schemas';
+import type { Annotation, DocumentId } from 'src/models/schemas';
 
 interface Props {
-  documentId: string;
+  documentId: DocumentId;
   onRender: (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 }
 const props = defineProps<Props>();
 const page = defineModel<number>('page', { required: true });
 const annotations = defineModel<Annotation[]>('annotations', { required: true });
-const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const $q = useQuasar();

@@ -4,7 +4,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { Annotation, AnnotationType } from 'src/models/schemas';
+import type { Annotation, AnnotationType, DocumentId } from 'src/models/schemas';
 import dayjs from 'dayjs';
 
 /**
@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
  * 終了時に呼び出すことで新規アノテーションオブジェクトを取得する関数を返す
  */
 export function startDrawingAnnotation(
-  documentId: string,
+  documentId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
@@ -25,7 +25,7 @@ export function startDrawingAnnotation(
 }
 
 function endDrawingAnnotation(
-  documentId: string,
+  documentId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
@@ -48,7 +48,7 @@ function endDrawingAnnotation(
 }
 
 function createAnnotation(
-  documentId: string,
+  docId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
@@ -62,7 +62,7 @@ function createAnnotation(
 
   const baseAnnotation = {
     id: uuidv4(),
-    documentId: documentId,
+    documentId: docId,
     pageNumber: pageNumber,
     x: Math.min(startX, endX),
     y: Math.min(startY, endY),

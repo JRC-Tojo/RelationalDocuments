@@ -122,4 +122,22 @@ export default {
     circle: '円',
     image: '画像',
   },
+
+  // ドキュメントページ関連
+  documentInfo: 'ドキュメント情報',
+  pagesThumbnails: 'ページサムネイル',
+  selectAnnotationForProperties: 'プロパティを表示するにはアノテーションを選択してください',
+  annotationProperties: 'アノテーションプロパティ',
+  type: '型',
+  strokeWidth: '線の太さ',
+  opacity: '透明度',
+  relations: '関係性',
+  addRelation: '関係性を追加',
+  closeOthers: 'その他を閉じる',
+  closeRight: '右側を閉じる',
+  closeAll: 'すべて閉じる',
+  pin: 'ピン',
+  unpin: 'ピンを解除',
+  noDocumentOpen: 'ドキュメントが開いていません',
+  tileMode: 'タイルモード',
 };

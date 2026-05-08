@@ -1,5 +1,7 @@
+import type { IDocTool } from 'src/models/docPage';
 import type { DocumentMetadata, Annotation, AppSettings, ApiResponse } from '../models/schemas';
 import { documentService, annotationService, settingsService } from '../services/documentService';
+import { docPageService } from 'src/services/docPageService';
 
 /**
  * バックエンド統合 API層
@@ -249,6 +251,29 @@ class BackendApi {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to save settings',
+        timestamp: new Date(),
+      };
+    }
+  }
+
+  // ============ 画面操作 ============
+
+  /**
+   * 表示する編集ツールを取得
+   * プラグインやカスタムとして保存済みのツールをまとめて渡す
+   */
+  async getEditTools(): Promise<ApiResponse<IDocTool[]>> {
+    try {
+      const tools = docPageService.getMainTools();
+      return Promise.resolve({
+        success: true,
+        timestamp: new Date(),
+        data: tools,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get edit tools',
         timestamp: new Date(),
       };
     }

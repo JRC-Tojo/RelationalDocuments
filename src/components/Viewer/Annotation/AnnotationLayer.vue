@@ -90,23 +90,24 @@ import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
-import type { Annotation, AnnotationType } from 'src/models/schemas';
+import type { Annotation, AnnotationType, DocumentId } from 'src/models/schemas';
 import type Konva from 'konva';
 import type { Node, NodeConfig } from 'konva/lib/Node';
 import { startDrawingAnnotation } from './annotationDrawingManager';
+import { useEditorStore } from 'src/stores/editorStore';
 
 // Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
   annotations: Annotation[];
-  documentId: string;
+  documentId: DocumentId;
 }
 const props = defineProps<Props>();
+const editorStore = useEditorStore();
 
 const page = defineModel<number>('page', { required: true });
 const canvasSize = defineModel<{ width: number; height: number }>('canvasSize', { required: true });
-const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const emit = defineEmits<{
@@ -133,7 +134,8 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
-const isEditing = computed(() => drawingType.value !== 'default');
+const drawingType = computed(() => editorStore.currentTools);
+const isEditing = computed(() => !['hand', 'pointer'].includes(drawingType.value));
 const cursorStyle = computed(() => (isEditing.value ? 'crosshair' : 'default'));
 const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
@@ -148,9 +150,7 @@ let endDrawingAnnotation: ((endX: number, endY: number) => Annotation | null) | 
  */
 function handleMouseDown(e: KonvaMouseEvent) {
   // 編集モードが有効でない場合はスキップ
-  if (drawingType.value === 'default') {
-    return;
-  }
+  if (!isEditing.value) return;
 
   // 既存の図形をクリックした場合はスキップ
   if (e.target !== e.target.getStage()) {
@@ -174,7 +174,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
     page.value,
     adjustedPos.x,
     adjustedPos.y,
-    drawingType.value,
+    drawingType.value as AnnotationType,
   );
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }

@@ -123,4 +123,22 @@ export default {
     circle: 'Circle',
     image: 'Image',
   },
+
+  // Document page related
+  documentInfo: 'Document Information',
+  pagesThumbnails: 'Page Thumbnails',
+  selectAnnotationForProperties: 'Select an annotation to display properties',
+  annotationProperties: 'Annotation Properties',
+  type: 'Type',
+  strokeWidth: 'Stroke Width',
+  opacity: 'Opacity',
+  relations: 'Relations',
+  addRelation: 'Add Relation',
+  closeOthers: 'Close Others',
+  closeRight: 'Close Right',
+  closeAll: 'Close All',
+  pin: 'Pin',
+  unpin: 'Unpin',
+  noDocumentOpen: 'No document is open',
+  tileMode: 'Tile Mode',
 };

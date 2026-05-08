@@ -5,11 +5,14 @@ import { z } from 'zod';
  */
 export const UUIDSchema = z.string().uuid();
 
+export const DocumentId = z.uuidv4().brand('documentId')
+export type DocumentId = z.infer<typeof DocumentId>
+
 /**
  * 文書メタデータスキーマ
  */
 export const DocumentMetadataSchema = z.object({
-  id: UUIDSchema,
+  id: DocumentId,
   title: z.string().min(1),
   filePath: z.string(),
   fileName: z.string(),
@@ -34,7 +37,7 @@ export const DocumentFolderSchema = z.object({
   id: UUIDSchema,
   name: z.string().min(1),
   parentId: UUIDSchema.optional(),
-  documentIds: z.array(UUIDSchema).optional().default([]),
+  documentIds: z.array(DocumentId).optional().default([]),
   subFolderIds: z.array(UUIDSchema).optional().default([]),
   createdAt: z.date(),
 });
@@ -66,7 +69,7 @@ export type AnnotationType = z.infer<typeof AnnotationTypeSchema>;
  */
 const AnnotationBaseSchema = z.object({
   id: UUIDSchema,
-  documentId: UUIDSchema,
+  documentId: DocumentId,
   pageNumber: z.number().int().positive(),
   x: z.number(),
   y: z.number(),
@@ -78,7 +81,7 @@ const AnnotationBaseSchema = z.object({
   updatedAt: z.iso.datetime(),
   linkedAnnotationIds: z.array(UUIDSchema).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
-  relatedDocumentIds: z.array(UUIDSchema).optional().default([]),
+  relatedDocumentIds: z.array(DocumentId).optional().default([]),
 });
 
 export const AnnotationSchema = z.discriminatedUnion('type', [
@@ -109,13 +112,14 @@ export type Annotation = z.infer<typeof AnnotationSchema>;
 /**
  * API レスポンススキーマ（汎用）
  */
-export const ApiResponseSchema = z.object({
-  success: z.boolean(),
-  data: z.unknown().optional(),
-  error: z.string().optional(),
-  timestamp: z.date(),
-});
-
-export type ApiResponse<T = unknown> = z.infer<typeof ApiResponseSchema> & {
-  data?: T;
+type ApiResponseSuccess<T> = {
+  success: true,
+  timestamp: Date,
+} & (T extends void ? object : { data: T });;
+type ApiResponseFail = {
+  success: false,
+  error: string,
+  timestamp: Date,
 };
+
+export type ApiResponse<T = unknown> = ApiResponseSuccess<T> | ApiResponseFail
