@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AnnotationTool } from './docPage';
 
 /**
  * UUID型定義
@@ -47,22 +48,21 @@ export type DocumentFolder = z.infer<typeof DocumentFolderSchema>;
 /**
  * アプリケーション設定スキーマ
  */
-export const AppSettingsSchema = z.object({
+export const AppSettings = z.object({
   storagePath: z.string().optional(),
   cloudProvider: z.enum(['local', 'box', 'sharepoint']).optional(),
-  darkMode: z.boolean().optional().default(false),
-  viewMode: z.enum(['rich', 'list1', 'list2']).optional().default('rich'),
-  sortBy: z.enum(['name', 'updatedAt', 'genre']).optional().default('updatedAt'),
-  initialized: z.boolean().optional().default(false),
+  darkMode: z.boolean().default(false),
+  viewMode: z.enum(['rich', 'list1', 'list2']).default('rich'),
+  sortBy: z.enum(['name', 'updatedAt', 'genre']).default('updatedAt'),
+  initialized: z.boolean().default(false),
+  tools: z
+    .object({
+      annotations: AnnotationTool.array(),
+    })
+    .default({ annotations: [] }),
 });
 
-export type AppSettings = z.infer<typeof AppSettingsSchema>;
-
-/**
- * アノテーション型定義（Konva用）
- */
-export const AnnotationTypeSchema = z.enum(['highlight', 'line', 'box', 'circle']);
-export type AnnotationType = z.infer<typeof AnnotationTypeSchema>;
+export type AppSettings = z.infer<typeof AppSettings>;
 
 /**
  * アノテーションスキーマ
@@ -85,11 +85,6 @@ const AnnotationBaseSchema = z.object({
 });
 
 export const AnnotationSchema = z.discriminatedUnion('type', [
-  AnnotationBaseSchema.extend({
-    type: z.literal('highlight'),
-    width: z.number().nonnegative(),
-    height: z.number().nonnegative(),
-  }),
   AnnotationBaseSchema.extend({
     type: z.literal('box'),
     width: z.number().nonnegative(),

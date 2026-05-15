@@ -3,7 +3,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { localStorageRepository } from '../repositories/localStorageRepository';
 import {
   type DocumentMetadata,
-  type AppSettings,
   type Annotation,
   DocumentId,
 } from '../models/schemas';
@@ -129,41 +128,6 @@ class AnnotationService {
   }
 }
 
-/**
- * アプリケーション設定サービス
- */
-class SettingsService {
-  /**
-   * 設定を取得
-   */
-  async getSettings(): Promise<AppSettings | null> {
-    return await localStorageRepository.getSettings();
-  }
-
-  /**
-   * 設定を保存
-   */
-  async saveSettings(settings: AppSettings): Promise<void> {
-    await localStorageRepository.saveSettings(settings);
-  }
-
-  /**
-   * デフォルト設定を初期化
-   */
-  async initializeDefaultSettings(): Promise<AppSettings> {
-    const defaultSettings: AppSettings = {
-      darkMode: false,
-      viewMode: 'rich',
-      sortBy: 'updatedAt',
-      initialized: true,
-    };
-
-    await this.saveSettings(defaultSettings);
-    return defaultSettings;
-  }
-}
-
 // シングルトンインスタンスをエクスポート
 export const documentService = new DocumentService();
 export const annotationService = new AnnotationService();
-export const settingsService = new SettingsService();

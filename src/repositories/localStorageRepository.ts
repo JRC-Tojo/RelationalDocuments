@@ -1,5 +1,6 @@
 import { ref } from 'vue';
-import type { DocumentMetadata, Annotation, DocumentFolder, AppSettings } from '../models/schemas';
+import type { DocumentMetadata, Annotation, DocumentFolder } from '../models/schemas';
+import { AppSettings } from '../models/schemas';
 
 /**
  * ローカルストレージリポジトリ
@@ -218,7 +219,8 @@ class LocalStorageRepository {
       const request = store.get('app_settings');
 
       request.onsuccess = () => {
-        resolve(request.result || null);
+        const parsedRequest = AppSettings.safeParse(request.result)
+        resolve(parsedRequest.success ? parsedRequest.data : null);
       };
       request.onerror = () => reject(new Error(request.error?.message || 'Failed to get settings'));
     });

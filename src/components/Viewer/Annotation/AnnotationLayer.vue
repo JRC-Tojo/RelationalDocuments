@@ -12,18 +12,6 @@
       <v-layer>
         <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
         <template v-for="annotation in annotations">
-          <!-- ハイライトアノテーション -->
-          <HighlightAnnotation
-            v-if="annotation.type === 'highlight'"
-            :key="annotation.id"
-            :annotation="annotation"
-            :is-selected="selectedIds.has(annotation.id)"
-            :is-editing="isEditing"
-            @select="selectAnnotation"
-            @update="updateAnnotation"
-            @delete="deleteAnnotation"
-          />
-
           <!-- ボックスアノテーション -->
           <BoxAnnotation
             v-if="annotation.type === 'box'"
@@ -64,7 +52,7 @@
         <!-- 描画中のプレビュー -->
         <v-rect
           v-if="
-            isDrawing && drawingPreview && (drawingType === 'highlight' || drawingType === 'box')
+            isDrawing && drawingPreview && (drawingType === 'box')
           "
           :config="drawingPreview.rect"
         />
@@ -86,15 +74,15 @@
 
 <script setup lang="ts">
 import { ref, nextTick, reactive, computed } from 'vue';
-import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
-import type { Annotation, AnnotationType, DocumentId } from 'src/models/schemas';
+import type { Annotation, DocumentId } from 'src/models/schemas';
 import type Konva from 'konva';
 import type { Node, NodeConfig } from 'konva/lib/Node';
 import { startDrawingAnnotation } from './annotationDrawingManager';
 import { useEditorStore } from 'src/stores/editorStore';
+import type { AnnotationType } from 'src/models/docPage';
 
 // Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
@@ -249,17 +237,17 @@ function updateDrawingPreview(endX: number, endY: number) {
   const deltaX = endX - startPos.value.x;
   const deltaY = endY - startPos.value.y;
 
-  if (drawingType.value === 'highlight' || drawingType.value === 'box') {
+  if (drawingType.value === 'box') {
     drawingPreview.value = {
       rect: {
         x: Math.min(startPos.value.x, endX),
         y: Math.min(startPos.value.y, endY),
         width: Math.abs(deltaX),
         height: Math.abs(deltaY),
-        fill: drawingType.value === 'highlight' ? DEFAULT_COLOR : 'transparent',
-        opacity: drawingType.value === 'highlight' ? 0.3 : 1,
-        stroke: drawingType.value === 'box' ? DEFAULT_COLOR : 'transparent',
-        strokeWidth: drawingType.value === 'box' ? 2 : 0,
+        fill: 'transparent',
+        opacity: 1,
+        stroke: DEFAULT_COLOR,
+        strokeWidth: 2,
       },
     };
   } else if (drawingType.value === 'line') {

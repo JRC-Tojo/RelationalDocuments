@@ -4,8 +4,9 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { Annotation, AnnotationType, DocumentId } from 'src/models/schemas';
+import type { Annotation, DocumentId } from 'src/models/schemas';
 import dayjs from 'dayjs';
+import type { AnnotationType } from 'src/models/docPage';
 
 /**
  * アノテーションの描画開始時に呼び出す
@@ -75,13 +76,13 @@ function createAnnotation(
     relatedDocumentIds: [],
   };
 
-  if (drawingType === 'highlight' || drawingType === 'box') {
+  if (drawingType === 'box') {
     return {
       ...baseAnnotation,
       type: drawingType,
       width: Math.abs(deltaX),
       height: Math.abs(deltaY),
-      opacity: drawingType === 'highlight' ? 0.3 : 1,
+      opacity: 1,
     };
   } else if (drawingType === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;

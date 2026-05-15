@@ -113,6 +113,7 @@ export default {
     thumbnails: 'Thumbnails',
     bookmarks: 'Bookmarks',
     annotations: 'Annotations',
+    annotationToggle: 'Annotations Show / Hide',
     addBookmark: 'Add Bookmark',
     bookmarkTitle: 'Enter bookmark title:',
     noBookmarks: 'No bookmarks',

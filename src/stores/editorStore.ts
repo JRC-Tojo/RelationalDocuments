@@ -1,6 +1,6 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
-import type { DocumentTab, IDocTool } from 'src/models/docPage';
-import type { AnnotationType, DocumentId } from 'src/models/schemas';
+import type { AnnotationStyle, AnnotationType, DocumentTab, IDocTool } from 'src/models/docPage';
+import type { DocumentId } from 'src/models/schemas';
 
 export type PointerType = AnnotationType | 'hand' | 'pointer';
 export type Layouts<T> = { ul: T; ur: T; ll: T; lr: T };
@@ -11,6 +11,7 @@ export const useEditorStore = defineStore('editor', {
     mainTools: [] as IDocTool[],
     subTools: [] as IDocTool[],
     currentTools: 'hand' as PointerType,
+    currentAnnotationStyle: {} as AnnotationStyle,
 
     // ドキュメントレイアウトの状態
     tabs: { ul: [], ur: [], ll: [], lr: [] } as Layouts<DocumentTab[]>,
@@ -19,6 +20,11 @@ export const useEditorStore = defineStore('editor', {
 
     // アノテーションの表示状態
     visibleAnnotations: true,
+    autoSaveAnnotations: false,
+
+    // サイドパネルの表示状態
+    leftDrawerModel: true,
+    rightDrawerModel: true,
 
     // TODO: タイルモードに対応
     tileMode: 'none' as string,
@@ -82,32 +88,6 @@ export const useEditorStore = defineStore('editor', {
           foundTab.isPinned = !foundTab.isPinned;
         }
       });
-    },
-
-    /**
-     * ポインタに関連するツールの定義
-     */
-    handleAnnotationToolClick(toolid: string) {
-      switch (toolid) {
-        case 'hand-mode':
-          this.currentTools = 'hand';
-          break;
-        case 'select-mode':
-          this.currentTools = 'pointer';
-          break;
-        case 'annotation-line':
-          this.currentTools = 'line';
-          break;
-        case 'annotation-box':
-          this.currentTools = 'box';
-          break;
-        case 'annotation-circle':
-          this.currentTools = 'circle';
-          break;
-        case 'toggle-annotation-visibility':
-          this.visibleAnnotations = !this.visibleAnnotations;
-          break;
-      }
     },
   },
 });

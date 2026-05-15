@@ -2,7 +2,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { useBackendApi } from '../apis/backendApi';
 import { localStorageRepository } from '../repositories/localStorageRepository';
 import dayjs from 'dayjs';
-import { useEditorStore } from 'src/stores/editorStore';
 
 /**
  * アプリケーション初期化用ユーティリティ
@@ -15,12 +14,6 @@ export async function initializeApp() {
 
   // アプリの初期化
   await api.initialize();
-
-  const editorStore = useEditorStore();
-  const tools = await api.getEditTools();
-  if (tools.success) {
-    editorStore.initStore(tools.data);
-  }
 }
 
 /**

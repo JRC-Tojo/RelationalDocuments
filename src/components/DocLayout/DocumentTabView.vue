@@ -60,6 +60,10 @@ import { useBackendApi } from 'src/apis/backendApi';
 import { generateThumbnail, loadPdf, renderPage } from '../Viewer/pdfManager';
 import type { Annotation, DocumentId } from 'src/models/schemas';
 import type { ViewMode } from 'src/models/docPage';
+import { useEditorStore } from 'src/stores/editorStore';
+import { callEditorTools } from 'src/stores/editorTools';
+
+const editorStore = useEditorStore()
 
 const documentId = defineModel<DocumentId>({ required: true });
 const loading = ref<boolean>(true);
@@ -193,6 +197,7 @@ const goToLastPage = (): void => {
 // ================================
 
 onMounted(async () => {
+  editorStore.initStore(await callEditorTools())
   await loadDocument(documentId.value);
 });
 

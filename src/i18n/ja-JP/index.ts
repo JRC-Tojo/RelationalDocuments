@@ -112,6 +112,7 @@ export default {
     thumbnails: 'サムネイル',
     bookmarks: 'ブックマーク',
     annotations: 'アノテーション',
+    annotationToggle: 'アノテーション表示/非表示',
     addBookmark: 'ブックマークを追加',
     bookmarkTitle: 'ブックマークタイトルを入力してください:',
     noBookmarks: 'ブックマークはありません',

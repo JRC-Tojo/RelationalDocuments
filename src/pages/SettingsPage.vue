@@ -10,7 +10,8 @@
       <q-card-section>
         <div class="q-mb-lg">
           <q-toggle
-            v-model="settings.darkMode"
+            v-if="settings"
+            v-model="isDarkMode"
             :label="$t('settings.darkMode')"
             @update:model-value="updateSettings"
           />
@@ -19,7 +20,8 @@
         <div class="q-mb-lg">
           <label class="text-body1">{{ $t('settings.viewMode') }}</label>
           <q-select
-            v-model="settings.viewMode"
+            v-if="settings"
+            v-model="viewMode"
             :options="viewModes"
             outlined
             class="q-mt-md"
@@ -30,7 +32,8 @@
         <div class="q-mb-lg">
           <label class="text-body1">{{ $t('settings.sortBy') }}</label>
           <q-select
-            v-model="settings.sortBy"
+            v-if="settings"
+            v-model="sortBy"
             :options="sortOptions"
             outlined
             class="q-mt-md"
@@ -74,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
@@ -84,14 +87,12 @@ const { locale, t: $t } = useI18n();
 const $q = useQuasar();
 const api = useBackendApi();
 
-const settings = ref<AppSettings>({
-  darkMode: false,
-  viewMode: 'rich',
-  sortBy: 'updatedAt',
-  initialized: true,
-});
+const settings = ref<AppSettings>();
 
 const currentLocale = ref('en-US');
+const isDarkMode = computed(() => settings.value?.darkMode)
+const viewMode = computed(() => settings.value?.viewMode)
+const sortBy = computed(() => settings.value?.sortBy)
 
 const viewModes = [
   { label: $t('viewMode.rich'), value: 'rich' },
@@ -129,6 +130,7 @@ async function updateSettings() {
  * すべての設定を保存
  */
 async function saveAllSettings() {
+  if (settings.value === undefined) return;
   const response = await api.saveSettings(settings.value);
   if (response.success) {
     $q.notify({
@@ -174,6 +176,13 @@ function clearAllData() {
     });
   });
 }
+
+onMounted(async () => {
+  const apiRes = await api.getSettings();
+  if (apiRes.success) {
+    settings.value = apiRes.data;
+  }
+});
 </script>
 
 <style scoped lang="scss"></style>
