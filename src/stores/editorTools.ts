@@ -27,9 +27,9 @@ function annotationCnf2Tool(ann: AnnotationTool): IDocTool {
     label: ann.name,
     isActive: () => {
       // オブジェクトの中身も含めて等しいことを確認するためにstringifyする
-      const strStoreStyle = JSON.stringify(editorStore.currentAnnotationStyle)
-      const strOriginStyle = JSON.stringify(ann.style)
-      return strStoreStyle === strOriginStyle
+      const strStoreStyle = JSON.stringify(editorStore.currentAnnotationStyle);
+      const strOriginStyle = JSON.stringify(ann.style);
+      return strStoreStyle === strOriginStyle;
     },
     onClicked: () => {
       editorStore.currentTools = ann.style.type;
@@ -107,7 +107,7 @@ function callPointerTools(): IDocTool[] {
       icon: 'pan_tool',
       label: 'Hand Mode',
       isActive: () => {
-        return editorStore.currentTools === 'hand'
+        return editorStore.currentTools === 'hand';
       },
       onClicked: () => {
         editorStore.currentTools = 'hand';
@@ -118,7 +118,7 @@ function callPointerTools(): IDocTool[] {
       icon: 'touch_app',
       label: 'Select Mode',
       isActive: () => {
-        return editorStore.currentTools === 'pointer'
+        return editorStore.currentTools === 'pointer';
       },
       onClicked: () => {
         editorStore.currentTools = 'pointer';
