@@ -1,5 +1,5 @@
 <template>
-  <div class="annotation-layer-wrapper">
+  <div v-show="editorStore.visibleAnnotations" class="annotation-layer-wrapper">
     <v-stage
       ref="stageRef"
       :config="canvasSize"
@@ -82,7 +82,6 @@ import type Konva from 'konva';
 import type { Node, NodeConfig } from 'konva/lib/Node';
 import { startDrawingAnnotation } from './annotationDrawingManager';
 import { useEditorStore } from 'src/stores/editorStore';
-import type { AnnotationType } from 'src/models/docPage';
 
 // Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
@@ -123,9 +122,8 @@ const drawingPreview = ref<{
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
 const drawingType = computed(() => editorStore.currentTools);
-const isEditing = computed(() => !['hand', 'pointer'].includes(drawingType.value));
+const isEditing = computed(() => !['hand'].includes(drawingType.value));
 const cursorStyle = computed(() => (isEditing.value ? 'crosshair' : 'default'));
-const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
 const transformerConfig = reactive({
   nodes: [] as Node<NodeConfig>[],
@@ -162,7 +160,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
     page.value,
     adjustedPos.x,
     adjustedPos.y,
-    drawingType.value as AnnotationType,
+    editorStore.currentAnnotationStyle
   );
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }
@@ -237,7 +235,8 @@ function updateDrawingPreview(endX: number, endY: number) {
   const deltaX = endX - startPos.value.x;
   const deltaY = endY - startPos.value.y;
 
-  if (drawingType.value === 'box') {
+  const style = editorStore.currentAnnotationStyle
+  if (style.type === 'box') {
     drawingPreview.value = {
       rect: {
         x: Math.min(startPos.value.x, endX),
@@ -245,30 +244,30 @@ function updateDrawingPreview(endX: number, endY: number) {
         width: Math.abs(deltaX),
         height: Math.abs(deltaY),
         fill: 'transparent',
-        opacity: 1,
-        stroke: DEFAULT_COLOR,
+        opacity: style.fillOpacity,
+        stroke: style.strokeColor,
         strokeWidth: 2,
       },
     };
-  } else if (drawingType.value === 'line') {
+  } else if (style.type === 'line') {
     drawingPreview.value = {
       line: {
         x: startPos.value.x,
         y: startPos.value.y,
         points: [0, 0, deltaX, deltaY],
-        stroke: DEFAULT_COLOR,
-        strokeWidth: 2,
+        stroke: style.strokeColor,
+        strokeWidth: style.strokeWidth,
       },
     };
-  } else if (drawingType.value === 'circle') {
+  } else if (style.type === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;
     drawingPreview.value = {
       circle: {
         x: startPos.value.x + deltaX / 2,
         y: startPos.value.y + deltaY / 2,
         radius,
-        stroke: DEFAULT_COLOR,
-        strokeWidth: 2,
+        stroke: style.strokeColor,
+        strokeWidth: style.strokeWidth,
       },
     };
   }

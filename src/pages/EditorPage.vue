@@ -10,7 +10,7 @@
         :icon="tool.icon"
         :title="tool.label"
         class="toolbar-btn"
-        @click="tool.onClicked()"
+        @click="handleMainToolClick(tool)"
       />
     </q-bar>
 
@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { useEditorStore } from 'src/stores/editorStore';
 import DocTabsPage from './DocTabsPage.vue';
+import type { IDocTool } from 'src/models/docPage';
 
 /**
  * 文書ページコンポーネント
@@ -51,6 +52,11 @@ import DocTabsPage from './DocTabsPage.vue';
  */
 
 const editorStore = useEditorStore();
+
+function handleMainToolClick(tool: IDocTool) {
+  editorStore.subTools = [];
+  tool.onClicked();
+}
 </script>
 
 <style scoped lang="scss">

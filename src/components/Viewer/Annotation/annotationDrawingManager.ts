@@ -6,7 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Annotation, DocumentId } from 'src/models/schemas';
 import dayjs from 'dayjs';
-import type { AnnotationType } from 'src/models/docPage';
+import type { AnnotationStyle } from 'src/models/docPage';
 
 /**
  * アノテーションの描画開始時に呼び出す
@@ -18,11 +18,10 @@ export function startDrawingAnnotation(
   pageNumber: number,
   startX: number,
   startY: number,
-  drawingType: AnnotationType,
-  color: string = '#FFD700',
+  annotationStyle: AnnotationStyle
 ) {
   return (endX: number, endY: number) =>
-    endDrawingAnnotation(documentId, pageNumber, startX, startY, endX, endY, drawingType, color);
+    endDrawingAnnotation(documentId, pageNumber, startX, startY, endX, endY, annotationStyle);
 }
 
 function endDrawingAnnotation(
@@ -32,8 +31,7 @@ function endDrawingAnnotation(
   startY: number,
   endX: number,
   endY: number,
-  drawingType: AnnotationType,
-  color: string = '#FFD700',
+  annotationStyle: AnnotationStyle
 ) {
   const newAnnotation = createAnnotation(
     documentId,
@@ -42,8 +40,7 @@ function endDrawingAnnotation(
     startY,
     endX,
     endY,
-    drawingType,
-    color,
+    annotationStyle
   );
   return newAnnotation;
 }
@@ -55,8 +52,7 @@ function createAnnotation(
   startY: number,
   endX: number,
   endY: number,
-  drawingType: AnnotationType,
-  color: string = '#FFD700',
+  annotationStyle: AnnotationStyle
 ): Annotation | null {
   const deltaX = endX - startX;
   const deltaY = endY - startY;
@@ -67,8 +63,6 @@ function createAnnotation(
     pageNumber: pageNumber,
     x: Math.min(startX, endX),
     y: Math.min(startY, endY),
-    color: color,
-    strokeWidth: 2,
     createdAt: dayjs().toISOString(),
     updatedAt: dayjs().toISOString(),
     linkedAnnotationIds: [],
@@ -76,27 +70,33 @@ function createAnnotation(
     relatedDocumentIds: [],
   };
 
-  if (drawingType === 'box') {
+  if (annotationStyle.type === 'box') {
     return {
       ...baseAnnotation,
-      type: drawingType,
+      type: annotationStyle.type,
+      color: annotationStyle.strokeColor,
+      strokeWidth: annotationStyle.strokeWidth,
       width: Math.abs(deltaX),
       height: Math.abs(deltaY),
       opacity: 1,
     };
-  } else if (drawingType === 'circle') {
+  } else if (annotationStyle.type === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;
     return {
       ...baseAnnotation,
-      type: drawingType,
+      type: annotationStyle.type,
+      color: annotationStyle.strokeColor,
+      strokeWidth: annotationStyle.strokeWidth,
       x: startX + deltaX / 2,
       y: startY + deltaY / 2,
       radius,
     };
-  } else if (drawingType === 'line') {
+  } else if (annotationStyle.type === 'line') {
     return {
       ...baseAnnotation,
-      type: drawingType,
+      type: annotationStyle.type,
+      color: annotationStyle.strokeColor,
+      strokeWidth: annotationStyle.strokeWidth,
       x: startX,
       y: startY,
       x2: endX,

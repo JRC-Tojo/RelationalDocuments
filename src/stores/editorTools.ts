@@ -170,7 +170,7 @@ function callDocTools(): IDocTool[] {
       icon: 'info',
       label: 'Right Drawer',
       onClicked: () => {
-        editorStore.leftDrawerModel = !editorStore.leftDrawerModel;
+        editorStore.rightDrawerModel = !editorStore.rightDrawerModel;
       },
     },
   ];

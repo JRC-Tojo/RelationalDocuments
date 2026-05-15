@@ -2,7 +2,7 @@
   <q-layout view="hHh lpr fFf">
     <!-- 左Drawer：ドキュメント情報とサムネイル -->
     <DocumentLeftDrawer
-      v-model:drawer-open="leftDrawerOpen"
+      v-model:drawer-open="editorStore.leftDrawerModel"
       :total-page-count="pageCount"
       :current-page="currentPage"
       :thumnails="thumbnails"
@@ -28,7 +28,7 @@
 
     <!-- 右Drawer：アノテーションプロパティ -->
     <DocumentRightDrawer
-      v-model:drawer-open="rightDrawerOpen"
+      v-model:drawer-open="editorStore.rightDrawerModel"
       v-model:selected-ant="selectedAnnotations"
     />
 
@@ -69,8 +69,6 @@ const documentId = defineModel<DocumentId>({ required: true });
 const loading = ref<boolean>(true);
 
 // for drawers
-const leftDrawerOpen = ref<boolean>(true);
-const rightDrawerOpen = ref<boolean>(true);
 const thumbnails = ref<string[]>([]);
 
 // for document

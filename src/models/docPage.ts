@@ -46,7 +46,7 @@ export const AnnotationBoxStyle = z.object({
   strokeWidth: z.number(),
   strokeType: z.enum(['solid', 'dashed', 'dotted', 'dash-dot', 'double']),
   strokeOpacity: z.number(),
-  fillColor: z.string().optional(),
+  fillColor: z.string(),
   fillPattern: z.enum(['none', 'hatch', 'solid']),
   fillOpacity: z.number(),
 });
