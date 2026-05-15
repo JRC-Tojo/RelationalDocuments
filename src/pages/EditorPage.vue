@@ -5,7 +5,8 @@
       <q-btn
         v-for="tool in editorStore.mainTools"
         :key="tool.id"
-        flat
+        :flat="!tool.isActive()"
+        :outline="tool.isActive()"
         dense
         :icon="tool.icon"
         :title="tool.label"
@@ -18,7 +19,9 @@
     <q-bar v-if="editorStore.subTools.length > 0" class="sub-toolbar bg-grey-2">
       <template v-for="tool in editorStore.subTools" :key="tool.id">
         <q-btn
-          flat
+          :flat="!tool.isActive()"
+          :outline="tool.isActive()"
+          :color="tool.isActive() ? 'primary' : ''"
           dense
           :icon="tool.icon"
           :title="tool.label"
