@@ -163,7 +163,7 @@ function callDocTools(): IDocTool[] {
             label: '自動保存',
             isActive: () => editorStore.autoSaveAnnotations,
             onClicked: () => {
-              editorStore.autoSaveAnnotations = !editorStore.autoSaveAnnotations
+              editorStore.autoSaveAnnotations = !editorStore.autoSaveAnnotations;
             },
           },
         ];

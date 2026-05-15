@@ -219,7 +219,7 @@ class LocalStorageRepository {
       const request = store.get('app_settings');
 
       request.onsuccess = () => {
-        const parsedRequest = AppSettings.safeParse(request.result)
+        const parsedRequest = AppSettings.safeParse(request.result);
         resolve(parsedRequest.success ? parsedRequest.data : null);
       };
       request.onerror = () => reject(new Error(request.error?.message || 'Failed to get settings'));

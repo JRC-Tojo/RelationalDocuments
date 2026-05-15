@@ -18,7 +18,7 @@ export function startDrawingAnnotation(
   pageNumber: number,
   startX: number,
   startY: number,
-  annotationStyle: AnnotationStyle
+  annotationStyle: AnnotationStyle,
 ) {
   return (endX: number, endY: number) =>
     endDrawingAnnotation(documentId, pageNumber, startX, startY, endX, endY, annotationStyle);
@@ -31,7 +31,7 @@ function endDrawingAnnotation(
   startY: number,
   endX: number,
   endY: number,
-  annotationStyle: AnnotationStyle
+  annotationStyle: AnnotationStyle,
 ) {
   const newAnnotation = createAnnotation(
     documentId,
@@ -40,7 +40,7 @@ function endDrawingAnnotation(
     startY,
     endX,
     endY,
-    annotationStyle
+    annotationStyle,
   );
   return newAnnotation;
 }
@@ -52,7 +52,7 @@ function createAnnotation(
   startY: number,
   endX: number,
   endY: number,
-  annotationStyle: AnnotationStyle
+  annotationStyle: AnnotationStyle,
 ): Annotation | null {
   const deltaX = endX - startX;
   const deltaY = endY - startY;
