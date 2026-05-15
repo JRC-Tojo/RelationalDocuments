@@ -25,7 +25,9 @@
           <q-separator vertical />
 
           <q-tab-panels v-model="selectedTab" class="panels">
-            <q-tab-panel name="docs"> This is Docs </q-tab-panel>
+            <q-tab-panel name="docs">
+              <explorer-view />
+            </q-tab-panel>
             <q-tab-panel name="exts"> This is Extensions </q-tab-panel>
             <q-tab-panel name="settings"> This is Settings </q-tab-panel>
           </q-tab-panels>
@@ -34,7 +36,8 @@
 
       <template #after>
         <q-page-container :style="compPadding">
-          <router-view />
+          <!-- <router-view /> -->
+          <editor-page />
         </q-page-container>
       </template>
     </q-splitter>
@@ -42,6 +45,8 @@
 </template>
 
 <script setup lang="ts">
+import ExplorerView from 'src/components/MainLayout/ExplorerView.vue';
+import EditorPage from 'src/pages/EditorPage.vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 

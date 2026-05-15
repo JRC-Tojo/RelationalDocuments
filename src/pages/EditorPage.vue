@@ -88,10 +88,8 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount } from 'vue';
 import { useEditorStore } from 'src/stores/editorStore';
 // import type { LayoutSide } from 'src/stores/editorStore';
-import { localStorageRepository } from 'src/repositories/localStorageRepository';
 import DocTabsPage from './DocTabsPage.vue';
 import type { IDocTool } from 'src/models/docPage';
 
@@ -164,23 +162,6 @@ const handleSaveAs = () => {
   // TODO: ドキュメントを名前を付けて保存
   console.log('Save document (as)');
 };
-
-/**
- * サンプルドキュメントを初期化
- */
-onBeforeMount(async () => {
-  // TODO: サンプルドキュメントをローカルストレージから取得
-  // 今後、Explorerのクリックから取得するように修正
-  try {
-    const documents = await localStorageRepository.getAllDocuments();
-    if (documents && documents.length > 0 && documents[0]) {
-      // 最初のドキュメントを開く
-      docpageStore.openTab(documents[0].id, documents[0].title);
-    }
-  } catch (error) {
-    console.error('Failed to load documents:', error);
-  }
-});
 </script>
 
 <style scoped lang="scss">
