@@ -51,9 +51,7 @@
 
         <!-- 描画中のプレビュー -->
         <v-rect
-          v-if="
-            isDrawing && drawingPreview && (drawingType === 'box')
-          "
+          v-if="isDrawing && drawingPreview && drawingType === 'box'"
           :config="drawingPreview.rect"
         />
         <v-line
@@ -160,7 +158,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
     page.value,
     adjustedPos.x,
     adjustedPos.y,
-    editorStore.currentAnnotationStyle
+    editorStore.currentAnnotationStyle,
   );
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }
@@ -235,7 +233,7 @@ function updateDrawingPreview(endX: number, endY: number) {
   const deltaX = endX - startPos.value.x;
   const deltaY = endY - startPos.value.y;
 
-  const style = editorStore.currentAnnotationStyle
+  const style = editorStore.currentAnnotationStyle;
   if (style.type === 'box') {
     drawingPreview.value = {
       rect: {

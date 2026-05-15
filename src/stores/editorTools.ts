@@ -141,7 +141,7 @@ function callDocTools(): IDocTool[] {
             icon: 'backup',
             label: '自動保存',
             onClicked: () => {
-              editorStore.autoSaveAnnotations = !editorStore.autoSaveAnnotations
+              editorStore.autoSaveAnnotations = !editorStore.autoSaveAnnotations;
             },
           },
         ];

@@ -1,11 +1,7 @@
 import { ref } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 import { localStorageRepository } from '../repositories/localStorageRepository';
-import {
-  type DocumentMetadata,
-  type Annotation,
-  DocumentId,
-} from '../models/schemas';
+import { type DocumentMetadata, type Annotation, DocumentId } from '../models/schemas';
 
 /**
  * 文書管理サービス

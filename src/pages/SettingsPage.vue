@@ -90,9 +90,9 @@ const api = useBackendApi();
 const settings = ref<AppSettings>();
 
 const currentLocale = ref('en-US');
-const isDarkMode = computed(() => settings.value?.darkMode)
-const viewMode = computed(() => settings.value?.viewMode)
-const sortBy = computed(() => settings.value?.sortBy)
+const isDarkMode = computed(() => settings.value?.darkMode);
+const viewMode = computed(() => settings.value?.viewMode);
+const sortBy = computed(() => settings.value?.sortBy);
 
 const viewModes = [
   { label: $t('viewMode.rich'), value: 'rich' },
