@@ -51,9 +51,7 @@
 
         <!-- 描画中のプレビュー -->
         <v-rect
-          v-if="
-            isDrawing && drawingPreview && (drawingType === 'box')
-          "
+          v-if="isDrawing && drawingPreview && drawingType === 'box'"
           :config="drawingPreview.rect"
         />
         <v-line
@@ -135,6 +133,9 @@ let endDrawingAnnotation: ((endX: number, endY: number) => Annotation | null) | 
  * マウスダウンイベント
  */
 function handleMouseDown(e: KonvaMouseEvent) {
+  // ポインターモードの場合は新規描画を許可しない
+  if (drawingType.value === 'pointer') return;
+
   // 編集モードが有効でない場合はスキップ
   if (!isEditing.value) return;
 
@@ -160,7 +161,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
     page.value,
     adjustedPos.x,
     adjustedPos.y,
-    editorStore.currentAnnotationStyle
+    editorStore.currentAnnotationStyle,
   );
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }
@@ -221,8 +222,10 @@ function handleMouseUp(e: KonvaMouseEvent) {
  * ステージクリック（背景クリック時の選択解除）
  */
 function handleStageClick(e: KonvaMouseEvent) {
-  if (e.target === e.target.getStage()) {
+  // ポインターモード時のみ、背景クリックで選択を解除
+  if (drawingType.value === 'pointer' && e.target === e.target.getStage()) {
     selectedIds.value.clear();
+    transformerConfig.nodes = [];
   }
 }
 
@@ -235,7 +238,7 @@ function updateDrawingPreview(endX: number, endY: number) {
   const deltaX = endX - startPos.value.x;
   const deltaY = endY - startPos.value.y;
 
-  const style = editorStore.currentAnnotationStyle
+  const style = editorStore.currentAnnotationStyle;
   if (style.type === 'box') {
     drawingPreview.value = {
       rect: {
