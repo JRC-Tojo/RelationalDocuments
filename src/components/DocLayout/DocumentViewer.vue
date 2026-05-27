@@ -131,12 +131,9 @@ watch(
 
 <style scoped lang="scss">
 .pdf-editor-page {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   width: 100%;
   background: $grey-1;
-  overflow: hidden;
 }
 
 .body--dark .pdf-editor-page {
@@ -144,12 +141,7 @@ watch(
 }
 
 .pdf-viewer-container {
-  flex: 1;
-  overflow: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  margin: 10pt;
   background: $grey-1;
 
   &::-webkit-scrollbar {
@@ -171,40 +163,18 @@ watch(
   }
 
   .pages-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
+    margin: auto;
+    max-width: fit-content;
   }
 
   .continuous-pages {
-    width: 100%;
-    max-width: 900px;
+    margin: auto;
+    max-width: fit-content;
     display: flex;
     flex-direction: column;
-    align-items: center;
 
     .continuous-page-wrapper {
       width: 100%;
-      display: flex;
-      justify-content: center;
-
-      .continuous-page {
-        transition:
-          transform 0.2s ease,
-          box-shadow 0.2s ease;
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-
-        &.active {
-          box-shadow: 0 4px 16px rgba(25, 118, 210, 0.3);
-        }
-
-        &:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-      }
     }
   }
 }

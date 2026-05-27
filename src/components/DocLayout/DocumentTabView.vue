@@ -213,7 +213,6 @@ watch(documentId, async (newDocId) => {
 
 <style scoped lang="scss">
 .document-layout {
-  display: flex;
   height: 100%;
   width: 100%;
   background: white;
@@ -225,11 +224,9 @@ watch(documentId, async (newDocId) => {
 }
 
 .document-main-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
   background: $grey-1;
-  overflow: hidden;
   height: 100%;
   width: 100%;
 }
@@ -239,10 +236,8 @@ watch(documentId, async (newDocId) => {
 }
 
 .document-viewer-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  flex: 1 1 0;
+  overflow: scroll;
   background: $grey-1;
   width: 100%;
 }
