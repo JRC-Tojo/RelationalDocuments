@@ -3,7 +3,7 @@
     <div
       v-if="onRender !== undefined"
       class="pdf-viewer-container"
-      @wheel.prevent="handleZoomWheel"
+      @wheel="handleZoomWheel"
       ref="viewerContainer"
     >
       <!-- 単一ページまたは見開き表示 -->

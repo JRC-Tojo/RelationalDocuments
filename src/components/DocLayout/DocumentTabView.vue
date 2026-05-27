@@ -237,7 +237,7 @@ watch(documentId, async (newDocId) => {
 
 .document-viewer-wrapper {
   flex: 1 1 0;
-  overflow: scroll;
+  overflow: auto;
   background: $grey-1;
   width: 100%;
 }
