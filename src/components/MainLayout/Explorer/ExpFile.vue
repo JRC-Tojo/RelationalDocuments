@@ -25,7 +25,7 @@ function onClicked() {
 </script>
 
 <style lang="scss" scoped>
-@use "sass:color";
+@use 'sass:color';
 
 .btn {
   min-width: max-content;

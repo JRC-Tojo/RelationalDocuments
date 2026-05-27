@@ -202,7 +202,7 @@ function callDocTools(): IDocTool[] {
             label: 'タブ分割なし',
             isActive: () => editorStore.tileMode === 'single',
             onClicked: () => {
-              editorStore.tileMode = 'single'
+              editorStore.tileMode = 'single';
             },
           },
           {
@@ -211,7 +211,7 @@ function callDocTools(): IDocTool[] {
             label: '左右2分割',
             isActive: () => editorStore.tileMode === 'dubble',
             onClicked: () => {
-              editorStore.tileMode = 'dubble'
+              editorStore.tileMode = 'dubble';
             },
           },
           {
@@ -220,7 +220,7 @@ function callDocTools(): IDocTool[] {
             label: '上下左右4分割',
             isActive: () => editorStore.tileMode === 'grid',
             onClicked: () => {
-              editorStore.tileMode = 'grid'
+              editorStore.tileMode = 'grid';
             },
           },
         ];
