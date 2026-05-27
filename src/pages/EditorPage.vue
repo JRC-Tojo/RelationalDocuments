@@ -1,5 +1,5 @@
 <template>
-  <q-page>
+  <q-page class="editor-page">
     <!-- メインツールバー -->
     <q-bar class="main-toolbar bg-primary text-white">
       <q-btn
@@ -39,7 +39,10 @@
         :key="side"
         v-model="docpageStore.tabs[side]"
       /> -->
-      <doc-tabs-page v-model="editorStore.tabs.ul" />
+      <div class="ul"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
+      <div class="ur"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
+      <div class="ll"><DocTabsPage v-model="editorStore.tabs.ll" /></div>
+      <div class="lr"><DocTabsPage v-model="editorStore.tabs.lr" /></div>
     </div>
   </q-page>
 </template>
@@ -63,31 +66,107 @@ function handleMainToolClick(tool: IDocTool) {
 </script>
 
 <style scoped lang="scss">
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
 .main-toolbar {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.5rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
   flex-wrap: wrap;
+  background: linear-gradient(135deg, $primary 0%, darken($primary, 5%) 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 
   .toolbar-btn {
+    transition: all 0.2s ease;
+    border-radius: 6px;
+
     &:hover {
-      background-color: rgba(white, 0.2);
+      background-color: rgba(white, 0.25);
+      transform: translateY(-2px);
+    }
+
+    &:active {
+      transform: translateY(0);
     }
   }
 }
 
+.dark .main-toolbar {
+  background: linear-gradient(135deg, darken($primary, 10%) 0%, darken($primary, 15%) 100%);
+}
+
 .sub-toolbar {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
   border-bottom: 1px solid $grey-4;
   flex-wrap: wrap;
+  background: $grey-1;
+  flex-shrink: 0;
 
   .toolbar-btn-sub {
     font-size: 0.85rem;
+    transition: all 0.2s ease;
+    border-radius: 6px;
 
     &:hover {
-      background-color: rgba($primary, 0.1);
+      background-color: rgba($primary, 0.15);
+      transform: translateY(-1px);
     }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+}
+
+.dark .sub-toolbar {
+  background: $dark;
+  border-bottom-color: $grey-8;
+
+  .toolbar-btn-sub {
+    &:hover {
+      background-color: rgba($primary, 0.25);
+    }
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas:
+    'ul ur'
+    'll lr';
+  gap: 12px;
+  padding: 12px;
+  height: 100%;
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden;
+
+  .ul {
+    grid-area: ul;
+    overflow: hidden;
+  }
+  .ur {
+    grid-area: ur;
+    overflow: hidden;
+  }
+  .ll {
+    grid-area: ll;
+    overflow: hidden;
+  }
+  .lr {
+    grid-area: lr;
+    overflow: hidden;
   }
 }
 </style>

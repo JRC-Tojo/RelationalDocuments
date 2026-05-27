@@ -1,5 +1,5 @@
 <template>
-  <q-layout view="hHh lpr fFf">
+  <div class="document-layout">
     <!-- 左Drawer：ドキュメント情報とサムネイル -->
     <DocumentLeftDrawer
       v-model:drawer-open="editorStore.leftDrawerModel"
@@ -10,44 +10,50 @@
     />
 
     <!-- メインコンテンツ領域 -->
-    <q-page-container>
+    <div class="document-main-content">
       <!-- タブコンテンツ：文書とアノテーション表示 -->
-      <DocumentViewer
-        v-if="!loading && onRender"
-        :document-id="documentId"
-        :page-count="pageCount"
-        :view-mode="viewMode"
-        @render="onRender"
+      <div class="document-viewer-wrapper">
+        <DocumentViewer
+          v-if="!loading && onRender"
+          :document-id="documentId"
+          :page-count="pageCount"
+          :view-mode="viewMode"
+          @render="onRender"
+          @zoom-in="zoomIn"
+          @zoom-out="zoomOut"
+          v-model:annotations="annotations"
+          v-model:current-page="currentPage"
+          v-model:zoom-level="zoomLevel"
+        />
+        <div v-else-if="loading" class="loading-state">
+          <q-spinner color="primary" size="3em" />
+          <p class="q-mt-md">{{ $t('loading') }}</p>
+        </div>
+      </div>
+
+      <!-- フッター：ページネーション、ズーム等 -->
+      <DocumentFooter
+        v-model:current-page="currentPage"
+        v-model:view-mode="viewMode"
+        v-model:zoom-level="zoomLevel"
+        :total-page-count="pageCount"
+        :scale="zoomLevel"
+        @go-to-first-page="goToFirstPage"
+        @previous-page="previousPage"
+        @next-page="nextPage"
+        @go-to-last-page="goToLastPage"
+        @go-to-page="goToPage"
         @zoom-in="zoomIn"
         @zoom-out="zoomOut"
-        v-model:annotations="annotations"
-        v-model:current-page="currentPage"
-        v-model:zoom-level="zoomLevel"
       />
-    </q-page-container>
+    </div>
 
     <!-- 右Drawer：アノテーションプロパティ -->
     <DocumentRightDrawer
       v-model:drawer-open="editorStore.rightDrawerModel"
       v-model:selected-ant="selectedAnnotations"
     />
-
-    <!-- フッター：ページネーション、ズーム等 -->
-    <DocumentFooter
-      v-model:current-page="currentPage"
-      v-model:view-mode="viewMode"
-      v-model:zoom-level="zoomLevel"
-      :total-page-count="pageCount"
-      :scale="zoomLevel"
-      @go-to-first-page="goToFirstPage"
-      @previous-page="previousPage"
-      @next-page="nextPage"
-      @go-to-last-page="goToLastPage"
-      @go-to-page="goToPage"
-      @zoom-in="zoomIn"
-      @zoom-out="zoomOut"
-    />
-  </q-layout>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -209,36 +215,52 @@ watch(documentId, async (newDocId) => {
 .document-layout {
   display: flex;
   height: 100%;
+  width: 100%;
   background: white;
-
-  .layout-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-
-    .content-area {
-      flex: 1;
-      overflow: auto;
-      display: flex;
-      flex-direction: column;
-      background: #f5f5f5;
-
-      .empty-state {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-      }
-    }
-  }
+  overflow: hidden;
 }
 
-.tab-content {
+.dark .document-layout {
+  background: $dark;
+}
+
+.document-main-content {
+  flex: 1;
   display: flex;
+  flex-direction: column;
+  background: $grey-1;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+
+.dark .document-main-content {
+  background: darken($dark, 5%);
+}
+
+.document-viewer-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: $grey-1;
+  width: 100%;
+}
+
+.dark .document-viewer-wrapper {
+  background: darken($dark, 5%);
+}
+
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  background: $grey-1;
+}
+
+.dark .loading-state {
+  background: darken($dark, 5%);
 }
 </style>

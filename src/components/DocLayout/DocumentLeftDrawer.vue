@@ -1,5 +1,5 @@
 <template>
-  <q-drawer v-model="drawerOpen" side="left" bordered class="document-left-drawer">
+  <div v-show="drawerOpen" class="document-left-drawer">
     <!-- サムネイル一覧 -->
     <q-separator />
     <div class="drawer-section q-pa-md">
@@ -46,7 +46,7 @@
         </q-item>
       </q-list>
     </div>
-  </q-drawer>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -73,9 +73,36 @@ const bookmarks = computed<Bookmark[]>(() => []);
 </script>
 
 <style scoped lang="scss">
-@use "sass:color";
+@use 'sass:color';
 
 .document-left-drawer {
+  width: 280px;
+  height: 100%;
+  background: white;
+  border-right: 1px solid $grey-3;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $grey-2;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $grey-4;
+    border-radius: 3px;
+
+    &:hover {
+      background: $grey-5;
+    }
+  }
+
   .drawer-section {
     h6 {
       font-weight: 600;
@@ -107,31 +134,103 @@ const bookmarks = computed<Bookmark[]>(() => []);
 
   .thumbnails-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(60px, 50%));
-    gap: 0.5rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
 
     .thumbnail-item {
       cursor: pointer;
       border: 2px solid $grey-3;
-      border-radius: 4px;
+      border-radius: 6px;
       transition: all 0.2s ease;
+      overflow: hidden;
+      aspect-ratio: 3 / 4;
 
       &:hover {
         border-color: $primary;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
       }
 
       &.active {
         border-color: $primary;
         background-color: color.adjust($primary, $lightness: 45%);
+        box-shadow: 0 0 0 3px rgba($primary, 0.2);
+      }
+
+      img {
+        width: 100%;
+        height: calc(100% - 24px);
+        object-fit: cover;
       }
 
       .page-number {
-        padding: 0.25rem;
+        padding: 0.5rem;
         text-align: center;
         font-size: 0.75rem;
         background-color: $grey-2;
         color: $grey-7;
+        font-weight: 600;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+.dark .document-left-drawer {
+  background: $dark;
+  border-right-color: $grey-8;
+
+  &::-webkit-scrollbar-track {
+    background: $grey-8;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $grey-7;
+
+    &:hover {
+      background: $grey-6;
+    }
+  }
+
+  .drawer-section {
+    h6 {
+      color: $primary;
+    }
+  }
+
+  .document-info {
+    .info-item {
+      .label {
+        color: $grey-3;
+      }
+
+      .value {
+        color: $grey-4;
+      }
+    }
+  }
+
+  .thumbnails-list {
+    .thumbnail-item {
+      border-color: $grey-7;
+
+      &:hover {
+        border-color: $primary;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+
+      &.active {
+        border-color: $primary;
+        background-color: color.adjust($primary, $lightness: 25%);
+        box-shadow: 0 0 0 3px rgba($primary, 0.3);
+      }
+
+      .page-number {
+        background-color: $grey-8;
+        color: $grey-4;
       }
     }
   }

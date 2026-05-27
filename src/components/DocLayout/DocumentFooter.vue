@@ -116,86 +116,238 @@ const viewModeOptions = [
 .document-footer {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background-color: $grey-2;
-  border-top: 1px solid $grey-4;
-  padding: 0 0.5rem;
-  height: 60px;
+  gap: 1rem;
+  background-color: $grey-1;
+  border-top: 1px solid $grey-3;
+  padding: 0 1rem;
+  height: 64px;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.08);
+  overflow-x: auto;
 
   .footer-section {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.75rem;
 
     .section-label {
       font-size: 0.85rem;
-      font-weight: 500;
+      font-weight: 600;
       color: $grey-8;
       white-space: nowrap;
     }
   }
 
   .footer-pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
     .page-input {
       width: 50px;
-      padding: 0.25rem 0.5rem;
+      padding: 0.5rem 0.75rem;
       border: 1px solid $grey-4;
-      border-radius: 4px;
+      border-radius: 6px;
       text-align: center;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: white;
+      transition: all 0.2s ease;
 
       &:focus {
         outline: none;
         border-color: $primary;
         box-shadow: 0 0 0 2px rgba($primary, 0.1);
+        background: white;
+      }
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      &[type='number'] {
+        appearance: textfield;
+        -moz-appearance: textfield;
       }
     }
 
     .page-info {
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       color: $grey-7;
       white-space: nowrap;
+      font-weight: 500;
     }
   }
 
   .footer-tile-mode {
     :deep(.q-btn-toggle__container) {
       gap: 0.25rem;
+      background: $grey-2;
+      border-radius: 6px;
+      padding: 2px;
+
+      .q-btn {
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+
+        &.q-btn--active {
+          background: white;
+          color: $primary;
+        }
+      }
     }
   }
 
   .footer-view-mode {
     :deep(.q-btn-toggle__container) {
       gap: 0.25rem;
+      background: $grey-2;
+      border-radius: 6px;
+      padding: 2px;
+
+      .q-btn {
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+
+        &.q-btn--active {
+          background: white;
+          color: $primary;
+        }
+      }
     }
   }
 
   .footer-zoom {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
     .zoom-input {
       width: 50px;
-      padding: 0.25rem 0.5rem;
+      padding: 0.5rem 0.75rem;
       border: 1px solid $grey-4;
-      border-radius: 4px;
+      border-radius: 6px;
       text-align: center;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      background: white;
+      transition: all 0.2s ease;
 
       &:focus {
         outline: none;
         border-color: $primary;
         box-shadow: 0 0 0 2px rgba($primary, 0.1);
+        background: white;
+      }
+
+      &::-webkit-outer-spin-button,
+      &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+
+      &[type='number'] {
+        appearance: textfield;
+        -moz-appearance: textfield;
       }
     }
 
     .zoom-label {
       font-size: 0.85rem;
-      font-weight: 500;
+      font-weight: 600;
       color: $grey-8;
       white-space: nowrap;
+      min-width: 20px;
     }
 
     .zoom-slider {
-      width: 150px;
+      width: 120px;
       margin: 0 0.5rem;
+
+      :deep(.q-slider) {
+        color: $primary;
+      }
+    }
+  }
+}
+
+.dark .document-footer {
+  background-color: darken($dark, 5%);
+  border-top-color: $grey-8;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.3);
+
+  .footer-section {
+    .section-label {
+      color: $grey-3;
+    }
+  }
+
+  .footer-pagination {
+    .page-input {
+      background: $grey-8;
+      border-color: $grey-7;
+      color: $grey-2;
+
+      &:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 2px rgba($primary, 0.2);
+        background: darken($grey-8, 5%);
+      }
+    }
+
+    .page-info {
+      color: $grey-4;
+    }
+  }
+
+  .footer-tile-mode {
+    :deep(.q-btn-toggle__container) {
+      background: $grey-8;
+
+      .q-btn {
+        color: $grey-4;
+
+        &.q-btn--active {
+          background: darken($dark, 3%);
+          color: $primary;
+        }
+      }
+    }
+  }
+
+  .footer-view-mode {
+    :deep(.q-btn-toggle__container) {
+      background: $grey-8;
+
+      .q-btn {
+        color: $grey-4;
+
+        &.q-btn--active {
+          background: darken($dark, 3%);
+          color: $primary;
+        }
+      }
+    }
+  }
+
+  .footer-zoom {
+    .zoom-input {
+      background: $grey-8;
+      border-color: $grey-7;
+      color: $grey-2;
+
+      &:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 2px rgba($primary, 0.2);
+        background: darken($grey-8, 5%);
+      }
+    }
+
+    .zoom-label {
+      color: $grey-3;
     }
   }
 }

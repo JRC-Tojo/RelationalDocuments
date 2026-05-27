@@ -1,5 +1,5 @@
 <template>
-  <q-drawer v-model="drawerOpen" side="right" bordered class="document-right-drawer">
+  <div v-show="drawerOpen" class="document-right-drawer">
     <!-- アノテーション選択時の詳細 -->
     <div v-if="selectedAnnotations.length === 1" class="drawer-section q-pa-md">
       <h6 class="q-my-none q-mb-md">{{ $t('annotationProperties') }}</h6>
@@ -72,7 +72,7 @@
       <q-icon name="info" size="2rem" color="grey-5" />
       <p class="q-mt-md text-grey-6">{{ $t('selectAnnotationForProperties') }}</p>
     </div>
-  </q-drawer>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -116,6 +116,33 @@ const updateAnnotationOpacity = () => {
 
 <style scoped lang="scss">
 .document-right-drawer {
+  width: 300px;
+  height: 100%;
+  background: white;
+  border-left: 1px solid $grey-3;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: $grey-2;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $grey-4;
+    border-radius: 3px;
+
+    &:hover {
+      background: $grey-5;
+    }
+  }
+
   .drawer-section {
     h6 {
       font-weight: 600;
@@ -135,36 +162,50 @@ const updateAnnotationOpacity = () => {
       }
 
       .property-value {
-        padding: 0.5rem;
+        padding: 0.75rem;
         background-color: $grey-2;
-        border-radius: 4px;
+        border-radius: 6px;
         font-size: 0.9rem;
         color: $grey-7;
+        border-left: 3px solid $primary;
       }
     }
 
     .color-picker {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
 
       .color-input {
         width: 50px;
         height: 40px;
         border: 1px solid $grey-4;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          border-color: $primary;
+          box-shadow: 0 0 0 2px rgba($primary, 0.1);
+        }
       }
 
       .color-value {
         font-size: 0.9rem;
         font-family: monospace;
         color: $grey-7;
+        font-weight: 500;
       }
     }
 
     .slider-container {
       padding: 0.5rem 0;
+
+      :deep(.q-slider) {
+        .q-slider__track-container {
+          margin: 0.75rem 0;
+        }
+      }
     }
   }
 
@@ -175,6 +216,64 @@ const updateAnnotationOpacity = () => {
     justify-content: center;
     min-height: 200px;
     text-align: center;
+    color: $grey-5;
+  }
+}
+
+.dark .document-right-drawer {
+  background: $dark;
+  border-left-color: $grey-8;
+
+  &::-webkit-scrollbar-track {
+    background: $grey-8;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $grey-7;
+
+    &:hover {
+      background: $grey-6;
+    }
+  }
+
+  .drawer-section {
+    h6 {
+      color: $primary;
+    }
+  }
+
+  .annotation-properties {
+    .property-group {
+      .property-label {
+        color: $grey-3;
+      }
+
+      .property-value {
+        background-color: $grey-8;
+        color: $grey-4;
+        border-left-color: $primary;
+      }
+    }
+
+    .color-picker {
+      .color-input {
+        border-color: $grey-7;
+        background-color: $grey-8;
+
+        &:hover {
+          border-color: $primary;
+          box-shadow: 0 0 0 2px rgba($primary, 0.2);
+        }
+      }
+
+      .color-value {
+        color: $grey-4;
+      }
+    }
+  }
+
+  .drawer-empty {
+    color: $grey-7;
   }
 }
 </style>
