@@ -1,7 +1,7 @@
 <template>
   <q-page class="editor-page">
     <!-- メインツールバー -->
-    <q-bar class="main-toolbar bg-primary text-white">
+    <q-bar class="main-toolbar text-white">
       <q-btn
         v-for="tool in editorStore.mainTools"
         :key="tool.id"
@@ -79,7 +79,6 @@ function handleMainToolClick(tool: IDocTool) {
 .main-toolbar {
   display: flex;
   gap: 0.5rem;
-  padding: 0.75rem;
   flex-wrap: wrap;
   background: linear-gradient(135deg, $primary 0%, darken($primary, 5%) 100%);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -106,8 +105,7 @@ function handleMainToolClick(tool: IDocTool) {
 
 .sub-toolbar {
   display: flex;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  margin: 5px;
   border-bottom: 1px solid $grey-4;
   flex-wrap: wrap;
   background: $grey-1;
