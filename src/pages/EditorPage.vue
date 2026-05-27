@@ -33,14 +33,9 @@
     </q-bar>
 
     <!-- ドキュメントレイアウト -->
-    <div class="grid">
-      <!-- <doc-tabs-page
-        v-for="side in Object.keys(docpageStore.tabs) as LayoutSide[]"
-        :key="side"
-        v-model="docpageStore.tabs[side]"
-      /> -->
+    <div class="grid" style="flex: 1 1 0;">
       <div class="ul"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
-      <div class="ur"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
+      <div class="ur"><DocTabsPage v-model="editorStore.tabs.ur" /></div>
       <div class="ll"><DocTabsPage v-model="editorStore.tabs.ll" /></div>
       <div class="lr"><DocTabsPage v-model="editorStore.tabs.lr" /></div>
     </div>
@@ -141,12 +136,12 @@ function handleMainToolClick(tool: IDocTool) {
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: repeat(2, 50%);
   grid-template-areas:
     'ul ur'
     'll lr';
-  gap: 12px;
-  padding: 12px;
+  gap: 2px;
+  padding: 2px;
   height: 100%;
   width: 100%;
   max-width: 100vw;
