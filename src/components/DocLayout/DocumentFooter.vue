@@ -274,7 +274,7 @@ const viewModeOptions = [
   }
 }
 
-.dark .document-footer {
+.body--dark .document-footer {
   background-color: darken($dark, 5%);
   border-top-color: $grey-8;
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.3);

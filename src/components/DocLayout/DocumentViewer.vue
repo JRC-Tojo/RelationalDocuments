@@ -139,7 +139,7 @@ watch(
   overflow: hidden;
 }
 
-.dark .pdf-editor-page {
+.body--dark .pdf-editor-page {
   background: darken($dark, 5%);
 }
 
@@ -209,7 +209,7 @@ watch(
   }
 }
 
-.dark .pdf-viewer-container {
+.body--dark .pdf-viewer-container {
   background: darken($dark, 5%);
 
   &::-webkit-scrollbar-track {

@@ -97,7 +97,7 @@ function closeTab(index: number) {
   }
 }
 
-.dark .tabs-bar {
+.body--dark .tabs-bar {
   background: $dark;
   border-bottom-color: $primary;
 
@@ -202,7 +202,7 @@ function closeTab(index: number) {
   }
 }
 
-.dark .tab-item {
+.body--dark .tab-item {
   background: $grey-8;
 
   .tab-content {
@@ -256,7 +256,7 @@ function closeTab(index: number) {
   }
 }
 
-.dark .tabs-content {
+.body--dark .tabs-content {
   background: $dark;
 
   .empty-state {

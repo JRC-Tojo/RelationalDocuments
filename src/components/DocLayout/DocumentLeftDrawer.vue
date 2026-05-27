@@ -179,7 +179,7 @@ const bookmarks = computed<Bookmark[]>(() => []);
   }
 }
 
-.dark .document-left-drawer {
+.body--dark .document-left-drawer {
   background: $dark;
   border-right-color: $grey-8;
 

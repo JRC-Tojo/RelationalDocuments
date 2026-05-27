@@ -98,7 +98,7 @@ function handleMainToolClick(tool: IDocTool) {
   }
 }
 
-.dark .main-toolbar {
+.body--dark .main-toolbar {
   background: linear-gradient(135deg, darken($primary, 10%) 0%, darken($primary, 15%) 100%);
 }
 
@@ -127,7 +127,7 @@ function handleMainToolClick(tool: IDocTool) {
   }
 }
 
-.dark .sub-toolbar {
+.body--dark .sub-toolbar {
   background: $dark;
   border-bottom-color: $grey-8;
 

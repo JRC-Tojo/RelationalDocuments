@@ -220,7 +220,7 @@ const updateAnnotationOpacity = () => {
   }
 }
 
-.dark .document-right-drawer {
+.body--dark .document-right-drawer {
   background: $dark;
   border-left-color: $grey-8;
 

@@ -23,8 +23,8 @@ export const useEditorStore = defineStore('editor', {
     autoSaveAnnotations: false,
 
     // サイドパネルの表示状態
-    leftDrawerModel: true,
-    rightDrawerModel: true,
+    leftDrawerModel: false,
+    rightDrawerModel: false,
 
     // TODO: タイルモードに対応
     tileMode: 'none' as string,

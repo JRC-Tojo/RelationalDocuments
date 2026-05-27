@@ -220,7 +220,7 @@ watch(documentId, async (newDocId) => {
   overflow: hidden;
 }
 
-.dark .document-layout {
+.body--dark .document-layout {
   background: $dark;
 }
 
@@ -234,7 +234,7 @@ watch(documentId, async (newDocId) => {
   width: 100%;
 }
 
-.dark .document-main-content {
+.body--dark .document-main-content {
   background: darken($dark, 5%);
 }
 
@@ -247,7 +247,7 @@ watch(documentId, async (newDocId) => {
   width: 100%;
 }
 
-.dark .document-viewer-wrapper {
+.body--dark .document-viewer-wrapper {
   background: darken($dark, 5%);
 }
 
@@ -260,7 +260,7 @@ watch(documentId, async (newDocId) => {
   background: $grey-1;
 }
 
-.dark .loading-state {
+.body--dark .loading-state {
   background: darken($dark, 5%);
 }
 </style>
