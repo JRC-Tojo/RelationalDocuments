@@ -73,6 +73,8 @@ const bookmarks = computed<Bookmark[]>(() => []);
 </script>
 
 <style scoped lang="scss">
+@use "sass:color";
+
 .document-left-drawer {
   .drawer-section {
     h6 {
@@ -121,7 +123,7 @@ const bookmarks = computed<Bookmark[]>(() => []);
 
       &.active {
         border-color: $primary;
-        background-color: lighten($primary, 45%);
+        background-color: color.adjust($primary, $lightness: 45%);
       }
 
       .page-number {
