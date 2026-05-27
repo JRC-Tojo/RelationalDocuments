@@ -37,21 +37,6 @@
     <!-- セパレータ -->
     <q-separator vertical />
 
-    <!-- 中央：タイル表示モード -->
-    <div class="footer-section footer-tile-mode">
-      <span class="section-label">{{ $t('tileMode') }}:</span>
-      <q-btn-toggle
-        v-model="docpageStore.tileMode"
-        flat
-        dense
-        unelevated
-        :options="tileModeOptions"
-      />
-    </div>
-
-    <!-- セパレータ -->
-    <q-separator vertical />
-
     <!-- 中央：表示モード -->
     <div class="footer-section footer-view-mode">
       <span class="section-label">{{ $t('viewMode') }}:</span>
@@ -73,7 +58,6 @@
 </template>
 
 <script setup lang="ts">
-import { useEditorStore } from 'src/stores/editorStore';
 import type { ViewMode } from 'src/models/docPage';
 
 interface Prop {
@@ -92,16 +76,6 @@ defineProps<Prop>();
 const currentPage = defineModel<number>('currentPage', { required: true });
 const viewMode = defineModel<ViewMode>('viewMode', { required: true });
 const zoomLevel = defineModel<number>('zoomLevel', { required: true });
-
-const docpageStore = useEditorStore();
-
-// タイル表示モード
-const tileModeOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'V', value: 'vertical' },
-  { label: 'H', value: 'horizontal' },
-  { label: 'Grid', value: 'grid' },
-];
 
 // 表示モード
 const viewModeOptions = [
