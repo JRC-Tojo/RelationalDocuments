@@ -25,18 +25,25 @@ function onClicked() {
 </script>
 
 <style lang="scss" scoped>
+@use "sass:color";
+
 .btn {
   min-width: max-content;
   text-decoration: none;
   transition: 0.4s;
   :hover {
-    background: lightgray;
+    background: color.adjust(gray, $alpha: -0.5);
   }
 
   .file-name {
+    background: transparent;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+}
+
+a:visited {
+  color: inherit;
 }
 </style>

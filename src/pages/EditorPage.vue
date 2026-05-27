@@ -16,7 +16,7 @@
     </q-bar>
 
     <!-- サブツールバー -->
-    <q-bar v-if="editorStore.subTools.length > 0" class="sub-toolbar bg-grey-2">
+    <q-bar v-if="editorStore.subTools.length > 0" class="sub-toolbar">
       <template v-for="tool in editorStore.subTools" :key="tool.id">
         <q-btn
           :flat="!tool.isActive()"
