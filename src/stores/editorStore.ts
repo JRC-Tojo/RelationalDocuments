@@ -5,6 +5,7 @@ import type { DocumentId } from 'src/models/schemas';
 export type PointerType = AnnotationType | 'hand' | 'pointer';
 export type Layouts<T> = { ul: T; ur: T; ll: T; lr: T };
 export type LayoutSide = keyof Layouts<never>;
+export type TileMode = 'single' | 'dubble' | 'grid'
 
 export const useEditorStore = defineStore('editor', {
   state: () => ({
@@ -26,8 +27,8 @@ export const useEditorStore = defineStore('editor', {
     leftDrawerModel: false,
     rightDrawerModel: false,
 
-    // TODO: タイルモードに対応
-    tileMode: 'none' as string,
+    // タブ表示のタイルモード
+    tileMode: 'single' as TileMode,
   }),
 
   actions: {

@@ -33,7 +33,14 @@
     </q-bar>
 
     <!-- ドキュメントレイアウト -->
-    <div class="grid" style="flex: 1 1 0;">
+    <div v-if="editorStore.tileMode === 'single'" class="doc-layout">
+      <DocTabsPage v-model="editorStore.tabs.ul" />
+    </div>
+    <div v-else-if="editorStore.tileMode === 'dubble'" class="doc-layout dubble">
+      <div class="ul"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
+      <div class="ur"><DocTabsPage v-model="editorStore.tabs.ur" /></div>
+    </div>
+    <div v-else-if="editorStore.tileMode === 'grid'" class="doc-layout grid">
       <div class="ul"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
       <div class="ur"><DocTabsPage v-model="editorStore.tabs.ur" /></div>
       <div class="ll"><DocTabsPage v-model="editorStore.tabs.ll" /></div>
@@ -133,6 +140,31 @@ function handleMainToolClick(tool: IDocTool) {
   }
 }
 
+.doc-layout {
+  flex: 1 1 0;
+  padding: 2px;
+  height: 100%;
+  width: 100%;
+  max-width: 100vw;
+  overflow: hidden;
+}
+
+.dubble {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-areas: 'ul ur';
+  gap: 2px;
+
+  .ul {
+    grid-area: ul;
+    overflow: hidden;
+  }
+  .ur {
+    grid-area: ur;
+    overflow: hidden;
+  }
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -141,11 +173,6 @@ function handleMainToolClick(tool: IDocTool) {
     'ul ur'
     'll lr';
   gap: 2px;
-  padding: 2px;
-  height: 100%;
-  width: 100%;
-  max-width: 100vw;
-  overflow: hidden;
 
   .ul {
     grid-area: ul;

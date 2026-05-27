@@ -190,6 +190,44 @@ function callDocTools(): IDocTool[] {
       },
     },
     {
+      id: 'tab-tile-menu',
+      icon: 'grid_view',
+      label: 'Tile View',
+      isActive: () => false,
+      onClicked: () => {
+        const subTools: IDocTool[] = [
+          {
+            id: 'single-tab-mode',
+            icon: 'crop_portrait',
+            label: 'タブ分割なし',
+            isActive: () => editorStore.tileMode === 'single',
+            onClicked: () => {
+              editorStore.tileMode = 'single'
+            },
+          },
+          {
+            id: 'dubble-tab-mode',
+            icon: 'vertical_split',
+            label: '左右2分割',
+            isActive: () => editorStore.tileMode === 'dubble',
+            onClicked: () => {
+              editorStore.tileMode = 'dubble'
+            },
+          },
+          {
+            id: 'grid-tab-mode',
+            icon: 'grid_view',
+            label: '上下左右4分割',
+            isActive: () => editorStore.tileMode === 'grid',
+            onClicked: () => {
+              editorStore.tileMode = 'grid'
+            },
+          },
+        ];
+        editorStore.subTools = subTools;
+      },
+    },
+    {
       id: 'toggle-right-drawer',
       icon: 'info',
       label: 'Right Drawer',
