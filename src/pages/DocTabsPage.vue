@@ -2,13 +2,20 @@
   <div class="doc-tabs-page">
     <!-- タブバー -->
     <div class="tabs-bar">
-      <VueDraggable v-model="tabs" class="tabs-container">
+      <VueDraggable
+        v-model="tabs"
+        :animation="0"
+        group="documentTabs"
+        class="tabs-container"
+        @add="onTabAdded"
+        @remove="onTabRemoved"
+      >
         <!-- タブを並べる -->
         <div
           v-for="tab in tabs"
           :key="tab.documentId"
-          :class="['tab-item', { active: tab.documentId === selectedDocId }]"
-          @click="selectTab(tab.documentId)"
+          :class="['tab-item', { active: tab.documentId === selectedDocId && activeLayout === layoutSide }]"
+          @click="selectTab(tab.documentId, true)"
         >
           <div class="tab-content">
             <q-icon name="description" class="tab-icon" />
@@ -44,7 +51,9 @@ import type { DocumentId } from 'src/models/schemas';
 import { useEditorStore } from 'src/stores/editorStore';
 import type { LayoutSide } from 'src/stores/editorStore';
 import { computed } from 'vue';
+import type { DraggableEvent } from 'vue-draggable-plus';
 import { VueDraggable } from 'vue-draggable-plus';
+import type { DocumentTab } from 'src/models/docPage';
 
 interface Prop {
   layoutSide: LayoutSide;
@@ -52,15 +61,32 @@ interface Prop {
 const prop = defineProps<Prop>();
 
 const editorStore = useEditorStore();
-const tabs = computed(() => editorStore.tabs[prop.layoutSide]);
+const tabs = computed({
+  get: () => editorStore.tabs[prop.layoutSide],
+  set: (newTabList) => {
+    editorStore.tabs[prop.layoutSide] = newTabList;
+  },
+});
 const selectedDocId = computed(() => editorStore.getActiveTab(prop.layoutSide)?.documentId);
+const activeLayout = computed(() => editorStore.activeSide)
 
-function selectTab(docId: DocumentId) {
-  editorStore.selectTab(docId);
+function selectTab(docId: DocumentId, isFocus: boolean) {
+  editorStore.selectTab(docId, prop.layoutSide, isFocus);
 }
 
 function closeTab(docId: DocumentId) {
-  editorStore.closeTab(docId);
+  editorStore.closeTab(docId, prop.layoutSide);
+}
+
+function onTabAdded(e: DraggableEvent<DocumentTab>) {
+  const docId = tabs.value[e.newIndex ?? 0]?.documentId;
+  if (docId !== void 0) selectTab(docId, true);
+}
+
+function onTabRemoved(e: DraggableEvent<DocumentTab>) {
+  const targetIdx = (e.oldIndex ?? 0) - 1;
+  const docId = tabs.value[targetIdx]?.documentId;
+  if (docId !== void 0) selectTab(docId, false);
 }
 </script>
 
@@ -122,6 +148,7 @@ function closeTab(docId: DocumentId) {
   display: flex;
   gap: 4px;
   padding: 0 8px;
+  width: 100%;
   height: 100%;
 }
 

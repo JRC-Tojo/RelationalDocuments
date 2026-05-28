@@ -59,36 +59,35 @@ export const useEditorStore = defineStore('editor', {
           isPinned: false,
         });
       }
-      this.selectTab(docId);
+      this.selectTab(docId, this.activeSide, true);
     },
 
     /**
      * タブを選択する
+     * @param isFocus: Trueの時にactiveSideを更新する
      */
-    selectTab(docId: DocumentId): void {
-      this.activeTabs[this.activeSide] = docId;
+    selectTab(docId: DocumentId, layoutSide: LayoutSide, isFocus: boolean): void {
+      this.activeTabs[layoutSide] = docId;
+      if (isFocus) this.activeSide = layoutSide
     },
 
     /**
      * タブを閉じる
      */
-    closeTab(docId: DocumentId): void {
-      Object.entries(this.tabs).forEach(([side, tabs]) => {
-        const index = tabs.findIndex((tab) => tab.documentId === docId);
+    closeTab(docId: DocumentId, layoutSide: LayoutSide): void {
+      const index = this.tabs[layoutSide].findIndex((tab) => tab.documentId === docId);
 
-        if (index !== -1) {
-          const typedSide = side as LayoutSide;
-          this.tabs[typedSide].splice(index, 1);
+      if (index !== -1) {
+        this.tabs[layoutSide].splice(index, 1);
 
-          // アクティブなタブが削除された場合は直前のタブをアクティブに
-          if (this.activeTabs[typedSide] === docId) {
-            const nextTabIdx = Math.max(0, index - 1);
-            this.activeTabs[typedSide] = this.tabs[typedSide][nextTabIdx]
-              ? this.tabs[typedSide][nextTabIdx].documentId
-              : null;
-          }
+        // アクティブなタブが削除された場合は直前のタブをアクティブに
+        if (this.activeTabs[layoutSide] === docId) {
+          const nextTabIdx = Math.max(0, index - 1);
+          this.activeTabs[layoutSide] = this.tabs[layoutSide][nextTabIdx]
+            ? this.tabs[layoutSide][nextTabIdx].documentId
+            : null;
         }
-      });
+      }
     },
 
     /**
