@@ -5,10 +5,10 @@
       <VueDraggable v-model="tabs" class="tabs-container">
         <!-- タブを並べる -->
         <div
-          v-for="(tab, index) in tabs"
+          v-for="tab in tabs"
           :key="tab.documentId"
-          :class="['tab-item', { active: index === 0 }]"
-          @click="selectTab(index)"
+          :class="['tab-item', { active: tab.documentId === selectedDocId }]"
+          @click="selectTab(tab.documentId)"
         >
           <div class="tab-content">
             <q-icon name="description" class="tab-icon" />
@@ -21,7 +21,7 @@
             icon="close"
             size="xs"
             class="tab-close-btn"
-            @click.stop="closeTab(index)"
+            @click.stop="closeTab(tab.documentId)"
           />
         </div>
       </VueDraggable>
@@ -29,7 +29,7 @@
 
     <!-- コンテンツエリア -->
     <div class="tabs-content">
-      <DocumentTabView v-if="selectedDocId" v-model="selectedDocId" />
+      <DocumentTabView v-if="selectedDocId" :document-id="selectedDocId" :key="selectedDocId" />
       <div v-else class="empty-state">
         <q-icon name="description" size="3rem" color="grey-5" />
         <p class="q-mt-md text-grey-6">{{ $t('noDocumentSelected') }}</p>
@@ -40,23 +40,27 @@
 
 <script setup lang="ts">
 import DocumentTabView from 'src/components/DocLayout/DocumentTabView.vue';
-import type { DocumentTab } from 'src/models/docPage';
+import type { DocumentId } from 'src/models/schemas';
+import { useEditorStore } from 'src/stores/editorStore';
+import type { LayoutSide } from 'src/stores/editorStore';
 import { computed } from 'vue';
 import { VueDraggable } from 'vue-draggable-plus';
 
-const tabs = defineModel<DocumentTab[]>({ required: true });
-const selectedDocId = computed(() => tabs.value[0]?.documentId ?? undefined);
+interface Prop {
+  layoutSide: LayoutSide;
+}
+const prop = defineProps<Prop>();
 
-function selectTab(index: number) {
-  if (tabs.value.length > 0 && index >= 0 && index < tabs.value.length) {
-    const selectedTab: DocumentTab = tabs.value[index]!;
-    const remainingTabs: DocumentTab[] = tabs.value.filter((_, i) => i !== index);
-    tabs.value = [selectedTab, ...remainingTabs];
-  }
+const editorStore = useEditorStore();
+const tabs = computed(() => editorStore.tabs[prop.layoutSide]);
+const selectedDocId = computed(() => editorStore.getActiveTab(prop.layoutSide)?.documentId);
+
+function selectTab(docId: DocumentId) {
+  editorStore.selectTab(docId);
 }
 
-function closeTab(index: number) {
-  tabs.value = tabs.value.filter((_, i) => i !== index);
+function closeTab(docId: DocumentId) {
+  editorStore.closeTab(docId);
 }
 </script>
 

@@ -48,12 +48,24 @@ export const useEditorStore = defineStore('editor', {
       return this.tabs[side].find((tab) => tab.documentId === this.activeTabs[side]) ?? null;
     },
 
+    /**
+     * 選択された文書のタブを開く
+     */
     openTab(docId: DocumentId, docTitle: string): void {
-      this.tabs[this.activeSide].push({
-        documentId: docId,
-        title: docTitle,
-        isPinned: false,
-      });
+      if (!this.tabs[this.activeSide].find((tab) => tab.documentId === docId)) {
+        this.tabs[this.activeSide].push({
+          documentId: docId,
+          title: docTitle,
+          isPinned: false,
+        });
+      }
+      this.selectTab(docId);
+    },
+
+    /**
+     * タブを選択する
+     */
+    selectTab(docId: DocumentId): void {
       this.activeTabs[this.activeSide] = docId;
     },
 

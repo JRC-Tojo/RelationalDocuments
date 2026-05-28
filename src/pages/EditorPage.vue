@@ -34,17 +34,17 @@
 
     <!-- ドキュメントレイアウト -->
     <div v-if="editorStore.tileMode === 'single'" class="doc-layout">
-      <DocTabsPage v-model="editorStore.tabs.ul" />
+      <DocTabsPage layout-side="ul" />
     </div>
     <div v-else-if="editorStore.tileMode === 'dubble'" class="doc-layout dubble">
-      <div class="ul"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
-      <div class="ur"><DocTabsPage v-model="editorStore.tabs.ur" /></div>
+      <div class="ul"><DocTabsPage layout-side="ul" /></div>
+      <div class="ur"><DocTabsPage layout-side="ur" /></div>
     </div>
     <div v-else-if="editorStore.tileMode === 'grid'" class="doc-layout grid">
-      <div class="ul"><DocTabsPage v-model="editorStore.tabs.ul" /></div>
-      <div class="ur"><DocTabsPage v-model="editorStore.tabs.ur" /></div>
-      <div class="ll"><DocTabsPage v-model="editorStore.tabs.ll" /></div>
-      <div class="lr"><DocTabsPage v-model="editorStore.tabs.lr" /></div>
+      <div class="ul"><DocTabsPage layout-side="ul" /></div>
+      <div class="ur"><DocTabsPage layout-side="ur" /></div>
+      <div class="ll"><DocTabsPage layout-side="ll" /></div>
+      <div class="lr"><DocTabsPage layout-side="lr" /></div>
     </div>
   </q-page>
 </template>

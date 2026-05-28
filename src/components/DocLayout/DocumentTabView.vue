@@ -63,7 +63,7 @@ import DocumentLeftDrawer from 'src/components/DocLayout/DocumentLeftDrawer.vue'
 import DocumentViewer from 'src/components/DocLayout/DocumentViewer.vue';
 import DocumentRightDrawer from 'src/components/DocLayout/DocumentRightDrawer.vue';
 import DocumentFooter from 'src/components/DocLayout/DocumentFooter.vue';
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useBackendApi } from 'src/apis/backendApi';
 import { generateThumbnail, loadPdf, renderPage } from '../Viewer/pdfManager';
 import type { Annotation, DocumentId } from 'src/models/schemas';
@@ -71,9 +71,13 @@ import type { ViewMode } from 'src/models/docPage';
 import { useEditorStore } from 'src/stores/editorStore';
 import { callEditorTools } from 'src/stores/editorTools';
 
+interface Prop {
+  documentId: DocumentId
+}
+const prop = defineProps<Prop>()
+
 const editorStore = useEditorStore();
 
-const documentId = defineModel<DocumentId>({ required: true });
 const loading = ref<boolean>(true);
 
 // for drawers
@@ -92,14 +96,6 @@ const zoomLevel = ref(100);
 const viewMode = ref<ViewMode>('single');
 
 // ================================
-
-function clearDocument() {
-  currentPage.value = 1;
-  pageCount.value = 0;
-  onRender.value = undefined;
-  thumbnails.value = [];
-  annotations.value = [];
-}
 
 async function loadDocument(docId: string) {
   loading.value = true;
@@ -132,7 +128,7 @@ async function loadDocument(docId: string) {
   );
 
   // PDFマネージャーからアノテーションを読み込む
-  const annotationRes = await api.getAnnotationsByDocument(documentId.value);
+  const annotationRes = await api.getAnnotationsByDocument(prop.documentId);
   if (annotationRes.success) annotations.value = annotationRes.data || [];
 
   loading.value = false;
@@ -204,12 +200,7 @@ const goToLastPage = (): void => {
 
 onMounted(async () => {
   editorStore.initStore(await callEditorTools());
-  await loadDocument(documentId.value);
-});
-
-watch(documentId, async (newDocId) => {
-  clearDocument();
-  await loadDocument(newDocId);
+  await loadDocument(prop.documentId);
 });
 </script>
 
