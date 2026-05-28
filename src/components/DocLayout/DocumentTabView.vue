@@ -72,9 +72,9 @@ import { useEditorStore } from 'src/stores/editorStore';
 import { callEditorTools } from 'src/stores/editorTools';
 
 interface Prop {
-  documentId: DocumentId
+  documentId: DocumentId;
 }
-const prop = defineProps<Prop>()
+const prop = defineProps<Prop>();
 
 const editorStore = useEditorStore();
 

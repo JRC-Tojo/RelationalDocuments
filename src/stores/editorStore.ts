@@ -68,7 +68,7 @@ export const useEditorStore = defineStore('editor', {
      */
     selectTab(docId: DocumentId, layoutSide: LayoutSide, isFocus: boolean): void {
       this.activeTabs[layoutSide] = docId;
-      if (isFocus) this.activeSide = layoutSide
+      if (isFocus) this.activeSide = layoutSide;
     },
 
     /**
