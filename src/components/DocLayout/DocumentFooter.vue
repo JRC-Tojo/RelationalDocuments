@@ -80,9 +80,9 @@ const zoomLevel = defineModel<number>('zoomLevel', { required: true });
 // 表示モード
 const viewModeOptions = [
   { label: 'Single', value: 'single' },
-  { label: 'Spread', value: 'spread' },
+  // { label: 'Spread', value: 'spread' },
   { label: 'C Single', value: 'continuousSingle' },
-  { label: 'C Spread', value: 'continuousSpread' },
+  // { label: 'C Spread', value: 'continuousSpread' },
 ];
 </script>
 
