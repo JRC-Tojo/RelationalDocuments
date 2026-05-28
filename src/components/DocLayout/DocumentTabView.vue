@@ -1,5 +1,5 @@
 <template>
-  <div class="document-layout">
+  <div class="document-layout row">
     <!-- 左Drawer：ドキュメント情報とサムネイル -->
     <DocumentLeftDrawer
       v-model:drawer-open="editorStore.leftDrawerModel"
@@ -7,10 +7,11 @@
       :current-page="currentPage"
       :thumnails="thumbnails"
       @go-to-page="goToPage"
+      class="col-1"
     />
 
     <!-- メインコンテンツ領域 -->
-    <div class="document-main-content">
+    <div class="document-main-content col">
       <!-- タブコンテンツ：文書とアノテーション表示 -->
       <div class="document-viewer-wrapper">
         <DocumentViewer
@@ -52,6 +53,7 @@
     <DocumentRightDrawer
       v-model:drawer-open="editorStore.rightDrawerModel"
       v-model:selected-ant="selectedAnnotations"
+      class="col-1"
     />
   </div>
 </template>
