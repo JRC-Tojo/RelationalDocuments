@@ -113,7 +113,7 @@ export default {
         title: '保存',
         overwrite: '上書き保存',
         saveAs: '名前を付けて保存',
-        auto: '自動保存'
+        auto: '自動保存',
       },
       print: '印刷',
       download: 'ダウンロード',
@@ -121,7 +121,7 @@ export default {
         title: 'タイルモード',
         noGrid: '分割なし',
         split: '左右2分割',
-        grid: '上下左右4分割'
+        grid: '上下左右4分割',
       },
     },
     document: {
@@ -136,8 +136,8 @@ export default {
       bookmark: {
         title: 'ブックマーク',
         noBookmarks: 'ブックマークなし',
-        page: 'ページ'
-      }
+        page: 'ページ',
+      },
     },
     rightDrawer: {
       title: 'プロパティ',
@@ -150,7 +150,7 @@ export default {
         relations: 'リンク',
         addRelation: 'リンクを追加',
         delete: '削除',
-        notSelected: 'アノテーションを選択してください'
+        notSelected: 'アノテーションを選択してください',
       },
     },
     footer: {

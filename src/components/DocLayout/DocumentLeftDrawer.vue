@@ -41,7 +41,10 @@
           </q-item-section>
           <q-item-section>
             <q-item-label>{{ bookmark.label }}</q-item-label>
-            <q-item-label caption>{{ $t('pdfEditor.leftDrawer.bookmark.page') }} {{ bookmark.pageNumber }}</q-item-label>
+            <q-item-label caption
+              >{{ $t('pdfEditor.leftDrawer.bookmark.page') }}
+              {{ bookmark.pageNumber }}</q-item-label
+            >
           </q-item-section>
         </q-item>
       </q-list>
