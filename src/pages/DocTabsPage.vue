@@ -14,7 +14,10 @@
         <div
           v-for="tab in tabs"
           :key="tab.documentId"
-          :class="['tab-item', { active: tab.documentId === selectedDocId && activeLayout === layoutSide }]"
+          :class="[
+            'tab-item',
+            { active: tab.documentId === selectedDocId && activeLayout === layoutSide },
+          ]"
           @click="selectTab(tab.documentId, true)"
         >
           <div class="tab-content">
@@ -68,7 +71,7 @@ const tabs = computed({
   },
 });
 const selectedDocId = computed(() => editorStore.getActiveTab(prop.layoutSide)?.documentId);
-const activeLayout = computed(() => editorStore.activeSide)
+const activeLayout = computed(() => editorStore.activeSide);
 
 function selectTab(docId: DocumentId, isFocus: boolean) {
   editorStore.selectTab(docId, prop.layoutSide, isFocus);
