@@ -26,7 +26,7 @@
           v-model:current-page="currentPage"
           v-model:zoom-level="zoomLevel"
         />
-        <div v-else-if="loading" class="loading-state">
+        <div v-else-if="loading" class="loading-state fit">
           <q-spinner color="primary" size="3em" />
           <p class="q-mt-md">{{ $t('loading') }}</p>
         </div>
