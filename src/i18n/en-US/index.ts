@@ -160,6 +160,6 @@ export default {
   },
 
   explorer: {
-    demo: 'Create Demo Data'
-  }
+    demo: 'Create Demo Data',
+  },
 };

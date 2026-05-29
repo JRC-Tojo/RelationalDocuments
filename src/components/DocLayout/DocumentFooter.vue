@@ -124,12 +124,12 @@ function onZoomInputEnter() {
 }
 
 watch(currentPage, (newPage) => {
-  pageInputValue.value = String(newPage)
-})
+  pageInputValue.value = String(newPage);
+});
 
 watch(zoomLevel, (newZoomLevel) => {
-  zoomInputValue.value = String(newZoomLevel)
-})
+  zoomInputValue.value = String(newZoomLevel);
+});
 </script>
 
 <style scoped lang="scss">

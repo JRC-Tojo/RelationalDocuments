@@ -159,6 +159,6 @@ export default {
   },
 
   explorer: {
-    demo: 'デモデータを作成'
-  }
+    demo: 'デモデータを作成',
+  },
 };
