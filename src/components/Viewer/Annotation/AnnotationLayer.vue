@@ -1,5 +1,5 @@
 <template>
-  <div class="annotation-layer-wrapper">
+  <div v-show="editorStore.visibleAnnotations" class="annotation-layer-wrapper">
     <v-stage
       ref="stageRef"
       :config="canvasSize"
@@ -12,18 +12,6 @@
       <v-layer>
         <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
         <template v-for="annotation in annotations">
-          <!-- ハイライトアノテーション -->
-          <HighlightAnnotation
-            v-if="annotation.type === 'highlight'"
-            :key="annotation.id"
-            :annotation="annotation"
-            :is-selected="selectedIds.has(annotation.id)"
-            :is-editing="isEditing"
-            @select="selectAnnotation"
-            @update="updateAnnotation"
-            @delete="deleteAnnotation"
-          />
-
           <!-- ボックスアノテーション -->
           <BoxAnnotation
             v-if="annotation.type === 'box'"
@@ -63,9 +51,7 @@
 
         <!-- 描画中のプレビュー -->
         <v-rect
-          v-if="
-            isDrawing && drawingPreview && (drawingType === 'highlight' || drawingType === 'box')
-          "
+          v-if="isDrawing && drawingPreview && drawingType === 'box'"
           :config="drawingPreview.rect"
         />
         <v-line
@@ -86,27 +72,27 @@
 
 <script setup lang="ts">
 import { ref, nextTick, reactive, computed } from 'vue';
-import HighlightAnnotation from './HighlightAnnotation.vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
-import type { Annotation, AnnotationType } from 'src/models/schemas';
+import type { Annotation, DocumentId } from 'src/models/schemas';
 import type Konva from 'konva';
 import type { Node, NodeConfig } from 'konva/lib/Node';
 import { startDrawingAnnotation } from './annotationDrawingManager';
+import { useEditorStore } from 'src/stores/editorStore';
 
 // Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
   annotations: Annotation[];
-  documentId: string;
+  documentId: DocumentId;
 }
 const props = defineProps<Props>();
+const editorStore = useEditorStore();
 
 const page = defineModel<number>('page', { required: true });
 const canvasSize = defineModel<{ width: number; height: number }>('canvasSize', { required: true });
-const drawingType = defineModel<AnnotationType | 'default'>('drawingType', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const emit = defineEmits<{
@@ -133,9 +119,9 @@ const drawingPreview = ref<{
   line?: { x: number; y: number; points: number[]; stroke: string; strokeWidth: number };
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
-const isEditing = computed(() => drawingType.value !== 'default');
+const drawingType = computed(() => editorStore.currentTools);
+const isEditing = computed(() => !['hand'].includes(drawingType.value));
 const cursorStyle = computed(() => (isEditing.value ? 'crosshair' : 'default'));
-const DEFAULT_COLOR = '#FFD700';
 // Transformerの設定。nodes プロパティで制御する
 const transformerConfig = reactive({
   nodes: [] as Node<NodeConfig>[],
@@ -147,10 +133,11 @@ let endDrawingAnnotation: ((endX: number, endY: number) => Annotation | null) | 
  * マウスダウンイベント
  */
 function handleMouseDown(e: KonvaMouseEvent) {
+  // ポインターモードの場合は新規描画を許可しない
+  if (drawingType.value === 'pointer') return;
+
   // 編集モードが有効でない場合はスキップ
-  if (drawingType.value === 'default') {
-    return;
-  }
+  if (!isEditing.value) return;
 
   // 既存の図形をクリックした場合はスキップ
   if (e.target !== e.target.getStage()) {
@@ -174,7 +161,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
     page.value,
     adjustedPos.x,
     adjustedPos.y,
-    drawingType.value,
+    editorStore.currentAnnotationStyle,
   );
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }
@@ -235,8 +222,10 @@ function handleMouseUp(e: KonvaMouseEvent) {
  * ステージクリック（背景クリック時の選択解除）
  */
 function handleStageClick(e: KonvaMouseEvent) {
-  if (e.target === e.target.getStage()) {
+  // ポインターモード時のみ、背景クリックで選択を解除
+  if (drawingType.value === 'pointer' && e.target === e.target.getStage()) {
     selectedIds.value.clear();
+    transformerConfig.nodes = [];
   }
 }
 
@@ -249,38 +238,39 @@ function updateDrawingPreview(endX: number, endY: number) {
   const deltaX = endX - startPos.value.x;
   const deltaY = endY - startPos.value.y;
 
-  if (drawingType.value === 'highlight' || drawingType.value === 'box') {
+  const style = editorStore.currentAnnotationStyle;
+  if (style.type === 'box') {
     drawingPreview.value = {
       rect: {
         x: Math.min(startPos.value.x, endX),
         y: Math.min(startPos.value.y, endY),
         width: Math.abs(deltaX),
         height: Math.abs(deltaY),
-        fill: drawingType.value === 'highlight' ? DEFAULT_COLOR : 'transparent',
-        opacity: drawingType.value === 'highlight' ? 0.3 : 1,
-        stroke: drawingType.value === 'box' ? DEFAULT_COLOR : 'transparent',
-        strokeWidth: drawingType.value === 'box' ? 2 : 0,
+        fill: 'transparent',
+        opacity: style.fillOpacity,
+        stroke: style.strokeColor,
+        strokeWidth: style.strokeWidth,
       },
     };
-  } else if (drawingType.value === 'line') {
+  } else if (style.type === 'line') {
     drawingPreview.value = {
       line: {
         x: startPos.value.x,
         y: startPos.value.y,
         points: [0, 0, deltaX, deltaY],
-        stroke: DEFAULT_COLOR,
-        strokeWidth: 2,
+        stroke: style.strokeColor,
+        strokeWidth: style.strokeWidth,
       },
     };
-  } else if (drawingType.value === 'circle') {
+  } else if (style.type === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;
     drawingPreview.value = {
       circle: {
         x: startPos.value.x + deltaX / 2,
         y: startPos.value.y + deltaY / 2,
         radius,
-        stroke: DEFAULT_COLOR,
-        strokeWidth: 2,
+        stroke: style.strokeColor,
+        strokeWidth: style.strokeWidth,
       },
     };
   }

@@ -1,6 +1,7 @@
 export default {
   // ページタイトル
   title: {
+    app: '関係性文書アプリ',
     documents: 'ドキュメント一覧',
     viewer: 'ドキュメント表示',
     settings: '設定',
@@ -101,24 +102,69 @@ export default {
 
   // PDF エディタ関連
   pdfEditor: {
-    title: 'PDFエディタ',
-    viewMode: '表示モード',
-    singlePage: '単一ページ',
-    continuous: '連続表示',
-    twoPages: '見開き表示',
-    color: '色',
-    page: 'ページ',
-    thumbnails: 'サムネイル',
-    bookmarks: 'ブックマーク',
-    annotations: 'アノテーション',
-    addBookmark: 'ブックマークを追加',
-    bookmarkTitle: 'ブックマークタイトルを入力してください:',
-    noBookmarks: 'ブックマークはありません',
-    noAnnotations: 'アノテーションはありません',
-    highlight: 'ハイライト',
-    line: '直線',
-    box: 'ボックス',
-    circle: '円',
-    image: '画像',
+    tools: {
+      line: '直線',
+      box: '四角形',
+      circle: '円',
+      annotationToggle: 'アノテーションの表示切替',
+      handMode: 'ハンドモード',
+      selectMode: '選択モード',
+      save: {
+        title: '保存',
+        overwrite: '上書き保存',
+        saveAs: '名前を付けて保存',
+        auto: '自動保存',
+      },
+      print: '印刷',
+      download: 'ダウンロード',
+      viewStyle: {
+        title: 'タイルモード',
+        noGrid: '分割なし',
+        split: '左右2分割',
+        grid: '上下左右4分割',
+      },
+    },
+    document: {
+      noDocumentSelected: '表示する文書を選択してください',
+      loading: '読み込み中 ...',
+    },
+    leftDrawer: {
+      title: 'サムネイル / ブックマーク',
+      thumbnail: {
+        title: 'サムネイル',
+      },
+      bookmark: {
+        title: 'ブックマーク',
+        noBookmarks: 'ブックマークなし',
+        page: 'ページ',
+      },
+    },
+    rightDrawer: {
+      title: 'プロパティ',
+      annotation: {
+        title: 'プロパティ',
+        type: '種別',
+        color: '色',
+        stroke: '線の幅',
+        opacity: '透明度',
+        relations: 'リンク',
+        addRelation: 'リンクを追加',
+        delete: '削除',
+        notSelected: 'アノテーションを選択してください',
+      },
+    },
+    footer: {
+      viewMode: {
+        title: '表示モード',
+        single: '単一ページ',
+        c_single: '連続表示',
+        spread: '見開き',
+        c_spread: '見開き連続表示',
+      },
+    },
+  },
+
+  explorer: {
+    demo: 'デモデータを作成',
   },
 };

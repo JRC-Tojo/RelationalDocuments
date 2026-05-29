@@ -2,6 +2,7 @@
 export default {
   // Page titles
   title: {
+    app: 'Relational Documents',
     documents: 'Documents',
     viewer: 'Document Viewer',
     settings: 'Settings',
@@ -102,24 +103,69 @@ export default {
 
   // PDF Editor related
   pdfEditor: {
-    title: 'PDF Editor',
-    viewMode: 'View Mode',
-    singlePage: 'Single Page',
-    continuous: 'Continuous',
-    twoPages: 'Two Pages',
-    color: 'Color',
-    page: 'Page',
-    thumbnails: 'Thumbnails',
-    bookmarks: 'Bookmarks',
-    annotations: 'Annotations',
-    addBookmark: 'Add Bookmark',
-    bookmarkTitle: 'Enter bookmark title:',
-    noBookmarks: 'No bookmarks',
-    noAnnotations: 'No annotations',
-    highlight: 'Highlight',
-    line: 'Line',
-    box: 'Box',
-    circle: 'Circle',
-    image: 'Image',
+    tools: {
+      line: 'Line',
+      box: 'Box',
+      circle: 'Circle',
+      annotationToggle: 'Show / Hide Annotations',
+      handMode: 'Hand Mode',
+      selectMode: 'Select Mode',
+      save: {
+        title: 'Save',
+        overwrite: 'Save Changes',
+        saveAs: 'Save As',
+        auto: 'Auto Save',
+      },
+      print: 'Print',
+      download: 'Download',
+      viewStyle: {
+        title: 'Grid View Styles',
+        noGrid: 'Single View',
+        split: 'Split View',
+        grid: 'Grid View',
+      },
+    },
+    document: {
+      noDocumentSelected: 'No document selected',
+      loading: 'Loading...',
+    },
+    leftDrawer: {
+      title: 'Thumbnails / Bookmarks',
+      thumbnail: {
+        title: 'Page Thumbnails',
+      },
+      bookmark: {
+        title: 'Bookmarks',
+        noBookmarks: 'No Bookmarks',
+        page: 'Page',
+      },
+    },
+    rightDrawer: {
+      title: 'Annotation Properties',
+      annotation: {
+        title: 'Annotation Properties',
+        type: 'Annotation Type',
+        color: 'Drawing Color',
+        stroke: 'Stroke Width',
+        opacity: 'Fill Opacity',
+        relations: 'Registered Relations',
+        addRelation: 'Add Relation',
+        delete: 'Delete',
+        notSelected: 'Select any annotations',
+      },
+    },
+    footer: {
+      viewMode: {
+        title: 'View Mode',
+        single: 'Single Page',
+        c_single: 'Continuous Pages',
+        spread: 'Spread Pages',
+        c_spread: 'Continuous Spread',
+      },
+    },
+  },
+
+  explorer: {
+    demo: 'Create Demo Data',
   },
 };

@@ -14,10 +14,6 @@ export async function initializeApp() {
 
   // アプリの初期化
   await api.initialize();
-
-  // 初期データの確認
-  const docsResponse = await api.getAllDocuments();
-  console.log('初期化完了。登録済みドキュメント数:', docsResponse.data?.length ?? 0);
 }
 
 /**

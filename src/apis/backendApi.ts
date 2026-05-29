@@ -1,5 +1,6 @@
+import { settingsService } from 'src/services/settingsService';
 import type { DocumentMetadata, Annotation, AppSettings, ApiResponse } from '../models/schemas';
-import { documentService, annotationService, settingsService } from '../services/documentService';
+import { documentService, annotationService } from '../services/documentService';
 
 /**
  * バックエンド統合 API層
@@ -218,7 +219,7 @@ class BackendApi {
   /**
    * 設定を取得
    */
-  async getSettings(): Promise<ApiResponse<AppSettings | null>> {
+  async getSettings(): Promise<ApiResponse<AppSettings>> {
     try {
       const settings = await settingsService.getSettings();
       return {

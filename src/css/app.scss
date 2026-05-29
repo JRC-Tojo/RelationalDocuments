@@ -1,1 +1,130 @@
 // app global css
+
+// ダークモード共通スタイル
+.body--dark {
+  .text-grey {
+    color: $grey-5;
+  }
+
+  .text-grey-5 {
+    color: $grey-6;
+  }
+
+  .text-grey-6 {
+    color: $grey-5;
+  }
+
+  .text-grey-7 {
+    color: $grey-4;
+  }
+
+  .text-grey-8 {
+    color: $grey-3;
+  }
+
+  // Quasar コンポーネント の共通スタイル
+  .q-page {
+    background: darken($dark, 5%);
+    color: $grey-3;
+  }
+
+  .q-separator {
+    background: $grey-8;
+  }
+
+  .q-item {
+    color: $grey-3;
+
+    .q-item__label {
+      color: $grey-3;
+
+      &.caption {
+        color: $grey-5;
+      }
+    }
+  }
+
+  .q-menu__paper {
+    background: $grey-8;
+    color: $grey-3;
+
+    .q-item {
+      color: $grey-3;
+
+      &:hover {
+        background: $grey-7;
+      }
+
+      &.q-manual-focusable:focus,
+      &.q-hoverable:hover,
+      &.q-focusable.q-manual-focusable:focus,
+      &.q-focusable.q-hoverable:hover {
+        background: $grey-7;
+      }
+    }
+  }
+
+  .q-btn {
+    &.q-btn--outline {
+      border-color: $grey-6;
+      color: $grey-4;
+
+      &:hover {
+        background: rgba($grey-6, 0.1);
+        border-color: $grey-5;
+        color: $grey-3;
+      }
+    }
+  }
+
+  input,
+  textarea {
+    &:not([type='color']) {
+      background: $grey-8;
+      color: $grey-2;
+      border-color: $grey-7;
+
+      &::placeholder {
+        color: $grey-6;
+      }
+
+      &:focus {
+        border-color: $primary;
+        background: darken($grey-8, 5%);
+      }
+    }
+  }
+}
+
+// スクロールバーの共通スタイル
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: $grey-2;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $grey-4;
+  border-radius: 4px;
+
+  &:hover {
+    background: $grey-5;
+  }
+}
+
+.body--dark {
+  ::-webkit-scrollbar-track {
+    background: $grey-8;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: $grey-7;
+
+    &:hover {
+      background: $grey-6;
+    }
+  }
+}

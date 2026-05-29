@@ -4,8 +4,9 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { Annotation, AnnotationType } from 'src/models/schemas';
+import type { Annotation, DocumentId } from 'src/models/schemas';
 import dayjs from 'dayjs';
+import type { AnnotationStyle } from 'src/models/docPage';
 
 /**
  * アノテーションの描画開始時に呼び出す
@@ -13,26 +14,24 @@ import dayjs from 'dayjs';
  * 終了時に呼び出すことで新規アノテーションオブジェクトを取得する関数を返す
  */
 export function startDrawingAnnotation(
-  documentId: string,
+  documentId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
-  drawingType: AnnotationType,
-  color: string = '#FFD700',
+  annotationStyle: AnnotationStyle,
 ) {
   return (endX: number, endY: number) =>
-    endDrawingAnnotation(documentId, pageNumber, startX, startY, endX, endY, drawingType, color);
+    endDrawingAnnotation(documentId, pageNumber, startX, startY, endX, endY, annotationStyle);
 }
 
 function endDrawingAnnotation(
-  documentId: string,
+  documentId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
   endX: number,
   endY: number,
-  drawingType: AnnotationType,
-  color: string = '#FFD700',
+  annotationStyle: AnnotationStyle,
 ) {
   const newAnnotation = createAnnotation(
     documentId,
@@ -41,33 +40,29 @@ function endDrawingAnnotation(
     startY,
     endX,
     endY,
-    drawingType,
-    color,
+    annotationStyle,
   );
   return newAnnotation;
 }
 
 function createAnnotation(
-  documentId: string,
+  docId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
   endX: number,
   endY: number,
-  drawingType: AnnotationType,
-  color: string = '#FFD700',
+  annotationStyle: AnnotationStyle,
 ): Annotation | null {
   const deltaX = endX - startX;
   const deltaY = endY - startY;
 
   const baseAnnotation = {
     id: uuidv4(),
-    documentId: documentId,
+    documentId: docId,
     pageNumber: pageNumber,
     x: Math.min(startX, endX),
     y: Math.min(startY, endY),
-    color: color,
-    strokeWidth: 2,
     createdAt: dayjs().toISOString(),
     updatedAt: dayjs().toISOString(),
     linkedAnnotationIds: [],
@@ -75,27 +70,33 @@ function createAnnotation(
     relatedDocumentIds: [],
   };
 
-  if (drawingType === 'highlight' || drawingType === 'box') {
+  if (annotationStyle.type === 'box') {
     return {
       ...baseAnnotation,
-      type: drawingType,
+      type: annotationStyle.type,
+      color: annotationStyle.strokeColor,
+      strokeWidth: annotationStyle.strokeWidth,
       width: Math.abs(deltaX),
       height: Math.abs(deltaY),
-      opacity: drawingType === 'highlight' ? 0.3 : 1,
+      opacity: annotationStyle.fillOpacity,
     };
-  } else if (drawingType === 'circle') {
+  } else if (annotationStyle.type === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;
     return {
       ...baseAnnotation,
-      type: drawingType,
+      type: annotationStyle.type,
+      color: annotationStyle.strokeColor,
+      strokeWidth: annotationStyle.strokeWidth,
       x: startX + deltaX / 2,
       y: startY + deltaY / 2,
       radius,
     };
-  } else if (drawingType === 'line') {
+  } else if (annotationStyle.type === 'line') {
     return {
       ...baseAnnotation,
-      type: drawingType,
+      type: annotationStyle.type,
+      color: annotationStyle.strokeColor,
+      strokeWidth: annotationStyle.strokeWidth,
       x: startX,
       y: startY,
       x2: endX,
