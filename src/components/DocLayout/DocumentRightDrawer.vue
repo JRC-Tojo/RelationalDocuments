@@ -2,17 +2,17 @@
   <div v-show="drawerOpen" class="document-right-drawer">
     <!-- アノテーション選択時の詳細 -->
     <div v-if="selectedAnnotations.length === 1" class="drawer-section q-pa-md">
-      <h6 class="q-my-none q-mb-md">{{ $t('annotationProperties') }}</h6>
+      <h6 class="q-my-none q-mb-md">{{ $t('pdfEditor.rightDrawer.annotation.title') }}</h6>
       <div class="annotation-properties">
         <!-- アノテーション型 -->
         <div class="property-group q-mb-md">
-          <label class="property-label">{{ $t('type') }}</label>
+          <label class="property-label">{{ $t('pdfEditor.rightDrawer.annotation.type') }}</label>
           <div class="property-value">{{ selectedAnnotationType }}</div>
         </div>
 
         <!-- 色選択 -->
         <div class="property-group q-mb-md">
-          <label class="property-label">{{ $t('color') }}</label>
+          <label class="property-label">{{ $t('pdfEditor.rightDrawer.annotation.color') }}</label>
           <div class="color-picker">
             <input
               v-model="annotationColor"
@@ -26,7 +26,7 @@
 
         <!-- 線の太さ -->
         <div class="property-group q-mb-md">
-          <label class="property-label">{{ $t('strokeWidth') }}</label>
+          <label class="property-label">{{ $t('pdfEditor.rightDrawer.annotation.stroke') }}</label>
           <div class="slider-container">
             <q-slider
               v-model="annotationStrokeWidth"
@@ -41,7 +41,7 @@
 
         <!-- 透明度 -->
         <div class="property-group q-mb-md">
-          <label class="property-label">{{ $t('opacity') }}</label>
+          <label class="property-label">{{ $t('pdfEditor.rightDrawer.annotation.opacity') }}</label>
           <div class="slider-container">
             <q-slider
               v-model="annotationOpacity"
@@ -57,20 +57,20 @@
         <!-- 関係性設定 -->
         <q-separator class="q-my-md" />
         <div class="property-group q-mb-md">
-          <label class="property-label">{{ $t('relations') }}</label>
-          <q-btn outline color="primary" icon="link" :label="$t('addRelation')" size="sm" />
+          <label class="property-label">{{ $t('pdfEditor.rightDrawer.annotation.relations') }}</label>
+          <q-btn outline color="primary" icon="link" :label="$t('pdfEditor.rightDrawer.annotation.addRelation')" size="sm" />
         </div>
 
         <!-- 削除ボタン -->
         <q-separator class="q-my-md" />
-        <q-btn outline color="negative" icon="delete" :label="$t('delete')" class="full-width" />
+        <q-btn outline color="negative" icon="delete" :label="$t('pdfEditor.rightDrawer.annotation.delete')" class="full-width" />
       </div>
     </div>
 
     <!-- アノテーション未選択時 -->
     <div v-else class="drawer-empty q-pa-md">
       <q-icon name="info" size="2rem" color="grey-5" />
-      <p class="q-mt-md text-grey-6">{{ $t('selectAnnotationForProperties') }}</p>
+      <p class="q-mt-md text-grey-6">{{ $t('pdfEditor.rightDrawer.annotation.notSelected') }}</p>
     </div>
   </div>
 </template>

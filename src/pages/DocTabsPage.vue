@@ -39,7 +39,7 @@
       <DocumentTabView v-if="selectedDocId" :document-id="selectedDocId" :key="selectedDocId" />
       <div v-else class="empty-state">
         <q-icon name="description" size="3rem" color="grey-5" />
-        <p class="q-mt-md text-grey-6">{{ $t('noDocumentSelected') }}</p>
+        <p class="q-mt-md text-grey-6">{{ $t('pdfEditor.document.noDocumentSelected') }}</p>
       </div>
     </div>
   </div>

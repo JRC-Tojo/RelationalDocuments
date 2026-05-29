@@ -57,28 +57,28 @@ async function callAnnotationTools(): Promise<IDocTool[]> {
     {
       id: 'annotation-line',
       icon: 'edit',
-      label: t('pdfEditor.line'),
+      label: t('pdfEditor.tools.line'),
       isActive: () => false,
       onClicked: () => registSubTools('line'),
     },
     {
       id: 'annotation-box',
       icon: 'crop_square',
-      label: t('pdfEditor.box'),
+      label: t('pdfEditor.tools.box'),
       isActive: () => false,
       onClicked: () => registSubTools('box'),
     },
     {
       id: 'annotation-circle',
       icon: 'circle',
-      label: t('pdfEditor.circle'),
+      label: t('pdfEditor.tools.circle'),
       isActive: () => false,
       onClicked: () => registSubTools('circle'),
     },
     {
       id: 'toggle-annotation-visibility',
       icon: 'visibility',
-      label: t('pdfEditor.annotationToggle'),
+      label: t('pdfEditor.tools.annotationToggle'),
       isActive: () => editorStore.visibleAnnotations,
       onClicked: () => {
         editorStore.visibleAnnotations = !editorStore.visibleAnnotations;
@@ -90,13 +90,14 @@ async function callAnnotationTools(): Promise<IDocTool[]> {
 }
 
 function callPointerTools(): IDocTool[] {
+  const { t } = useI18n();
   const editorStore = useEditorStore();
 
   const tools: IDocTool[] = [
     {
       id: 'toggle-left-drawer',
       icon: 'menu',
-      label: 'Left Drawer',
+      label: t('pdfEditor.leftDrawer.title'),
       isActive: () => false,
       onClicked: () => {
         editorStore.leftDrawerModel = !editorStore.leftDrawerModel;
@@ -105,7 +106,7 @@ function callPointerTools(): IDocTool[] {
     {
       id: 'hand-mode',
       icon: 'pan_tool',
-      label: 'Hand Mode',
+      label: t('pdfEditor.tools.handMode'),
       isActive: () => {
         return editorStore.currentTools === 'hand';
       },
@@ -116,7 +117,7 @@ function callPointerTools(): IDocTool[] {
     {
       id: 'select-mode',
       icon: 'touch_app',
-      label: 'Select Mode',
+      label: t('pdfEditor.tools.selectMode'),
       isActive: () => {
         return editorStore.currentTools === 'pointer';
       },
@@ -129,20 +130,21 @@ function callPointerTools(): IDocTool[] {
 }
 
 function callDocTools(): IDocTool[] {
+  const { t } = useI18n();
   const editorStore = useEditorStore();
 
   const tools: IDocTool[] = [
     {
       id: 'save-menu',
       icon: 'save',
-      label: 'Save Menu',
+      label: t('pdfEditor.tools.save.title'),
       isActive: () => false,
       onClicked: () => {
         const subTools: IDocTool[] = [
           {
             id: 'save-overwrite',
             icon: 'save',
-            label: '上書き保存',
+            label: t('pdfEditor.tools.save.overwrite'),
             isActive: () => false,
             onClicked: () => {
               /** TODO: 今後実装 */
@@ -151,7 +153,7 @@ function callDocTools(): IDocTool[] {
           {
             id: 'save-as',
             icon: 'save_as',
-            label: '名前を付けて保存',
+            label: t('pdfEditor.tools.save.saveAs'),
             isActive: () => false,
             onClicked: () => {
               /** TODO: 今後実装 */
@@ -160,7 +162,7 @@ function callDocTools(): IDocTool[] {
           {
             id: 'auto-save-toggle',
             icon: 'backup',
-            label: '自動保存',
+            label: t('pdfEditor.tools.save.auto'),
             isActive: () => editorStore.autoSaveAnnotations,
             onClicked: () => {
               editorStore.autoSaveAnnotations = !editorStore.autoSaveAnnotations;
@@ -173,7 +175,7 @@ function callDocTools(): IDocTool[] {
     {
       id: 'print',
       icon: 'print',
-      label: 'Print',
+      label: t('pdfEditor.tools.print'),
       isActive: () => false,
       onClicked: () => {
         // TODO: 暫定実装
@@ -183,7 +185,7 @@ function callDocTools(): IDocTool[] {
     {
       id: 'download',
       icon: 'download',
-      label: 'Download',
+      label: t('pdfEditor.tools.download'),
       isActive: () => false,
       onClicked: () => {
         /** TODO: 今後実装 */
@@ -192,14 +194,14 @@ function callDocTools(): IDocTool[] {
     {
       id: 'tab-tile-menu',
       icon: 'grid_view',
-      label: 'Tile View',
+      label: t('pdfEditor.tools.viewStyle.title'),
       isActive: () => false,
       onClicked: () => {
         const subTools: IDocTool[] = [
           {
             id: 'single-tab-mode',
             icon: 'crop_portrait',
-            label: 'タブ分割なし',
+            label: t('pdfEditor.tools.viewStyle.noGrid'),
             isActive: () => editorStore.tileMode === 'single',
             onClicked: () => {
               editorStore.tileMode = 'single';
@@ -208,7 +210,7 @@ function callDocTools(): IDocTool[] {
           {
             id: 'dubble-tab-mode',
             icon: 'vertical_split',
-            label: '左右2分割',
+            label: t('pdfEditor.tools.viewStyle.split'),
             isActive: () => editorStore.tileMode === 'dubble',
             onClicked: () => {
               editorStore.tileMode = 'dubble';
@@ -217,7 +219,7 @@ function callDocTools(): IDocTool[] {
           {
             id: 'grid-tab-mode',
             icon: 'grid_view',
-            label: '上下左右4分割',
+            label: t('pdfEditor.tools.viewStyle.grid'),
             isActive: () => editorStore.tileMode === 'grid',
             onClicked: () => {
               editorStore.tileMode = 'grid';
@@ -230,7 +232,7 @@ function callDocTools(): IDocTool[] {
     {
       id: 'toggle-right-drawer',
       icon: 'info',
-      label: 'Right Drawer',
+      label: t('pdfEditor.rightDrawer.title'),
       isActive: () => false,
       onClicked: () => {
         editorStore.rightDrawerModel = !editorStore.rightDrawerModel;
@@ -241,8 +243,8 @@ function callDocTools(): IDocTool[] {
 }
 
 export async function callEditorTools(): Promise<IDocTool[]> {
+  const docs = callDocTools();
   const pointer = callPointerTools();
   const annotation = await callAnnotationTools();
-  const docs = callDocTools();
   return Array.prototype.concat(pointer, annotation, docs);
 }

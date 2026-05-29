@@ -28,7 +28,7 @@
         />
         <div v-else-if="loading" class="loading-state fit">
           <q-spinner color="primary" size="3em" />
-          <p class="q-mt-md">{{ $t('loading') }}</p>
+          <p class="q-mt-md">{{ $t('pdfEditor.document.loading') }}</p>
         </div>
       </div>
 

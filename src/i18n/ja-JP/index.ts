@@ -102,43 +102,59 @@ export default {
 
   // PDF エディタ関連
   pdfEditor: {
-    title: 'PDFエディタ',
-    viewMode: '表示モード',
-    singlePage: '単一ページ',
-    continuous: '連続表示',
-    twoPages: '見開き表示',
-    color: '色',
-    page: 'ページ',
-    thumbnails: 'サムネイル',
-    bookmarks: 'ブックマーク',
-    annotations: 'アノテーション',
-    annotationToggle: 'アノテーション表示/非表示',
-    addBookmark: 'ブックマークを追加',
-    bookmarkTitle: 'ブックマークタイトルを入力してください:',
-    noBookmarks: 'ブックマークはありません',
-    noAnnotations: 'アノテーションはありません',
-    highlight: 'ハイライト',
-    line: '直線',
-    box: 'ボックス',
-    circle: '円',
-    image: '画像',
+    tools: {
+      line: '直線',
+      box: '四角形',
+      circle: '円',
+      annotationToggle: 'アノテーションの表示切替',
+      handMode: 'ハンドモード',
+      selectMode: '選択モード',
+      save: {
+        title: '保存',
+        overwrite: '上書き保存',
+        saveAs: '名前を付けて保存',
+        auto: '自動保存'
+      },
+      print: '印刷',
+      download: 'ダウンロード',
+      viewStyle: {
+        title: 'タイルモード',
+        noGrid: '分割なし',
+        split: '左右2分割',
+        grid: '上下左右4分割'
+      },
+    },
+    document: {
+      noDocumentSelected: '表示する文書を選択してください',
+      loading: '読み込み中 ...',
+    },
+    leftDrawer: {
+      title: 'サムネイル / ブックマーク',
+      thumbnail: {
+        title: 'サムネイル',
+      },
+      bookmark: {
+        title: 'ブックマーク',
+        noBookmarks: 'ブックマークなし',
+        page: 'ページ'
+      }
+    },
+    rightDrawer: {
+      title: 'プロパティ',
+      annotation: {
+        title: 'プロパティ',
+        type: '種別',
+        color: '色',
+        stroke: '線の幅',
+        opacity: '透明度',
+        relations: 'リンク',
+        addRelation: 'リンクを追加',
+        delete: '削除',
+        notSelected: 'アノテーションを選択してください'
+      },
+    },
+    footer: {
+      viewMode: '表示モード',
+    },
   },
-
-  // ドキュメントページ関連
-  documentInfo: 'ドキュメント情報',
-  pagesThumbnails: 'ページサムネイル',
-  selectAnnotationForProperties: 'プロパティを表示するにはアノテーションを選択してください',
-  annotationProperties: 'アノテーションプロパティ',
-  type: '型',
-  strokeWidth: '線の太さ',
-  opacity: '透明度',
-  relations: '関係性',
-  addRelation: '関係性を追加',
-  closeOthers: 'その他を閉じる',
-  closeRight: '右側を閉じる',
-  closeAll: 'すべて閉じる',
-  pin: 'ピン',
-  unpin: 'ピンを解除',
-  noDocumentOpen: 'ドキュメントが開いていません',
-  tileMode: 'タイルモード',
 };

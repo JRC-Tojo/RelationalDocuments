@@ -103,43 +103,59 @@ export default {
 
   // PDF Editor related
   pdfEditor: {
-    title: 'PDF Editor',
-    viewMode: 'View Mode',
-    singlePage: 'Single Page',
-    continuous: 'Continuous',
-    twoPages: 'Two Pages',
-    color: 'Color',
-    page: 'Page',
-    thumbnails: 'Thumbnails',
-    bookmarks: 'Bookmarks',
-    annotations: 'Annotations',
-    annotationToggle: 'Annotations Show / Hide',
-    addBookmark: 'Add Bookmark',
-    bookmarkTitle: 'Enter bookmark title:',
-    noBookmarks: 'No bookmarks',
-    noAnnotations: 'No annotations',
-    highlight: 'Highlight',
-    line: 'Line',
-    box: 'Box',
-    circle: 'Circle',
-    image: 'Image',
+    tools: {
+      line: 'Line',
+      box: 'Box',
+      circle: 'Circle',
+      annotationToggle: 'Show / Hide Annotations',
+      handMode: 'Hand Mode',
+      selectMode: 'Select Mode',
+      save: {
+        title: 'Save ...',
+        overwrite: 'Save Changes',
+        saveAs: 'Save as other file',
+        auto: 'Auto Save'
+      },
+      print: 'Print',
+      download: 'Download',
+      viewStyle: {
+        title: 'Grid View Styles',
+        noGrid: 'Single View',
+        split: 'Split View',
+        grid: 'Grid View'
+      },
+    },
+    document: {
+      noDocumentSelected: 'Not any documents selected',
+      loading: 'Loading ...',
+    },
+    leftDrawer: {
+      title: 'Thumbnails / Bookmarks',
+      thumbnail: {
+        title: 'Pages Thumbnails',
+      },
+      bookmark: {
+        title: 'Bookmarks',
+        noBookmarks: 'No Bookmarks',
+        page: 'Page'
+      }
+    },
+    rightDrawer: {
+      title: 'Annotation Properties',
+      annotation: {
+        title: 'Annotation Properties',
+        type: 'Annotation Type',
+        color: 'Drawing Color',
+        stroke: 'Stroke Width',
+        opacity: 'Fill Opacity',
+        relations: 'Registered Relations',
+        addRelation: 'Add Relation',
+        delete: 'Delete',
+        notSelected: 'Select any annotations'
+      },
+    },
+    footer: {
+      viewMode: 'View Mode',
+    },
   },
-
-  // Document page related
-  documentInfo: 'Document Information',
-  pagesThumbnails: 'Page Thumbnails',
-  selectAnnotationForProperties: 'Select an annotation to display properties',
-  annotationProperties: 'Annotation Properties',
-  type: 'Type',
-  strokeWidth: 'Stroke Width',
-  opacity: 'Opacity',
-  relations: 'Relations',
-  addRelation: 'Add Relation',
-  closeOthers: 'Close Others',
-  closeRight: 'Close Right',
-  closeAll: 'Close All',
-  pin: 'Pin',
-  unpin: 'Unpin',
-  noDocumentOpen: 'No document is open',
-  tileMode: 'Tile Mode',
 };

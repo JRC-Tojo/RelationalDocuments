@@ -39,7 +39,7 @@
 
     <!-- 中央：表示モード -->
     <div class="footer-section footer-view-mode">
-      <span class="section-label">{{ $t('viewMode') }}:</span>
+      <span class="section-label">{{ $t('pdfEditor.footer.viewMode') }}:</span>
       <q-btn-toggle v-model="viewMode" flat dense unelevated :options="viewModeOptions" />
     </div>
 

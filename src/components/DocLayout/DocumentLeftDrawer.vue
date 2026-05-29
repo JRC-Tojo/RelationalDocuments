@@ -3,7 +3,7 @@
     <!-- サムネイル一覧 -->
     <q-separator />
     <div class="drawer-section q-pa-md">
-      <h6 class="q-my-none q-mb-md">{{ $t('pagesThumbnails') }}</h6>
+      <h6 class="q-my-none q-mb-md">{{ $t('pdfEditor.leftDrawer.thumbnail.title') }}</h6>
       <div class="thumbnails-list">
         <div
           v-for="page in totalPageCount"
@@ -25,9 +25,9 @@
     <!-- ブックマーク -->
     <q-separator />
     <div class="drawer-section q-pa-md">
-      <h6 class="q-my-none q-mb-md">{{ $t('bookmarks') }}</h6>
+      <h6 class="q-my-none q-mb-md">{{ $t('pdfEditor.leftDrawer.bookmark.title') }}</h6>
       <div v-if="bookmarks.length === 0" class="q-pa-md text-center text-grey">
-        {{ $t('noBookmarks') }}
+        {{ $t('pdfEditor.leftDrawer.bookmark.noBookmarks') }}
       </div>
       <q-list v-else>
         <q-item
@@ -41,7 +41,7 @@
           </q-item-section>
           <q-item-section>
             <q-item-label>{{ bookmark.label }}</q-item-label>
-            <q-item-label caption>{{ $t('page') }} {{ bookmark.pageNumber }}</q-item-label>
+            <q-item-label caption>{{ $t('pdfEditor.leftDrawer.bookmark.page') }} {{ bookmark.pageNumber }}</q-item-label>
           </q-item-section>
         </q-item>
       </q-list>
