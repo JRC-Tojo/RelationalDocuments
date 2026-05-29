@@ -78,7 +78,7 @@ function createAnnotation(
       strokeWidth: annotationStyle.strokeWidth,
       width: Math.abs(deltaX),
       height: Math.abs(deltaY),
-      opacity: 1,
+      opacity: annotationStyle.fillOpacity,
     };
   } else if (annotationStyle.type === 'circle') {
     const radius = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / 2;

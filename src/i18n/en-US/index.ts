@@ -111,10 +111,10 @@ export default {
       handMode: 'Hand Mode',
       selectMode: 'Select Mode',
       save: {
-        title: 'Save ...',
+        title: 'Save',
         overwrite: 'Save Changes',
-        saveAs: 'Save as other file',
-        auto: 'Auto Save'
+        saveAs: 'Save As',
+        auto: 'Auto Save',
       },
       print: 'Print',
       download: 'Download',
@@ -122,23 +122,23 @@ export default {
         title: 'Grid View Styles',
         noGrid: 'Single View',
         split: 'Split View',
-        grid: 'Grid View'
+        grid: 'Grid View',
       },
     },
     document: {
-      noDocumentSelected: 'Not any documents selected',
-      loading: 'Loading ...',
+      noDocumentSelected: 'No document selected',
+      loading: 'Loading...',
     },
     leftDrawer: {
       title: 'Thumbnails / Bookmarks',
       thumbnail: {
-        title: 'Pages Thumbnails',
+        title: 'Page Thumbnails',
       },
       bookmark: {
         title: 'Bookmarks',
         noBookmarks: 'No Bookmarks',
-        page: 'Page'
-      }
+        page: 'Page',
+      },
     },
     rightDrawer: {
       title: 'Annotation Properties',
@@ -151,11 +151,15 @@ export default {
         relations: 'Registered Relations',
         addRelation: 'Add Relation',
         delete: 'Delete',
-        notSelected: 'Select any annotations'
+        notSelected: 'Select any annotations',
       },
     },
     footer: {
       viewMode: 'View Mode',
     },
   },
+
+  explorer: {
+    demo: 'Create Demo Data'
+  }
 };

@@ -18,11 +18,7 @@
       </div>
 
       <!-- 連続表示 -->
-      <div
-        v-if="viewMode === 'continuousSingle'"
-        class="continuous-pages"
-        ref="continuousContainer"
-      >
+      <div v-if="viewMode === 'continuousSingle'" class="continuous-pages">
         <div v-for="page in pageCount" :key="page" class="q-mb-md continuous-page-wrapper">
           <div
             :class="['continuous-page', { active: page === currentPage }]"
@@ -47,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick, watch } from 'vue';
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import type { Annotation, DocumentId } from 'src/models/schemas';
 import PdfPage from 'src/components/Viewer/PdfPage.vue';
 import type { ViewMode } from 'src/models/docPage';
@@ -60,6 +56,7 @@ interface Prop {
   onRender: RenderFunc;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onScrollToCurrentPage: (viewerContainerHeight: number) => void;
 }
 const prop = defineProps<Prop>();
 
@@ -72,8 +69,7 @@ const scale = computed(() => zoomLevel.value / 100);
 
 // 連続表示モード用
 const pageRefs = ref<(HTMLElement | null)[]>([]);
-const continuousContainer = ref<HTMLElement>();
-const viewerContainer = ref<HTMLElement>();
+const viewerContainer = useTemplateRef('viewerContainer');
 
 /**
  * ズームをホイールで制御
@@ -89,32 +85,8 @@ function handleZoomWheel(event: WheelEvent) {
   }
 }
 
-/**
- * 連続表示モード時に現在ページをビューにスクロール
- */
-async function scrollToCurrentPage() {
-  if (prop.viewMode !== 'continuousSingle') return;
-
-  await nextTick();
-
-  const pageElement = pageRefs.value[currentPage.value - 1];
-  if (pageElement && continuousContainer.value) {
-    // ページ要素がビューポートの中央になるようにスクロール
-    const containerRect = continuousContainer.value.getBoundingClientRect();
-    const pageRect = pageElement.getBoundingClientRect();
-
-    const scrollTop = continuousContainer.value.scrollTop;
-    const scrollOffset = pageRect.top - containerRect.top;
-
-    continuousContainer.value.scrollTo({
-      top: scrollTop + scrollOffset - (containerRect.height / 2 - pageRect.height / 2),
-      behavior: 'smooth',
-    });
-  }
-}
-
 watch(currentPage, () => {
-  void scrollToCurrentPage();
+  void prop.onScrollToCurrentPage(viewerContainer.value?.getBoundingClientRect().height ?? 0);
 });
 
 watch(
@@ -122,7 +94,7 @@ watch(
   () => {
     if (prop.viewMode === 'continuousSingle') {
       void nextTick(() => {
-        void scrollToCurrentPage();
+        void prop.onScrollToCurrentPage(viewerContainer.value?.getBoundingClientRect().height ?? 0);
       });
     }
   },

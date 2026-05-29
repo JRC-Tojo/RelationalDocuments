@@ -7,6 +7,7 @@
         :key="tool.id"
         :flat="!tool.isActive()"
         :outline="tool.isActive()"
+        :disable="tool.isDisable?.() ?? false"
         dense
         :icon="tool.icon"
         :title="tool.label"

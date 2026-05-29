@@ -13,7 +13,7 @@
     <!-- メインコンテンツ領域 -->
     <div class="document-main-content col">
       <!-- タブコンテンツ：文書とアノテーション表示 -->
-      <div class="document-viewer-wrapper">
+      <div ref="viewer" class="document-viewer-wrapper">
         <DocumentViewer
           v-if="!loading && onRender"
           :document-id="documentId"
@@ -22,6 +22,7 @@
           @render="onRender"
           @zoom-in="zoomIn"
           @zoom-out="zoomOut"
+          @scroll-to-current-page="scrollToCurrentPage"
           v-model:annotations="annotations"
           v-model:current-page="currentPage"
           v-model:zoom-level="zoomLevel"
@@ -44,6 +45,7 @@
         @next-page="nextPage"
         @go-to-last-page="goToLastPage"
         @go-to-page="goToPage"
+        @set-zoom="setZoomLevel"
         @zoom-in="zoomIn"
         @zoom-out="zoomOut"
       />
@@ -63,18 +65,20 @@ import DocumentLeftDrawer from 'src/components/DocLayout/DocumentLeftDrawer.vue'
 import DocumentViewer from 'src/components/DocLayout/DocumentViewer.vue';
 import DocumentRightDrawer from 'src/components/DocLayout/DocumentRightDrawer.vue';
 import DocumentFooter from 'src/components/DocLayout/DocumentFooter.vue';
-import { onMounted, ref } from 'vue';
+import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import { useBackendApi } from 'src/apis/backendApi';
 import { generateThumbnail, loadPdf, renderPage } from '../Viewer/pdfManager';
 import type { Annotation, DocumentId } from 'src/models/schemas';
 import type { ViewMode } from 'src/models/docPage';
 import { useEditorStore } from 'src/stores/editorStore';
 import { callEditorTools } from 'src/stores/editorTools';
+import { useI18n } from 'vue-i18n';
 
 interface Prop {
   documentId: DocumentId;
 }
 const prop = defineProps<Prop>();
+const viewer = useTemplateRef('viewer');
 
 const editorStore = useEditorStore();
 
@@ -179,7 +183,7 @@ const previousPage = (): void => {
  * 指定したページへ移動
  */
 const goToPage = (page: number): void => {
-  currentPage.value = Math.max(1, Math.min(pageCount.value, page));
+  currentPage.value = Math.max(1, Math.min(pageCount.value, Math.floor(page)));
 };
 
 /**
@@ -198,8 +202,26 @@ const goToLastPage = (): void => {
 
 // ================================
 
+/**
+ * 連続表示モード時に現在ページをビューにスクロール
+ */
+async function scrollToCurrentPage(viewerContainerHeight: number) {
+  if (viewMode.value !== 'continuousSingle') return;
+
+  await nextTick();
+
+  if (viewer.value) {
+    viewer.value.scrollTo({
+      top: viewerContainerHeight * ((currentPage.value - 1) / pageCount.value),
+    });
+  }
+}
+
+// ================================
+
 onMounted(async () => {
-  editorStore.initStore(await callEditorTools());
+  const { t } = useI18n();
+  editorStore.initStore(await callEditorTools(t));
   await loadDocument(prop.documentId);
 });
 </script>

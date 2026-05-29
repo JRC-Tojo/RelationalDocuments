@@ -87,7 +87,7 @@ function onTabAdded(e: DraggableEvent<DocumentTab>) {
 }
 
 function onTabRemoved(e: DraggableEvent<DocumentTab>) {
-  const targetIdx = (e.oldIndex ?? 0) - 1;
+  const targetIdx = Math.max(0, (e.oldIndex ?? 0) - 1);
   const docId = tabs.value[targetIdx]?.documentId;
   if (docId !== void 0) selectTab(docId, false);
 }

@@ -249,7 +249,7 @@ function updateDrawingPreview(endX: number, endY: number) {
         fill: 'transparent',
         opacity: style.fillOpacity,
         stroke: style.strokeColor,
-        strokeWidth: 2,
+        strokeWidth: style.strokeWidth,
       },
     };
   } else if (style.type === 'line') {

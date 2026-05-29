@@ -31,7 +31,7 @@ function onClicked() {
   min-width: max-content;
   text-decoration: none;
   transition: 0.4s;
-  :hover {
+  &:hover {
     background: color.adjust(gray, $alpha: -0.5);
   }
 

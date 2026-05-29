@@ -11,11 +11,11 @@
         :disable="currentPage === 1"
       />
       <input
-        v-model.number="currentPage"
+        v-model.number="pageInputValue"
         type="number"
         class="page-input"
-        :min="1"
-        :max="totalPageCount"
+        @blur="onPageInputBlur"
+        @keyup.enter="onPageInputEnter"
       />
       <span class="page-info">/ {{ totalPageCount }}</span>
       <q-btn
@@ -49,16 +49,30 @@
     <!-- 右側：ズームコントロール -->
     <div class="footer-section footer-zoom">
       <q-btn flat dense icon="zoom_out" @click="onZoomOut()" :disable="scale <= 20" />
-      <input v-model.number="zoomLevel" type="number" class="zoom-input" :min="20" :max="800" />
+      <input
+        v-model.number="zoomInputValue"
+        type="number"
+        class="zoom-input"
+        @blur="onZoomInputBlur"
+        @keyup.enter="onZoomInputEnter"
+      />
       <span class="zoom-label">%</span>
       <q-btn flat dense icon="zoom_in" @click="onZoomIn()" :disable="scale >= 800" />
-      <q-slider v-model="zoomLevel" :min="20" :max="800" :step="5" class="zoom-slider" />
+      <q-slider
+        v-model="zoomLevel"
+        @update:model-value="(newVal) => (zoomInputValue = String(newVal))"
+        :min="20"
+        :max="800"
+        :step="5"
+        class="zoom-slider"
+      />
     </div>
   </q-bar>
 </template>
 
 <script setup lang="ts">
 import type { ViewMode } from 'src/models/docPage';
+import { ref, watch } from 'vue';
 
 interface Prop {
   totalPageCount: number;
@@ -68,14 +82,20 @@ interface Prop {
   onGoToPage: (page: number) => void;
   onNextPage: () => void;
   onGoToLastPage: () => void;
+  onSetZoom: (level: number) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
 }
-defineProps<Prop>();
+const props = defineProps<Prop>();
 
 const currentPage = defineModel<number>('currentPage', { required: true });
 const viewMode = defineModel<ViewMode>('viewMode', { required: true });
 const zoomLevel = defineModel<number>('zoomLevel', { required: true });
+
+// ページ入力用の一時 state
+const pageInputValue = ref<string>(String(currentPage.value));
+// ズーム入力用の一時 state
+const zoomInputValue = ref<string>(String(zoomLevel.value));
 
 // 表示モード
 const viewModeOptions = [
@@ -84,6 +104,32 @@ const viewModeOptions = [
   { label: 'C Single', value: 'continuousSingle' },
   // { label: 'C Spread', value: 'continuousSpread' },
 ];
+
+function onPageInputBlur() {
+  pageInputValue.value = String(currentPage.value);
+}
+
+function onPageInputEnter() {
+  const parsed = Math.floor(Number(pageInputValue.value));
+  props.onGoToPage(parsed);
+}
+
+function onZoomInputBlur() {
+  zoomInputValue.value = String(zoomLevel.value);
+}
+
+function onZoomInputEnter() {
+  const parsed = Number(zoomInputValue.value);
+  props.onSetZoom(parsed);
+}
+
+watch(currentPage, (newPage) => {
+  pageInputValue.value = String(newPage)
+})
+
+watch(zoomLevel, (newZoomLevel) => {
+  zoomInputValue.value = String(newZoomLevel)
+})
 </script>
 
 <style scoped lang="scss">

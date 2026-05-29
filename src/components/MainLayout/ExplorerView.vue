@@ -8,7 +8,7 @@
   <q-btn
     v-show="files.length === 0"
     outline
-    label="Demo"
+    :label="$t('explorer.demo')"
     color="primary"
     class="full-width q-my-sm"
     @click="onCreateDemo"

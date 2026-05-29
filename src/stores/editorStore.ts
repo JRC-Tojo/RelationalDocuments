@@ -7,12 +7,24 @@ export type Layouts<T> = { ul: T; ur: T; ll: T; lr: T };
 export type LayoutSide = keyof Layouts<never>;
 export type TileMode = 'single' | 'dubble' | 'grid';
 
+/**
+ * デフォルトのアノテーションスタイル
+ */
+const DEFAULT_ANNOTATION_STYLE: AnnotationStyle = {
+  type: 'line',
+  strokeColor: '#000000',
+  strokeWidth: 2,
+  strokeType: 'solid',
+  strokeOpacity: 1,
+};
+
 export const useEditorStore = defineStore('editor', {
   state: () => ({
     mainTools: [] as IDocTool[],
     subTools: [] as IDocTool[],
     currentTools: 'hand' as PointerType,
-    currentAnnotationStyle: {} as AnnotationStyle,
+    currentAnnotationStyle: DEFAULT_ANNOTATION_STYLE as AnnotationStyle,
+    isStoreInitialized: false,
 
     // ドキュメントレイアウトの状態
     tabs: { ul: [], ur: [], ll: [], lr: [] } as Layouts<DocumentTab[]>,
@@ -33,11 +45,15 @@ export const useEditorStore = defineStore('editor', {
 
   actions: {
     /**
-     * ストアの初期化
+     * ストアの初期化（初回のみ実行）
      */
     initStore(mainTools: IDocTool[], currentTools: PointerType = 'hand'): void {
+      // 既に初期化済みの場合はスキップ
+      if (this.isStoreInitialized) return;
+
       this.mainTools = mainTools;
       this.currentTools = currentTools;
+      this.isStoreInitialized = true;
     },
 
     /**

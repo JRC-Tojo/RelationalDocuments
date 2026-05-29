@@ -1,8 +1,12 @@
 import type { AnnotationTool, AnnotationType, IDocTool } from 'src/models/docPage';
 import { useEditorStore } from './editorStore';
 import { useBackendApi } from 'src/apis/backendApi';
-import { useI18n } from 'vue-i18n';
 
+/**
+ * アノテーション設定をツールオブジェクトに変換
+ * @param ann - アノテーション設定
+ * @returns ツールオブジェクト
+ */
 function annotationCnf2Tool(ann: AnnotationTool): IDocTool {
   const editorStore = useEditorStore();
 
@@ -38,8 +42,12 @@ function annotationCnf2Tool(ann: AnnotationTool): IDocTool {
   };
 }
 
-async function callAnnotationTools(): Promise<IDocTool[]> {
-  const { t } = useI18n();
+/**
+ * アノテーションツール一覧を取得
+ * @param t - i18n 翻訳関数
+ * @returns アノテーションツール配列
+ */
+async function callAnnotationTools(t: (key: string) => string): Promise<IDocTool[]> {
   const editorStore = useEditorStore();
   const api = useBackendApi();
 
@@ -89,8 +97,12 @@ async function callAnnotationTools(): Promise<IDocTool[]> {
   return tools;
 }
 
-function callPointerTools(): IDocTool[] {
-  const { t } = useI18n();
+/**
+ * ポインタツール一覧を取得
+ * @param t - i18n 翻訳関数
+ * @returns ポインタツール配列
+ */
+function callPointerTools(t: (key: string) => string): IDocTool[] {
   const editorStore = useEditorStore();
 
   const tools: IDocTool[] = [
@@ -129,8 +141,12 @@ function callPointerTools(): IDocTool[] {
   return tools;
 }
 
-function callDocTools(): IDocTool[] {
-  const { t } = useI18n();
+/**
+ * ドキュメント操作ツール一覧を取得
+ * @param t - i18n 翻訳関数
+ * @returns ドキュメント操作ツール配列
+ */
+function callDocTools(t: (key: string) => string): IDocTool[] {
   const editorStore = useEditorStore();
 
   const tools: IDocTool[] = [
@@ -242,9 +258,14 @@ function callDocTools(): IDocTool[] {
   return tools;
 }
 
-export async function callEditorTools(): Promise<IDocTool[]> {
-  const docs = callDocTools();
-  const pointer = callPointerTools();
-  const annotation = await callAnnotationTools();
+/**
+ * すべてのエディタツールを取得
+ * @param t - i18n 翻訳関数
+ * @returns 全エディタツール配列
+ */
+export async function callEditorTools(t: (key: string) => string): Promise<IDocTool[]> {
+  const docs = callDocTools(t);
+  const pointer = callPointerTools(t);
+  const annotation = await callAnnotationTools(t);
   return Array.prototype.concat(pointer, annotation, docs);
 }

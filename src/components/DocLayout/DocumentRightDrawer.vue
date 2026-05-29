@@ -19,6 +19,7 @@
               type="color"
               class="color-input"
               @change="updateAnnotationColor"
+              disabled
             />
             <span class="color-value">{{ annotationColor }}</span>
           </div>
@@ -35,6 +36,7 @@
               :step="0.5"
               label
               @update:model-value="updateAnnotationStrokeWidth"
+              disable
             />
           </div>
         </div>
@@ -50,6 +52,7 @@
               :step="0.1"
               label
               @update:model-value="updateAnnotationOpacity"
+              disable
             />
           </div>
         </div>
@@ -57,13 +60,27 @@
         <!-- 関係性設定 -->
         <q-separator class="q-my-md" />
         <div class="property-group q-mb-md">
-          <label class="property-label">{{ $t('pdfEditor.rightDrawer.annotation.relations') }}</label>
-          <q-btn outline color="primary" icon="link" :label="$t('pdfEditor.rightDrawer.annotation.addRelation')" size="sm" />
+          <label class="property-label">{{
+            $t('pdfEditor.rightDrawer.annotation.relations')
+          }}</label>
+          <q-btn
+            outline
+            color="primary"
+            icon="link"
+            :label="$t('pdfEditor.rightDrawer.annotation.addRelation')"
+            size="sm"
+          />
         </div>
 
         <!-- 削除ボタン -->
         <q-separator class="q-my-md" />
-        <q-btn outline color="negative" icon="delete" :label="$t('pdfEditor.rightDrawer.annotation.delete')" class="full-width" />
+        <q-btn
+          outline
+          color="negative"
+          icon="delete"
+          :label="$t('pdfEditor.rightDrawer.annotation.delete')"
+          class="full-width"
+        />
       </div>
     </div>
 

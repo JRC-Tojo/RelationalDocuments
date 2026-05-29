@@ -157,4 +157,8 @@ export default {
       viewMode: '表示モード',
     },
   },
+
+  explorer: {
+    demo: 'デモデータを作成'
+  }
 };

@@ -9,6 +9,7 @@ export interface IDocTool {
   icon: string;
   label: string;
   isActive: () => boolean;
+  isDisable?: () => boolean;
   onClicked: () => void;
 }
 
