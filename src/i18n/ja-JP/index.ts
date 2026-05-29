@@ -161,7 +161,6 @@ export default {
         spread: '見開き',
         c_spread: '見開き連続表示',
       },
-
     },
   },
 
