@@ -48,3 +48,6 @@ yarn-error.log*
 
 # local .env files
 .env.local*
+
+# large files
+*.traineddata
