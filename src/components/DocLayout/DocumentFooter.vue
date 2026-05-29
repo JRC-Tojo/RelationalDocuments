@@ -39,7 +39,7 @@
 
     <!-- 中央：表示モード -->
     <div class="footer-section footer-view-mode">
-      <span class="section-label">{{ $t('pdfEditor.footer.viewMode') }}:</span>
+      <span class="section-label">{{ $t('pdfEditor.footer.viewMode.title') }}:</span>
       <q-btn-toggle v-model="viewMode" flat dense unelevated :options="viewModeOptions" />
     </div>
 
@@ -48,7 +48,7 @@
 
     <!-- 右側：ズームコントロール -->
     <div class="footer-section footer-zoom">
-      <q-btn flat dense icon="zoom_out" @click="onZoomOut()" :disable="scale <= 20" />
+      <q-btn flat dense icon="zoom_out" @click="onZoomOut()" :disable="zoomLevel === 20" />
       <input
         v-model.number="zoomInputValue"
         type="number"
@@ -57,7 +57,7 @@
         @keyup.enter="onZoomInputEnter"
       />
       <span class="zoom-label">%</span>
-      <q-btn flat dense icon="zoom_in" @click="onZoomIn()" :disable="scale >= 800" />
+      <q-btn flat dense icon="zoom_in" @click="onZoomIn()" :disable="zoomLevel === 800" />
       <q-slider
         v-model="zoomLevel"
         @update:model-value="(newVal) => (zoomInputValue = String(newVal))"
@@ -73,6 +73,7 @@
 <script setup lang="ts">
 import type { ViewMode } from 'src/models/docPage';
 import { ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 
 interface Prop {
   totalPageCount: number;
@@ -87,6 +88,7 @@ interface Prop {
   onZoomOut: () => void;
 }
 const props = defineProps<Prop>();
+const { t } = useI18n();
 
 const currentPage = defineModel<number>('currentPage', { required: true });
 const viewMode = defineModel<ViewMode>('viewMode', { required: true });
@@ -99,10 +101,10 @@ const zoomInputValue = ref<string>(String(zoomLevel.value));
 
 // 表示モード
 const viewModeOptions = [
-  { label: 'Single', value: 'single' },
-  // { label: 'Spread', value: 'spread' },
-  { label: 'C Single', value: 'continuousSingle' },
-  // { label: 'C Spread', value: 'continuousSpread' },
+  { label: t('pdfEditor.footer.viewMode.single'), value: 'single' },
+  // { label: t('pdfEditor.footer.viewMode.spread'), value: 'spread' },
+  { label: t('pdfEditor.footer.viewMode.c_single'), value: 'continuousSingle' },
+  // { label: t('pdfEditor.footer.viewMode.c_spread'), value: 'continuousSpread' },
 ];
 
 function onPageInputBlur() {

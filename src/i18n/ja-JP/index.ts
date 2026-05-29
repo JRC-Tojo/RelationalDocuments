@@ -154,7 +154,14 @@ export default {
       },
     },
     footer: {
-      viewMode: '表示モード',
+      viewMode: {
+        title: '表示モード',
+        single: '単一ページ',
+        c_single: '連続表示',
+        spread: '見開き',
+        c_spread: '見開き連続表示',
+      },
+
     },
   },
 

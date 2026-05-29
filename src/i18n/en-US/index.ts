@@ -155,7 +155,13 @@ export default {
       },
     },
     footer: {
-      viewMode: 'View Mode',
+      viewMode: {
+        title: 'View Mode',
+        single: 'Single Page',
+        c_single: 'Continuous Pages',
+        spread: 'Spread Pages',
+        c_spread: 'Continuous Spread',
+      },
     },
   },
 
