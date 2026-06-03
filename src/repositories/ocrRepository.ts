@@ -1,242 +1,196 @@
-import { createWorker } from 'tesseract.js';
+import Tesseract, { PSM } from 'tesseract.js';
+import type { Canvas, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, Image } from 'canvas';
+import fs from 'fs';
 
-// TODO: 現状ではブラウザ環境でしか動作しないため、改善が必要
+// パイプライン実行用ヘルパー
+const pipe = (
+  ctx: CanvasRenderingContext2D,
+  ...fns: Array<(ctx: CanvasRenderingContext2D) => void>
+) => {
+  fns.forEach((fn) => fn(ctx));
+};
 
-/**
- * 画像のURLを与えてその中の文字列を返す
- *
- * URLはimage/jpegのような形式を含む
- * 前処理として傾き補正、コントラスト調整を行い認識精度を向上させる
- */
-export async function Image2Text(imageUrl: string) {
-  return ocrCore(imageUrl);
+export async function Image2Text(imageUrl: string): Promise<string> {
+  const canvas = await imageUrlToCanvas(imageUrl);
+  return runOCR(canvas);
 }
 
-/**
- * OCRの本体
- * 前処理 -> OCR認識の流れで実行
- */
-async function ocrCore(imageUrl: string): Promise<string> {
-  // 前処理：画像を前処理済みcanvasに変換
-  const preprocessedCanvas = await preprocessImage(imageUrl);
-
-  const worker = await createWorker('jpn');
-  const converted = await worker.recognize(preprocessedCanvas);
-  await worker.terminate();
-
-  return converted.data.text;
-}
-
-/**
- * 画像の前処理を実行
- * 1. 画像をCanvasに読み込む
- * 2. 傾き補正を実行
- * 3. コントラスト調整
- * 4. グレースケール化
- */
-async function preprocessImage(imageUrl: string): Promise<HTMLCanvasElement> {
-  const canvas = await loadImageToCanvas(imageUrl);
-
-  // 傾き補正を実行
-  const skewCorrectedCanvas = correctSkew(canvas);
-
-  // コントラスト調整を実行
-  adjustContrast(skewCorrectedCanvas);
-
-  // グレースケール化
-  toGrayscale(skewCorrectedCanvas);
-
-  return skewCorrectedCanvas;
-}
-
-/**
- * URLから画像をCanvasに読み込む
- */
-function loadImageToCanvas(imageUrl: string): Promise<HTMLCanvasElement> {
+// 画像URLをCanvas型に変換する
+const imageUrlToCanvas = async (imageUrl: string): Promise<Canvas> => {
   return new Promise((resolve, reject) => {
-    const img = document.createElement('img');
+    // 1. fsでファイルの中身をBufferとして読み込む
+    // ここでエラーが出れば、それは本当にパスの問題です
+    const buffer = fs.readFileSync(imageUrl);
+
+    // 2. Imageオブジェクトを生成
+    const img = new Image();
+
+    // 3. ロード完了後の処理
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
+      const canvas = createCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
       resolve(canvas);
     };
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = imageUrl;
-  });
-}
 
-/**
- * 傾き補正（スキュー補正）
- * Hough変換を簡易版で実装し、テキストの主要な傾きを検出して補正
- */
-function correctSkew(canvas: HTMLCanvasElement): HTMLCanvasElement {
-  const ctx = canvas.getContext('2d')!;
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // 4. エラーハンドリング
+    img.onerror = (err) => {
+      reject(err);
+    };
+
+    // 5. Bufferをsrcにセット
+    img.src = buffer;
+  });
+};
+
+export const runOCR = async (canvas: Canvas): Promise<string> => {
+  const ctx = canvas.getContext('2d');
+
+  // 前処理のパイプライン実行
+  pipe(
+    ctx,
+    grayscale,
+    (c) => binarize(c, 128),
+    deskew,
+    (c) => autocrop(c, 10),
+  );
+
+  // OCRエンジンへ渡す
+  const worker = await Tesseract.createWorker('jpn');
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
+
+  const {
+    data: { text },
+  } = await worker.recognize(canvas.toDataURL());
+  await worker.terminate();
+
+  // 前処理済みの画像を見るときに使用する
+  const filePath = __dirname + '/processed.png'
+  const buffer = canvas.toBuffer('image/png');
+  fs.writeFileSync(filePath, buffer);
+
+  return text.trim();
+};
+
+// 1. グレースケール化
+export const grayscale = (ctx: CanvasRenderingContext2D) => {
+  const { width, height } = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    data[i] = data[i + 1] = data[i + 2] = avg;
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
+// 2. 二値化
+export const binarize = (ctx: CanvasRenderingContext2D, threshold: number = 128) => {
+  const { width, height } = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const val = data[i] > threshold ? 255 : 0;
+    data[i] = data[i + 1] = data[i + 2] = val;
+  }
+  ctx.putImageData(imageData, 0, 0);
+};
+
+// 3. 傾き補正 (モーメント法で角度を算出し、Canvasを回転)
+export const deskew = (ctx: CanvasRenderingContext2D) => {
+  const { width: oldW, height: oldH } = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, oldW, oldH);
   const data = imageData.data;
 
-  // エッジ検出（簡易的なSobel演算子）
-  const edges = detectEdges(canvas.width, canvas.height, data);
-
-  // Hough変換で支配的な角度を検出
-  const angle = detectSkewAngle(edges, canvas.width, canvas.height);
-
-  // 角度が小さい場合はスキップ（処理コスト削減）
-  if (Math.abs(angle) < 0.5) {
-    return canvas;
-  }
-
-  // キャンバスを回転
-  return rotateCanvas(canvas, angle);
-}
-
-/**
- * エッジ検出（簡易的なSobel演算子）
- */
-function detectEdges(width: number, height: number, data: Uint8ClampedArray): Uint8ClampedArray {
-  const edges = new Uint8ClampedArray(width * height);
-  const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
-  const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      let gx = 0;
-      let gy = 0;
-
-      for (let ky = -1; ky <= 1; ky++) {
-        for (let kx = -1; kx <= 1; kx++) {
-          const idx = ((y + ky) * width + (x + kx)) * 4;
-          // グレースケール値を使用
-          const gray = data[idx] ?? 0;
-          const kernelIdx = (ky + 1) * 3 + (kx + 1);
-          gx += gray * (sobelX[kernelIdx] ?? 0);
-          gy += gray * (sobelY[kernelIdx] ?? 0);
-        }
+  // --- 1. モーメント法による角度算出 (ここは変更なし) ---
+  let m00 = 0, m10 = 0, m01 = 0, m11 = 0, m20 = 0, m02 = 0;
+  for (let y = 0; y < oldH; y++) {
+    for (let x = 0; x < oldW; x++) {
+      if (data[(y * oldW + x) * 4] < 128) { // 黒いピクセル
+        m00 += 1; m10 += x; m01 += y;
+        m11 += x * y; m20 += x * x; m02 += y * y;
       }
-
-      // グラデーション大きさ
-      edges[y * width + x] = Math.min(255, Math.sqrt(gx * gx + gy * gy));
     }
   }
+  if (m00 === 0) return;
+  const angle = 0.5 * Math.atan2(2 * ((m11 / m00) - (m10 / m00) * (m01 / m00)), (m20 / m00) - (m02 / m00));
 
-  return edges;
-}
+  // 角度がほぼ0なら何もしない
+  if (Math.abs(angle) < 0.001) return;
 
-/**
- * Hough変換で支配的な傾き角度を検出
- * テキストの主要な傾きを0-180度の範囲で検出
- */
-function detectSkewAngle(edges: Uint8ClampedArray, width: number, height: number): number {
-  const angleCount = new Map<number, number>();
-  const threshold = 100; // エッジ強度の閾値
+  // --- 2. 回転後の新しいCanvasサイズを計算 ---
+  const absCos = Math.abs(Math.cos(angle));
+  const absSin = Math.abs(Math.sin(angle));
 
-  // Hough変換：エッジから傾き角度を投票
+  // 回転後のBounding Boxサイズ
+  const newW = oldW * absCos + oldH * absSin;
+  const newH = oldW * absSin + oldH * absCos;
+
+  // 一時的なCanvasを作成 (サイズは新サイズ)
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = newW;
+  tempCanvas.height = newH;
+  const tCtx = tempCanvas.getContext('2d')!;
+
+  // 背景を透明にする場合（OCRに影響が出るなら白でfillRectする）
+  // tCtx.fillStyle = 'white'; // 必要に応じて背景を白にする
+  // tCtx.fillRect(0, 0, newW, newH);
+
+  // --- 3. 【描画処理】新しい中心点で回転して描画 ---
+  tCtx.save();
+  // 3-1. 新しいキャンバスの中心へ移動
+  tCtx.translate(newW / 2, newH / 2);
+  // 3-2. 回転
+  tCtx.rotate(angle);
+  // 3-3. 元の画像の中心が原点になるようにオフセットして描画
+  tCtx.drawImage(ctx.canvas, -oldW / 2, -oldH / 2);
+  tCtx.restore();
+
+  // --- 4. 元のCanvasへ書き戻し ---
+  // 元のCanvasのサイズも新サイズに変更
+  ctx.canvas.width = newW;
+  ctx.canvas.height = newH;
+  // サイズ変更でクリアされるため clearRect は不要
+  ctx.drawImage(tempCanvas, 0, 0);
+};
+
+// 4. 自動トリミング
+export const autocrop = (ctx: CanvasRenderingContext2D, padding: number = 5) => {
+  const { width, height } = ctx.canvas;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  let minX = width,
+    minY = height,
+    maxX = 0,
+    maxY = 0;
+
+  // 1. コンテンツのバウンディングボックスを走査
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const edgeValue = edges[y * width + x] ?? 0;
-      if (edgeValue > threshold) {
-        // 0-180度の範囲で角度を調査
-        for (let angle = 0; angle < 180; angle += 1) {
-          // Hough座標計算は省略し、簡易的に角度に投票
-          // 実際にはより精密な計算が可能だが、処理コスト削減のため簡易版
-          const count = angleCount.get(angle) || 0;
-          angleCount.set(angle, count + 1);
-        }
+      if (data[(y * width + x) * 4] < 128) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
       }
     }
   }
 
-  // 最も投票された角度を取得
-  let maxAngle = 0;
-  let maxCount = 0;
-  for (const [angle, count] of angleCount) {
-    if (count > maxCount) {
-      maxCount = count;
-      maxAngle = angle;
-    }
-  }
+  // 2. 座標をキャンバスの範囲内にクランプ（制限）
+  const startX = Math.max(0, minX - padding);
+  const startY = Math.max(0, minY - padding);
+  const endX = Math.min(width, maxX + padding);
+  const endY = Math.min(height, maxY + padding);
 
-  // 角度を-90～90度の範囲に正規化
-  let normalizedAngle = maxAngle;
-  if (normalizedAngle > 90) {
-    normalizedAngle -= 180;
-  }
+  const w = endX - startX;
+  const h = endY - startY;
 
-  return normalizedAngle;
-}
+  // 3. 正しい範囲でデータを取得してキャンバスを再設定
+  const cropped = ctx.getImageData(startX, startY, w, h);
 
-/**
- * キャンバスを指定角度（度数）だけ回転
- */
-function rotateCanvas(canvas: HTMLCanvasElement, angleInDegrees: number): HTMLCanvasElement {
-  const newCanvas = document.createElement('canvas');
-  const ctx = newCanvas.getContext('2d')!;
+  ctx.canvas.width = w;
+  ctx.canvas.height = h;
+  ctx.putImageData(cropped, 0, 0);
+};
 
-  const rad = (angleInDegrees * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-
-  // 回転後のキャンバスサイズを計算
-  const newWidth = Math.abs(canvas.width * cos) + Math.abs(canvas.height * sin);
-  const newHeight = Math.abs(canvas.width * sin) + Math.abs(canvas.height * cos);
-
-  newCanvas.width = newWidth;
-  newCanvas.height = newHeight;
-
-  // 中心から回転
-  ctx.translate(newWidth / 2, newHeight / 2);
-  ctx.rotate(rad);
-  ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2, canvas.width, canvas.height);
-
-  return newCanvas;
-}
-
-/**
- * コントラスト調整
- * テキストと背景の差を強調してOCR精度を向上
- */
-function adjustContrast(canvas: HTMLCanvasElement): void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-
-  const contrast = 1.5; // コントラスト係数
-
-  for (let i = 0; i < data.length; i += 4) {
-    // RGB各チャンネルにコントラストを適用
-    data[i] = Math.min(255, (data[i] ?? 0) * contrast); // R
-    data[i + 1] = Math.min(255, (data[i + 1] ?? 0) * contrast); // G
-    data[i + 2] = Math.min(255, (data[i + 2] ?? 0) * contrast); // B
-    // Alphaチャンネルは変更しない
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-}
-
-/**
- * グレースケール化
- * OCR処理を高速化し、余分な色情報を削除
- */
-function toGrayscale(canvas: HTMLCanvasElement): void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-
-  for (let i = 0; i < data.length; i += 4) {
-    // 標準的なグレースケール変換式（BT.709）
-    const gray = (data[i] ?? 0) * 0.299 + (data[i + 1] ?? 0) * 0.587 + (data[i + 2] ?? 0) * 0.114;
-
-    data[i] = gray; // R
-    data[i + 1] = gray; // G
-    data[i + 2] = gray; // B
-    // Alphaチャンネルは変更しない
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-}
