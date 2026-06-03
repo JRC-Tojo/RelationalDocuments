@@ -66,11 +66,11 @@ export const runOCR = async (canvas: Canvas): Promise<string> => {
   await worker.terminate();
 
   // 前処理済みの画像を見るときに使用する
-  const filePath = __dirname + '/processed.png'
-  const buffer = canvas.toBuffer('image/png');
-  fs.writeFileSync(filePath, buffer);
+  // const filePath = __dirname + '/processed.png'
+  // const buffer = canvas.toBuffer('image/png');
+  // fs.writeFileSync(filePath, buffer);
 
-  return text.trim();
+  return text.replace(/\s+/g, "");;
 };
 
 // 1. グレースケール化
