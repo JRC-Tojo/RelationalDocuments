@@ -79,7 +79,7 @@ export const grayscale = (ctx: CanvasRenderingContext2D) => {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const avg = 0.299 * (data.at(i) ?? 0) + 0.587 * (data.at(i + 1) ?? 0) + 0.114 * (data.at(i + 2) ?? 0);
     data[i] = data[i + 1] = data[i + 2] = avg;
   }
   ctx.putImageData(imageData, 0, 0);
@@ -91,7 +91,8 @@ export const binarize = (ctx: CanvasRenderingContext2D, threshold: number = 128)
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    const val = data[i] > threshold ? 255 : 0;
+    if (data[i] === undefined) console.log(i)
+    const val = (data.at(i) ?? 0) > threshold ? 255 : 0;
     data[i] = data[i + 1] = data[i + 2] = val;
   }
   ctx.putImageData(imageData, 0, 0);
@@ -107,7 +108,7 @@ export const deskew = (ctx: CanvasRenderingContext2D) => {
   let m00 = 0, m10 = 0, m01 = 0, m11 = 0, m20 = 0, m02 = 0;
   for (let y = 0; y < oldH; y++) {
     for (let x = 0; x < oldW; x++) {
-      if (data[(y * oldW + x) * 4] < 128) { // 黒いピクセル
+      if (data.at((y * oldW + x) * 4) ?? 255 < 128) { // 黒いピクセル
         m00 += 1; m10 += x; m01 += y;
         m11 += x * y; m20 += x * x; m02 += y * y;
       }
@@ -128,10 +129,8 @@ export const deskew = (ctx: CanvasRenderingContext2D) => {
   const newH = oldW * absSin + oldH * absCos;
 
   // 一時的なCanvasを作成 (サイズは新サイズ)
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = newW;
-  tempCanvas.height = newH;
-  const tCtx = tempCanvas.getContext('2d')!;
+  const tempCanvas = createCanvas(newW, newH);
+  const tCtx = tempCanvas.getContext('2d');
 
   // 背景を透明にする場合（OCRに影響が出るなら白でfillRectする）
   // tCtx.fillStyle = 'white'; // 必要に応じて背景を白にする
@@ -168,7 +167,7 @@ export const autocrop = (ctx: CanvasRenderingContext2D, padding: number = 5) => 
   // 1. コンテンツのバウンディングボックスを走査
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      if (data[(y * width + x) * 4] < 128) {
+      if (data.at((y * width + x) * 4) ?? 255 < 128) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
