@@ -3,26 +3,26 @@ import { Image2Text } from '../ocrRepository';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { JSDOM } from 'jsdom';
-import { createCanvas, Image } from 'canvas'
+import { createCanvas, Image } from 'canvas';
 
 const OCRASSESTS_DIR = join(import.meta.dir, 'ocrAssets');
 
 function browserEnvSetup() {
-  const dom = new JSDOM('<!doctype html><html><body></body></html>')
+  const dom = new JSDOM('<!doctype html><html><body></body></html>');
 
   // グローバルにブラウザ環境を注入
-  global.window = dom.window as unknown as Window & typeof globalThis
-  global.document = dom.window.document
-  global.navigator = dom.window.navigator
-  global.HTMLCanvasElement = dom.window.HTMLCanvasElement
+  global.window = dom.window as unknown as Window & typeof globalThis;
+  global.document = dom.window.document;
+  global.navigator = dom.window.navigator;
+  global.HTMLCanvasElement = dom.window.HTMLCanvasElement;
 
   // Canvas実装をNode.jsから持ってくる
   global.document.createElement = (tagName: string) => {
     if (tagName === 'canvas') {
-      return createCanvas(100, 100) as unknown as HTMLCanvasElement
+      return createCanvas(100, 100) as unknown as HTMLCanvasElement;
     }
-    return dom.window.document.createElement(tagName)
-  }
+    return dom.window.document.createElement(tagName);
+  };
   global.Image = Image as unknown as { new (width?: number, height?: number): HTMLImageElement };
 }
 
@@ -33,7 +33,7 @@ function browserEnvSetup() {
  */
 describe('ocr tests', () => {
   // ブラウザ環境を注入
-  browserEnvSetup()
+  browserEnvSetup();
 
   // ocrAssetsフォルダから画像ファイルを取得
   const files = readdirSync(OCRASSESTS_DIR);

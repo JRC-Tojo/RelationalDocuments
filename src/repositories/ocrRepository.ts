@@ -70,7 +70,7 @@ export const runOCR = async (canvas: Canvas): Promise<string> => {
   // const buffer = canvas.toBuffer('image/png');
   // fs.writeFileSync(filePath, buffer);
 
-  return text.replace(/\s+/g, "");;
+  return text.replace(/\s+/g, '');
 };
 
 // 1. グレースケール化
@@ -79,7 +79,8 @@ export const grayscale = (ctx: CanvasRenderingContext2D) => {
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    const avg = 0.299 * (data.at(i) ?? 0) + 0.587 * (data.at(i + 1) ?? 0) + 0.114 * (data.at(i + 2) ?? 0);
+    const avg =
+      0.299 * (data.at(i) ?? 0) + 0.587 * (data.at(i + 1) ?? 0) + 0.114 * (data.at(i + 2) ?? 0);
     data[i] = data[i + 1] = data[i + 2] = avg;
   }
   ctx.putImageData(imageData, 0, 0);
@@ -91,7 +92,7 @@ export const binarize = (ctx: CanvasRenderingContext2D, threshold: number = 128)
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i] === undefined) console.log(i)
+    if (data[i] === undefined) console.log(i);
     const val = (data.at(i) ?? 0) > threshold ? 255 : 0;
     data[i] = data[i + 1] = data[i + 2] = val;
   }
@@ -105,17 +106,28 @@ export const deskew = (ctx: CanvasRenderingContext2D) => {
   const data = imageData.data;
 
   // --- 1. モーメント法による角度算出 (ここは変更なし) ---
-  let m00 = 0, m10 = 0, m01 = 0, m11 = 0, m20 = 0, m02 = 0;
+  let m00 = 0,
+    m10 = 0,
+    m01 = 0,
+    m11 = 0,
+    m20 = 0,
+    m02 = 0;
   for (let y = 0; y < oldH; y++) {
     for (let x = 0; x < oldW; x++) {
-      if (data.at((y * oldW + x) * 4) ?? 255 < 128) { // 黒いピクセル
-        m00 += 1; m10 += x; m01 += y;
-        m11 += x * y; m20 += x * x; m02 += y * y;
+      if (data.at((y * oldW + x) * 4) ?? 255 < 128) {
+        // 黒いピクセル
+        m00 += 1;
+        m10 += x;
+        m01 += y;
+        m11 += x * y;
+        m20 += x * x;
+        m02 += y * y;
       }
     }
   }
   if (m00 === 0) return;
-  const angle = 0.5 * Math.atan2(2 * ((m11 / m00) - (m10 / m00) * (m01 / m00)), (m20 / m00) - (m02 / m00));
+  const angle =
+    0.5 * Math.atan2(2 * (m11 / m00 - (m10 / m00) * (m01 / m00)), m20 / m00 - m02 / m00);
 
   // 角度がほぼ0なら何もしない
   if (Math.abs(angle) < 0.001) return;
@@ -192,4 +204,3 @@ export const autocrop = (ctx: CanvasRenderingContext2D, padding: number = 5) => 
   ctx.canvas.height = h;
   ctx.putImageData(cropped, 0, 0);
 };
-
