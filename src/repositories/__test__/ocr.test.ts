@@ -43,8 +43,7 @@ describe('ocr tests', () => {
 
   // テスト対象の画像ファイルがない場合はスキップ
   if (imageFiles.length === 0) {
-    console.warn('No image files found in ocrAssets folder. Please add test images.');
-    return;
+    throw new Error('No image files found in ocrAssets folder. Please add test images.')
   }
 
   // 各画像ファイルについてOCRを実行し、期待値と比較
@@ -57,8 +56,7 @@ describe('ocr tests', () => {
     try {
       expectedText = readFileSync(expectedTextPath, 'utf-8').trim();
     } catch {
-      console.warn(`Expected text file not found for ${imageFile}. Skipping...`);
-      return;
+      throw new Error(`Expected text file not found for ${imageFile}.`);
     }
 
     // OCRを実行

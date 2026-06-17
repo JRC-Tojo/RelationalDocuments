@@ -11,22 +11,41 @@ const pipe = (
   fns.forEach((fn) => fn(ctx));
 };
 
-export async function Image2Text(imageUrl: string): Promise<string> {
-  const canvas = await imageUrlToCanvas(imageUrl);
+export async function Image2Text(imageSource: string): Promise<string> {
+  const canvas = await imageUrlToCanvas(imageSource);
   return runOCR(canvas);
 }
 
-// 画像URLをCanvas型に変換する
-const imageUrlToCanvas = async (imageUrl: string): Promise<Canvas> => {
-  return new Promise((resolve, reject) => {
-    // 1. fsでファイルの中身をBufferとして読み込む
-    // ここでエラーが出れば、それは本当にパスの問題です
-    const buffer = fs.readFileSync(imageUrl);
+/**
+ * 画像ソース文字列をCanvasに変換する。
+ * データURL・HTTP(S) URL・ローカルファイルパスを自動判別して読み込む。
+ * `@param` imageSource - 画像ソース文字列
+ * `@returns` 描画済みのCanvasオブジェクト
+ */
+const imageUrlToCanvas = async (imageSource: string): Promise<Canvas> => {
+  // 入力形式を判別してBufferを取得する
+  let buffer: Buffer;
+  if (/^data:image\/[a-zA-Z+]+;base64,/.test(imageSource)) {
+    // データURL (例: data:image/png;base64,...) をデコードする
+    const base64Data = imageSource.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+    buffer = Buffer.from(base64Data, 'base64');
+  } else if (/^https?:\/\//i.test(imageSource)) {
+    // HTTP(S) URLをフェッチしてBufferに変換する
+    const response = await fetch(imageSource);
+    if (!response.ok) {
+      throw new Error(`画像の取得に失敗しました: ${response.status} ${response.statusText}`);
+    }
+    buffer = Buffer.from(await response.arrayBuffer());
+  } else {
+    // ローカルファイルパスとして読み込む
+    buffer = fs.readFileSync(imageSource);
+  }
 
-    // 2. Imageオブジェクトを生成
+  return new Promise((resolve, reject) => {
+    // 1. Imageオブジェクトを生成
     const img = new Image();
 
-    // 3. ロード完了後の処理
+    // 2. ロード完了後の処理
     img.onload = () => {
       const canvas = createCanvas(img.width, img.height);
       const ctx = canvas.getContext('2d');
@@ -34,12 +53,12 @@ const imageUrlToCanvas = async (imageUrl: string): Promise<Canvas> => {
       resolve(canvas);
     };
 
-    // 4. エラーハンドリング
+    // 3. エラーハンドリング
     img.onerror = (err) => {
       reject(err);
     };
 
-    // 5. Bufferをsrcにセット
+    // 4. Bufferをsrcにセット
     img.src = buffer;
   });
 };
@@ -60,17 +79,20 @@ export const runOCR = async (canvas: Canvas): Promise<string> => {
   const worker = await Tesseract.createWorker('jpn');
   await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE });
 
-  const {
-    data: { text },
-  } = await worker.recognize(canvas.toDataURL());
-  await worker.terminate();
+  try {
+    const {
+      data: { text },
+    } = await worker.recognize(canvas.toDataURL());
 
-  // 前処理済みの画像を見るときに使用する
-  // const filePath = __dirname + '/processed.png'
-  // const buffer = canvas.toBuffer('image/png');
-  // fs.writeFileSync(filePath, buffer);
+    // 前処理済みの画像を見るときに使用する
+    // const filePath = __dirname + '/processed.png'
+    // const buffer = canvas.toBuffer('image/png');
+    // fs.writeFileSync(filePath, buffer);
 
-  return text.replace(/\s+/g, '');
+    return text.replace(/\s+/g, '');
+  } finally {
+    await worker.terminate();
+  }
 };
 
 // 1. グレースケール化
@@ -114,7 +136,7 @@ export const deskew = (ctx: CanvasRenderingContext2D) => {
     m02 = 0;
   for (let y = 0; y < oldH; y++) {
     for (let x = 0; x < oldW; x++) {
-      if (data.at((y * oldW + x) * 4) ?? 255 < 128) {
+      if ((data.at((y * oldW + x) * 4) ?? 255) < 128) {
         // 黒いピクセル
         m00 += 1;
         m10 += x;
@@ -179,7 +201,7 @@ export const autocrop = (ctx: CanvasRenderingContext2D, padding: number = 5) => 
   // 1. コンテンツのバウンディングボックスを走査
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      if (data.at((y * width + x) * 4) ?? 255 < 128) {
+      if ((data.at((y * width + x) * 4) ?? 255) < 128) {
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < minY) minY = y;
@@ -187,6 +209,8 @@ export const autocrop = (ctx: CanvasRenderingContext2D, padding: number = 5) => 
       }
     }
   }
+  // コンテンツ未検出時はクロップしない
+  if (minX > maxX || minY > maxY) return;
 
   // 2. 座標をキャンバスの範囲内にクランプ（制限）
   const startX = Math.max(0, minX - padding);
