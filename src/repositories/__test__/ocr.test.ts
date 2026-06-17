@@ -43,7 +43,7 @@ describe('ocr tests', () => {
 
   // テスト対象の画像ファイルがない場合はスキップ
   if (imageFiles.length === 0) {
-    throw new Error('No image files found in ocrAssets folder. Please add test images.')
+    throw new Error('No image files found in ocrAssets folder. Please add test images.');
   }
 
   // 各画像ファイルについてOCRを実行し、期待値と比較
