@@ -103,18 +103,3 @@ export const AnnotationSchema = z.discriminatedUnion('type', [
 ]);
 
 export type Annotation = z.infer<typeof AnnotationSchema>;
-
-/**
- * API レスポンススキーマ（汎用）
- */
-type ApiResponseSuccess<T> = {
-  success: true;
-  timestamp: Date;
-} & (T extends void ? object : { data: T });
-type ApiResponseFail = {
-  success: false;
-  error: string;
-  timestamp: Date;
-};
-
-export type ApiResponse<T = unknown> = ApiResponseSuccess<T> | ApiResponseFail;

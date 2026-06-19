@@ -1,6 +1,7 @@
 import { settingsService } from 'src/services/settingsService';
-import type { DocumentMetadata, Annotation, AppSettings, ApiResponse } from '../models/schemas';
+import type { DocumentMetadata, Annotation, AppSettings } from '../models/schemas';
 import { documentService, annotationService } from '../services/documentService';
+import type { ApiResponse } from 'src/models/error/api';
 
 /**
  * バックエンド統合 API層

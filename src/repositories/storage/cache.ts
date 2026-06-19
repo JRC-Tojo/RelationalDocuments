@@ -1,6 +1,8 @@
 /**
  * ブラウザのキャッシュ（indexedDB）に文書を保存する
  */
+import type { Result } from 'src/models/error/result';
+import { Failure, Success } from 'src/models/error/result';
 import { ref } from 'vue';
 import type z from 'zod';
 
@@ -49,8 +51,6 @@ function isNeedInitialize(storeName: string) {
   return !db || !db.objectStoreNames.contains(storeName);
 }
 
-// TODO: 戻り値はすべてResult型でラップする（src/apiのApiResponceもResult型を内包する実装に修正）
-
 /**
  * ストアから値を取得する
  *
@@ -60,9 +60,9 @@ export async function getValue<T extends z.ZodType>(
   storeName: string,
   targetZodType: T,
   key?: string,
-): Promise<z.infer<T>> {
+): Promise<Result<z.infer<T>>> {
   if (isNeedInitialize(storeName)) await initialize(storeName);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readonly');
     const store = transaction.objectStore(storeName);
     const request = key ? store.get(key) : store.getAll();
@@ -70,14 +70,18 @@ export async function getValue<T extends z.ZodType>(
     request.onsuccess = () => {
       const parsed = targetZodType.safeParse(request.result);
       if (parsed.success) {
-        resolve(parsed.data);
+        resolve(Success(parsed.data));
       } else {
-        reject(parsed.error);
+        resolve(Failure(parsed.error));
       }
     };
     request.onerror = () =>
-      reject(
-        new Error(request.error?.message || `Failed to get an item (key=${key}) from ${storeName}`),
+      resolve(
+        Failure(
+          new Error(
+            request.error?.message || `Failed to get an item (key=${key}) from ${storeName}`,
+          ),
+        ),
       );
   });
 }
@@ -85,17 +89,21 @@ export async function getValue<T extends z.ZodType>(
 /**
  * ストアに値を登録する
  */
-export async function setValue<T>(storeName: string, key: string, value: T): Promise<void> {
+export async function setValue<T>(storeName: string, key: string, value: T): Promise<Result<void>> {
   if (isNeedInitialize(storeName)) await initialize(storeName);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
     const request = store.put(JSON.parse(JSON.stringify(value)), key);
 
-    request.onsuccess = () => resolve();
+    request.onsuccess = () => resolve(Success());
     request.onerror = () =>
-      reject(
-        new Error(request.error?.message || `Failed to set an item (key=${key}) into ${storeName}`),
+      resolve(
+        Failure(
+          new Error(
+            request.error?.message || `Failed to set an item (key=${key}) into ${storeName}`,
+          ),
+        ),
       );
   });
 }
@@ -103,18 +111,20 @@ export async function setValue<T>(storeName: string, key: string, value: T): Pro
 /**
  * 登録済みの値を削除する
  */
-export async function deleteValue(storeName: string, key: string): Promise<void> {
+export async function deleteValue(storeName: string, key: string): Promise<Result<void>> {
   if (isNeedInitialize(storeName)) await initialize(storeName);
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
     const request = store.delete(key);
 
-    request.onsuccess = () => resolve();
+    request.onsuccess = () => resolve(Success());
     request.onerror = () =>
-      reject(
-        new Error(
-          request.error?.message || `Failed to delete an item (key=${key}) into ${storeName}`,
+      resolve(
+        Failure(
+          new Error(
+            request.error?.message || `Failed to delete an item (key=${key}) into ${storeName}`,
+          ),
         ),
       );
   });
