@@ -52,7 +52,7 @@ async function callAnnotationTools(t: (key: string) => string): Promise<IDocTool
   const api = useBackendApi();
 
   const settings = await api.getSettings();
-  if (!settings.success) return [];
+  if (!settings.ok) return [];
 
   const registSubTools = (toolType: AnnotationType) => {
     const docTools = settings.data.tools.annotations
