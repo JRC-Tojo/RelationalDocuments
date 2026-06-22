@@ -1,7 +1,8 @@
-import { settingsService } from 'src/services/settingsService';
+import { getSettings, initializeSettings, saveSettings } from 'src/services/settings/main';
 import type { DocumentMetadata, Annotation, AppSettings } from '../models/schemas';
 import { documentService, annotationService } from '../services/documentService';
-import type { ApiResponse } from 'src/models/error/api';
+import { toApiResponse, type ApiResponse } from 'src/models/error/api';
+import { Success } from 'src/models/error/result';
 
 /**
  * バックエンド統合 API層
@@ -13,22 +14,17 @@ class BackendApi {
    * 初期化
    */
   async initialize(): Promise<ApiResponse<void>> {
-    try {
-      const settings = await settingsService.getSettings();
-      if (!settings?.initialized) {
-        await settingsService.initializeDefaultSettings();
-      }
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Initialization failed',
-        timestamp: new Date(),
-      };
+    const settings = await getSettings();
+    if (!settings.ok) {
+      return toApiResponse(settings, 'INIT_PROCESS_ERROR');
     }
+
+    if (!settings.value.initialized) {
+      const initRes = await initializeSettings();
+      if (!initRes.ok) return toApiResponse(initRes, 'INIT_PROCESS_ERROR');
+    }
+
+    return toApiResponse(Success());
   }
 
   // ============ 文書操作 ============
@@ -221,39 +217,19 @@ class BackendApi {
    * 設定を取得
    */
   async getSettings(): Promise<ApiResponse<AppSettings>> {
-    try {
-      const settings = await settingsService.getSettings();
-      return {
-        success: true,
-        data: settings,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get settings',
-        timestamp: new Date(),
-      };
-    }
+    const settings = await getSettings();
+    return toApiResponse(settings, 'FAILED_LOAD_SETTINGS');
   }
 
   /**
    * 設定を保存
    */
-  async saveSettings(settings: AppSettings): Promise<ApiResponse<void>> {
-    try {
-      await settingsService.saveSettings(settings);
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save settings',
-        timestamp: new Date(),
-      };
-    }
+  async saveSettings<K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K],
+  ): Promise<ApiResponse<void>> {
+    const saveRes = await saveSettings(key, value);
+    return toApiResponse(saveRes, 'FAILED_SAVE_SETTINGS');
   }
 }
 
