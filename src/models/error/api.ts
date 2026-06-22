@@ -3,26 +3,32 @@
  * Result<T>をフロントエンドに返す際に使用
  */
 
+import type { Result, Success } from './result';
+
 /**
  * APIエラーキー定義（コンソールメッセージなどで使用可能）
  *
  * TODO: 今後エラーメッセージの表示機構を整えたら移動させる
  */
 export const ApiErrorKeys = {
-  // 認証関連
-  AUTH_UNAUTHORIZED: 'AUTH_UNAUTHORIZED',
-  AUTH_FORBIDDEN: 'AUTH_FORBIDDEN',
-  // ドキュメント関連
-  DOC_NOT_FOUND: 'DOC_NOT_FOUND',
-  DOC_SAVE_FAILED: 'DOC_SAVE_FAILED',
-  DOC_PARSE_ERROR: 'DOC_PARSE_ERROR',
-  // ストレージ関連
-  STORAGE_READ_ERROR: 'STORAGE_READ_ERROR',
-  STORAGE_WRITE_ERROR: 'STORAGE_WRITE_ERROR',
-  // 検証関連
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  // サーバー関連
-  SERVER_ERROR: 'SERVER_ERROR',
+  // 初期設定
+  INIT_PROCESS_ERROR: 'INIT_PROCESS_ERROR',
+  FAILED_LOAD_SETTINGS: 'FAILED_LOAD_SETTINGS',
+  FAILED_SAVE_SETTINGS: 'FAILED_SAVE_SETTINGS',
+  // // 認証関連
+  // AUTH_UNAUTHORIZED: 'AUTH_UNAUTHORIZED',
+  // AUTH_FORBIDDEN: 'AUTH_FORBIDDEN',
+  // // ドキュメント関連
+  // DOC_NOT_FOUND: 'DOC_NOT_FOUND',
+  // DOC_SAVE_FAILED: 'DOC_SAVE_FAILED',
+  // DOC_PARSE_ERROR: 'DOC_PARSE_ERROR',
+  // // ストレージ関連
+  // STORAGE_READ_ERROR: 'STORAGE_READ_ERROR',
+  // STORAGE_WRITE_ERROR: 'STORAGE_WRITE_ERROR',
+  // // 検証関連
+  // VALIDATION_ERROR: 'VALIDATION_ERROR',
+  // // サーバー関連
+  // SERVER_ERROR: 'SERVER_ERROR',
   // その他
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
 } as const;
@@ -35,28 +41,52 @@ export type ApiErrorKey = (typeof ApiErrorKeys)[keyof typeof ApiErrorKeys];
  * message: ユーザーに表示するメッセージテンプレート（${variable}形式で変数を埋め込み可能）
  * variables?: メッセージに埋め込む変数
  */
-export interface ApiErrorInfo {
+export interface ApiErrorInfo<E = Error> {
   key: ApiErrorKey;
-  message: string;
+  error: E;
   variables?: Record<string, string | number | boolean>;
   details?: unknown; // デバッグ用の詳細情報
 }
 
 /**
- * API レスポンススキーマ（Result型対応版）
+ * API レスポンススキーマ
  */
 export interface ApiResponseSuccess<T> {
   ok: true;
   data: T;
   timestamp: Date;
-  requestId?: string; // リクエスト追跡用
 }
 
 export interface ApiResponseFailure {
   ok: false;
   error: ApiErrorInfo;
   timestamp: Date;
-  requestId?: string; // リクエスト追跡用
+  requestId: string; // リクエスト追跡用
 }
 
 export type ApiResponse<T = void> = ApiResponseSuccess<T> | ApiResponseFailure;
+
+type KVArgs = { [key: string]: string };
+
+export function toApiResponse<T>(res: Success<T>): ApiResponse<T>;
+export function toApiResponse<T>(
+  res: Result<T>,
+  errKey: ApiErrorKey,
+  errArgs?: KVArgs,
+): ApiResponse<T>;
+export function toApiResponse<T>(
+  res: Result<T>,
+  errKey: ApiErrorKey = ApiErrorKeys.UNKNOWN_ERROR,
+  errArgs: KVArgs = {},
+): ApiResponse<T> {
+  if (res.ok) {
+    return { ok: true, data: res.value, timestamp: new Date() };
+  }
+
+  const eInfo: ApiErrorInfo = {
+    key: errKey,
+    error: res.error,
+    variables: errArgs,
+  };
+  return { ok: false, error: eInfo, timestamp: new Date(), requestId: errKey };
+}
