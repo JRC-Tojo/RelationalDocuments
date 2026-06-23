@@ -10,30 +10,26 @@ import type { Result, Success } from './result';
  *
  * TODO: 今後エラーメッセージの表示機構を整えたら移動させる
  */
-export const ApiErrorKeys = {
-  // 初期設定
-  INIT_PROCESS_ERROR: 'INIT_PROCESS_ERROR',
-  FAILED_LOAD_SETTINGS: 'FAILED_LOAD_SETTINGS',
-  FAILED_SAVE_SETTINGS: 'FAILED_SAVE_SETTINGS',
-  // // 認証関連
-  // AUTH_UNAUTHORIZED: 'AUTH_UNAUTHORIZED',
-  // AUTH_FORBIDDEN: 'AUTH_FORBIDDEN',
-  // // ドキュメント関連
-  // DOC_NOT_FOUND: 'DOC_NOT_FOUND',
-  // DOC_SAVE_FAILED: 'DOC_SAVE_FAILED',
-  // DOC_PARSE_ERROR: 'DOC_PARSE_ERROR',
-  // // ストレージ関連
-  // STORAGE_READ_ERROR: 'STORAGE_READ_ERROR',
-  // STORAGE_WRITE_ERROR: 'STORAGE_WRITE_ERROR',
-  // // 検証関連
-  // VALIDATION_ERROR: 'VALIDATION_ERROR',
-  // // サーバー関連
-  // SERVER_ERROR: 'SERVER_ERROR',
-  // その他
-  UNKNOWN_ERROR: 'UNKNOWN_ERROR',
-} as const;
-
-export type ApiErrorKey = (typeof ApiErrorKeys)[keyof typeof ApiErrorKeys];
+export type ApiErrorKey =
+  // =========== 初期設定 ===========
+  | 'INIT_PROCESS_ERROR'
+  | 'FAILED_LOAD_SETTINGS'
+  | 'FAILED_SAVE_SETTINGS'
+  // =========== 認証関係 ===========
+  // | 'AUTH_UNAUTHORIZED'
+  // | 'AUTH_FORBIDDEN'
+  // =========== ドキュメント関係 ===========
+  | 'DOC_LIST_FAILED'
+  // | 'DOC_NOT_FOUND'
+  // | 'DOC_SAVE_FAILED'
+  // | 'DOC_PARSE_ERROR'
+  // =========== ストレージ関係 ===========
+  // | 'STORAGE_READ_ERROR'
+  // | 'STORAGE_WRITE_ERROR'
+  // =========== その他 ===========
+  // | 'VALIDATION_ERROR'
+  // | 'SERVER_ERROR'
+  | 'UNKNOWN_ERROR';
 
 /**
  * APIエラー情報
@@ -76,7 +72,7 @@ export function toApiResponse<T>(
 ): ApiResponse<T>;
 export function toApiResponse<T>(
   res: Result<T>,
-  errKey: ApiErrorKey = ApiErrorKeys.UNKNOWN_ERROR,
+  errKey: ApiErrorKey = 'UNKNOWN_ERROR',
   errArgs: KVArgs = {},
 ): ApiResponse<T> {
   if (res.ok) {

@@ -18,7 +18,7 @@ const isInitialized = ref(false);
 /**
  * IndexedDB の初期化
  */
-export async function initialize(storeName: string): Promise<void> {
+async function initialize(storeName: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
 

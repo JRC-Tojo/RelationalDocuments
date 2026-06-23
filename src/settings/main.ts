@@ -5,7 +5,7 @@
 import type { AnnotationTool } from 'src/models/docPage';
 import { Success, type Result } from 'src/models/error/result';
 import { AppSettings } from 'src/models/schemas';
-import { getValue, setValue } from 'src/repositories/storage/cache';
+import * as db from 'src/repositories/inMemory/IndexedDB';
 
 const SETTINGS_STORE_NAME = 'settings';
 
@@ -13,7 +13,7 @@ const SETTINGS_STORE_NAME = 'settings';
  * ユーザー設定を取得する
  */
 export async function getSettings(): Promise<Result<AppSettings>> {
-  return getValue(SETTINGS_STORE_NAME, AppSettings);
+  return db.getValue(SETTINGS_STORE_NAME, AppSettings);
 }
 
 /**
@@ -23,7 +23,7 @@ export async function saveSettings<K extends keyof AppSettings>(
   key: K,
   value: AppSettings[K],
 ): Promise<Result<void>> {
-  return setValue(SETTINGS_STORE_NAME, key, value);
+  return db.setValue(SETTINGS_STORE_NAME, key, value);
 }
 
 export async function initializeSettings(): Promise<Result<AppSettings>> {
@@ -38,7 +38,7 @@ export async function initializeSettings(): Promise<Result<AppSettings>> {
   } as const;
 
   const res = await Promise.all(
-    Object.entries(def).map(([k, v]) => setValue(SETTINGS_STORE_NAME, k, v)),
+    Object.entries(def).map(([k, v]) => db.setValue(SETTINGS_STORE_NAME, k, v)),
   );
   const errRes = res.find((r) => !r.ok);
 
