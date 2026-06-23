@@ -1,4 +1,3 @@
-import type { DocumentId } from './schemas';
 import z from 'zod';
 
 /**
@@ -11,15 +10,6 @@ export interface IDocTool {
   isActive: () => boolean;
   isDisable?: () => boolean;
   onClicked: () => void;
-}
-
-/**
- * ドキュメントタブ
- */
-export interface DocumentTab {
-  documentId: DocumentId;
-  title: string;
-  isPinned: boolean;
 }
 
 /**

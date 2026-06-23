@@ -20,6 +20,7 @@ export type ApiErrorKey =
   // | 'AUTH_FORBIDDEN'
   // =========== ドキュメント関係 ===========
   | 'DOC_LIST_FAILED'
+  | 'INVALID_DOCUMENT'
   // | 'DOC_NOT_FOUND'
   // | 'DOC_SAVE_FAILED'
   // | 'DOC_PARSE_ERROR'

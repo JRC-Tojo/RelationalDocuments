@@ -1,5 +1,8 @@
+/**
+ * TODO: 削除
+ */
+
 import { z } from 'zod';
-import { AnnotationTool } from './docPage';
 
 /**
  * UUID型定義
@@ -44,25 +47,6 @@ export const DocumentFolderSchema = z.object({
 });
 
 export type DocumentFolder = z.infer<typeof DocumentFolderSchema>;
-
-/**
- * アプリケーション設定スキーマ
- */
-export const AppSettings = z.object({
-  storagePath: z.string().optional(),
-  cloudProvider: z.enum(['local', 'box', 'sharepoint']).optional(),
-  darkMode: z.boolean().default(false),
-  viewMode: z.enum(['rich', 'list1', 'list2']).default('rich'),
-  sortBy: z.enum(['name', 'updatedAt', 'genre']).default('updatedAt'),
-  initialized: z.boolean().default(false),
-  tools: z
-    .object({
-      annotations: AnnotationTool.array(),
-    })
-    .default({ annotations: [] }),
-});
-
-export type AppSettings = z.infer<typeof AppSettings>;
 
 /**
  * アノテーションスキーマ

@@ -81,7 +81,7 @@ import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
-import type { AppSettings } from 'src/models/schemas';
+import type { AppSettings } from 'src/models/settings';
 import { toEntries } from 'src/utils/obj/obj';
 
 const { locale, t: $t } = useI18n();

@@ -2,12 +2,40 @@
  * ユーザー固有の設定を保存しておく
  */
 
+import type { Container, ContainerID } from 'src/models/container';
 import type { AnnotationTool } from 'src/models/docPage';
 import { Success, type Result } from 'src/models/error/result';
-import { AppSettings } from 'src/models/schemas';
+import { AppSettings } from 'src/models/settings';
 import * as db from 'src/repositories/inMemory/IndexedDB';
 
 const SETTINGS_STORE_NAME = 'settings';
+
+/**
+ * 設定の初期化
+ */
+export async function initializeSettings(): Promise<Result<AppSettings>> {
+  const def: AppSettings = {
+    darkMode: false,
+    viewMode: 'rich',
+    sortBy: 'updatedAt',
+    initialized: true,
+    loadedContainers: [],
+    tools: {
+      annotations: defaultAnnotationTools,
+    },
+  } as const;
+
+  const res = await Promise.all(
+    Object.entries(def).map(([k, v]) => db.setValue(SETTINGS_STORE_NAME, k, v)),
+  );
+  const errRes = res.find((r) => !r.ok);
+
+  if (errRes === void 0) {
+    return Success();
+  } else {
+    return errRes;
+  }
+}
 
 /**
  * ユーザー設定を取得する
@@ -26,27 +54,28 @@ export async function saveSettings<K extends keyof AppSettings>(
   return db.setValue(SETTINGS_STORE_NAME, key, value);
 }
 
-export async function initializeSettings(): Promise<Result<AppSettings>> {
-  const def: AppSettings = {
-    darkMode: false,
-    viewMode: 'rich',
-    sortBy: 'updatedAt',
-    initialized: true,
-    tools: {
-      annotations: defaultAnnotationTools,
-    },
-  } as const;
+/**
+ * 読み込み対象のコンテナを追加する
+ */
+export async function addLoadedContainer(c: Container): Promise<Result<void>> {
+  const settingsRes = await getSettings();
+  if (!settingsRes.ok) return settingsRes;
 
-  const res = await Promise.all(
-    Object.entries(def).map(([k, v]) => db.setValue(SETTINGS_STORE_NAME, k, v)),
-  );
-  const errRes = res.find((r) => !r.ok);
+  const settings = settingsRes.value;
+  const newContainers = [...settings.loadedContainers, c];
+  return saveSettings('loadedContainers', newContainers);
+}
 
-  if (errRes === void 0) {
-    return Success();
-  } else {
-    return errRes;
-  }
+/**
+ * 読み込み対象のコンテナを削除する
+ */
+export async function removeLoadedContainer(cId: ContainerID): Promise<Result<void>> {
+  const settingsRes = await getSettings();
+  if (!settingsRes.ok) return settingsRes;
+
+  const settings = settingsRes.value;
+  const newContainers = settings.loadedContainers.filter((c) => c.id !== cId);
+  return saveSettings('loadedContainers', newContainers);
 }
 
 const defaultAnnotationTools: AnnotationTool[] = [

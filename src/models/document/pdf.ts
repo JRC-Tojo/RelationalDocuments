@@ -1,5 +1,4 @@
-import z from "zod";
-import { ContainerElementFile } from "./container";
+import z from 'zod';
 
 /**
  * アノテーションスキーマ
@@ -35,16 +34,3 @@ export const Annotation = z.discriminatedUnion('type', [
   }),
 ]);
 export type Annotation = z.infer<typeof Annotation>;
-
-/**
- * 文書の本体データ
- */
-export const DocumentSource = z.base64().brand('DocumnetSource')
-export type DocumentSource = z.infer<typeof DocumentSource>
-
-export const Document = z.object({
-  info: ContainerElementFile,
-  src64: DocumentSource,
-  annot: Annotation.array()
-})
-export type Document = z.infer<typeof Document>

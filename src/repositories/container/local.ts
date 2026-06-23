@@ -1,46 +1,54 @@
-/**
- * ローカルフォルダに文書を保存する
- *
- * TODO: 戻り値や引数は未定
- */
-
+import type { ContainerElement, ContainerElementFile } from 'src/models/container';
+import { type Container } from 'src/models/container';
+import type { DocumentSource } from 'src/models/document/common';
 import type { Result } from 'src/models/error/result';
 import { Success } from 'src/models/error/result';
 
 /**
- * 指定したフォルダ内の全ファイルを取得
+ * ローカルに保存されたコンテナを取得する
  */
-export async function getFiles(recursive: boolean = false): Promise<Result<void>> {
-  return Success();
+export async function getContainers(): Promise<Result<Container[]>> {
+  return new Promise((resolve) => resolve(Success([])));
 }
 
 /**
- * 指定したファイルの保存
+ * ローカルに保存されたコンテナを削除する
  */
-export async function saveFile(): Promise<Result<void>> {
-  return Success();
+export async function deleteContainer(id: string): Promise<Result<void>> {
+  return new Promise((resolve) => resolve(Success()));
 }
 
 /**
- * 指定したファイルの取得
- *
- * - 型情報（Zod）を指定すればその型の戻り値を得る
- * - 指定しなければDocumnetSource(=base64)型の戻り値を得る
+ * ローカルにデータを保存する
  */
-export async function readFile(): Promise<Result<void>> {
-  return Success();
+export async function saveContainer(c: Container): Promise<Result<void>> {
+  return new Promise((resolve) => resolve(Success()));
 }
 
 /**
- * 指定したファイルを削除
+ * ローカルに保存されたコンテナの要素情報を取得する
  */
-export async function deleteFile(): Promise<Result<void>> {
-  return Success();
+export async function loadContainerElements(c: Container): Promise<Result<Container>> {
+  return new Promise((resolve) => resolve(Success(c)));
 }
 
 /**
- * 指定したフォルダを作成
+ * ローカルにファイルの実態を追加する
  */
-export async function createFolder(): Promise<Result<void>> {
-  return Success();
+export async function createFile(c: Container, srcData: DocumentSource): Promise<Result<void>> {
+  return new Promise((resolve) => resolve(Success()));
+}
+
+/**
+ * ローカルからファイルの実態を削除する
+ */
+export async function deleteFile(c: Container, element: ContainerElement): Promise<Result<void>> {
+  return new Promise((resolve) => resolve(Success()));
+}
+
+/**
+ * ローカルにファイルの実態を読み込む
+ */
+export async function loadSrcData(file: ContainerElementFile): Promise<Result<DocumentSource>> {
+  return new Promise((resolve) => resolve(Success()));
 }

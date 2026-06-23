@@ -11,7 +11,7 @@
 import { getDocument } from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFDocument, rgb } from 'pdf-lib';
-import type { Annotation, DocumentSource } from '../../models/document';
+import type { Annotation, DocumentSource } from '../../models/document/common';
 import type { Result } from '../../models/error/result';
 import { Success, Failure } from '../../models/error/result';
 

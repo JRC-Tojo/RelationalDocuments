@@ -2,13 +2,22 @@
  * コンテナに関する操作を提供する
  */
 
-import type { Container, ContainerElementFile, ContainerID, ContainerType } from 'src/models/container';
+import type {
+  Container,
+  ContainerElement,
+  ContainerElementFile,
+  ContainerType,
+} from 'src/models/container';
+import { ContainerID } from 'src/models/container';
 import { Failure, Success, type Result } from 'src/models/error/result';
-import * as cache from 'src/services/container/cache';
-import * as box from 'src/services/container/box';
-import * as local from 'src/services/container/local';
+import * as cache from 'src/repositories/container/cache';
+import * as box from 'src/repositories/container/box';
+import * as local from 'src/repositories/container/local';
+import * as settings from 'src/settings/main';
 import { fromEntries } from 'src/utils/obj/obj';
-import type { Document } from 'src/models/document';
+import type { DocumentSource } from 'src/models/document/common';
+import { Document } from 'src/models/document/common';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 処理をコンテナ種別ごとに振り分ける
@@ -97,36 +106,50 @@ export async function loadContainer(id: ContainerID): Promise<Result<Container>>
 /**
  * コンテナを追加する
  */
-export async function addContainer(
+export async function createContainer(
   type: ContainerType,
   name: string,
   path: string,
 ): Promise<Result<Container>> {
-  // コンテナオブジェクトの生成
-  const createContainerRes = await switchContainerProcess(
+  const newContainer: Container = {
+    id: ContainerID.parse(uuidv4()),
+    name,
     type,
-    box.createContainer(name, path),
-    local.createContainer(name, path),
-    cache.createContainer(name, path),
+    containerPath: path,
+  };
+
+  // コンテナオブジェクトの生成
+  const savedRes = await switchContainerProcess(
+    type,
+    box.saveContainer(newContainer),
+    local.saveContainer(newContainer),
+    cache.saveContainer(newContainer),
   );
-  if (!createContainerRes.ok) return createContainerRes;
+  if (!savedRes.ok) return savedRes;
 
   // キャッシュの更新
-  cachedContainers[createContainerRes.value.id] = createContainerRes.value;
+  cachedContainers[newContainer.id] = newContainer;
+
+  // 読み込み対象一覧に追加
+  const settingsRes = await settings.addLoadedContainer(newContainer);
+  if (!settingsRes.ok) return settingsRes;
 
   // コンテナ内部のElementsの読み取り
-  return loadContainer(createContainerRes.value.id);
+  return loadContainer(newContainer.id);
 }
 
 /**
  * コンテナの読み込みを中止する
  */
-export async function unloadContainer(id: ContainerID): Promise<Result<void>> {
-  // TODO: BOXやローカルは読み込み対象一覧を記載した設定情報の更新も必要？
-  return new Promise((resolve) => {
-    delete cachedContainers[id];
-    return resolve(Success());
-  });
+export async function unloadContainer(cId: ContainerID): Promise<Result<void>> {
+  // 読み込み対象一覧から除外
+  const settingsRes = await settings.removeLoadedContainer(cId);
+  if (!settingsRes.ok) return settingsRes;
+
+  // キャッシュも削除
+  delete cachedContainers[cId];
+
+  return Success();
 }
 
 /**
@@ -152,17 +175,126 @@ export async function deleteContainer(id: ContainerID): Promise<Result<void>> {
 }
 
 /**
- * コンテナ内のファイルを読み込む
+ * コンテナ要素を追加する
  */
-export async function loadDocument(file: ContainerElementFile): Promise<Result<Document>> {
+async function addContainerElement(
+  newElement: ContainerElement,
+  srcData: DocumentSource,
+): Promise<Result<void>> {
+  const c = getContainer(newElement.containerID);
+  if (!c.ok) return c;
+  if (c.value.elements === void 0) {
+    return Failure(new Error('Unloaded container elements'));
+  }
+
+  // 要素を追加
+  c.value.elements.push(newElement);
+
+  // キャッシュの更新
+  cachedContainers[newElement.containerID] = c.value;
+
+  // 実態データの更新
+  return switchContainerProcess(
+    c.value.type,
+    box.createFile(c.value, srcData),
+    local.createFile(c.value, srcData),
+    cache.createFile(c.value, srcData),
+  );
+}
+
+/**
+ * コンテナ要素を削除する
+ */
+async function deleteContainerElement(
+  c: Container,
+  deleteElement: ContainerElement,
+): Promise<Result<void>> {
+  if (c.elements === void 0) {
+    return Failure(new Error('Unloaded container elements'));
+  }
+
+  // 要素を削除
+  const targetIdx = c.elements.findIndex((e) => e.path === deleteElement.path);
+  c.elements.splice(targetIdx, 1);
+
+  // キャッシュの更新
+  cachedContainers[c.id] = c;
+
+  // 実態データの更新
+  return switchContainerProcess(
+    c.type,
+    box.deleteFile(c, deleteElement),
+    local.deleteFile(c, deleteElement),
+    cache.deleteFile(c, deleteElement),
+  );
+}
+
+/**
+ * コンテナ内にファイルを追加する
+ */
+export async function createFile(
+  cId: ContainerID,
+  folderPath: string,
+  fileName: string,
+  srcData: DocumentSource,
+): Promise<Result<ContainerElementFile>> {
+  const element: ContainerElementFile = {
+    containerID: cId,
+    type: 'File',
+    path: folderPath,
+    name: fileName,
+    fileSize: Buffer.byteLength(srcData, 'base64'),
+    mimeType: fileName.split('.').pop()?.toLowerCase() || 'unknown',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    description: '',
+    genre: '',
+    tags: [],
+  };
+
+  // コンテナキャッシュの更新 & 実態データの更新
+  const container = await addContainerElement(element, srcData);
+  if (!container.ok) return container;
+
+  return Success(element);
+}
+
+/**
+ * コンテナ内のファイルを削除する
+ */
+export async function deleteFile(
+  cId: ContainerID,
+  file: ContainerElementFile,
+): Promise<Result<void>> {
+  const c = getContainer(cId);
+  if (!c.ok) return c;
+
+  // コンテナキャッシュの更新 & 実態データの更新
+  return deleteContainerElement(c.value, file);
+}
+
+/**
+ * ファイルからドキュメントを読みこむ
+ */
+export async function loadFileAsDocument(file: ContainerElementFile): Promise<Result<Document>> {
   const c = getContainer(file.containerID);
   if (!c.ok) return c;
 
-  return switchContainerProcess(
+  const srcData = await switchContainerProcess(
     c.value.type,
-    box.loadDocument(file),
-    local.loadDocument(file),
-    cache.loadDocument(file),
+    box.loadSrcData(file),
+    local.loadSrcData(file),
+    cache.loadSrcData(file),
   );
 
+  const newDocument = Document.safeParse({
+    ...file,
+    src64: srcData,
+  });
+  if (!newDocument.success)
+    return Failure(new Error(`Unsupported type of document (${file.mimeType})`));
+
+  // TODO: PDFアノテーションをどこで読み込むか
+
+  return Success(newDocument.data);
 }
