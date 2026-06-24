@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { ContainerElement, ContainerElementFile } from 'src/models/container';
 import { type Container } from 'src/models/container';
 import type { DocumentSource } from 'src/models/document/common';

@@ -171,7 +171,7 @@ describe.skip('Local file operation', () => {
     }
   });
 
-  test('file path', async () => {
+  test('file path', () => {
     const testdir = workPath.child('pathChecks');
     const file1 = testdir.child('file1.txt');
 
