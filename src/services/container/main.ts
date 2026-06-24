@@ -15,8 +15,7 @@ import * as box from 'src/repositories/container/box';
 import * as local from 'src/repositories/container/local';
 import * as settings from 'src/settings/main';
 import { fromEntries } from 'src/utils/obj/obj';
-import type { DocumentSource } from 'src/models/document/common';
-import { Document } from 'src/models/document/common';
+import { DocumentSource } from 'src/models/document/common';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -274,9 +273,9 @@ export async function deleteFile(
 }
 
 /**
- * ファイルからドキュメントを読みこむ
+ * ファイルからドキュメントの本体データを読みこむ
  */
-export async function loadFileAsDocument(file: ContainerElementFile): Promise<Result<Document>> {
+export async function loadFileAsDocumentSource(file: ContainerElementFile): Promise<Result<DocumentSource>> {
   const c = getContainer(file.containerID);
   if (!c.ok) return c;
 
@@ -286,15 +285,7 @@ export async function loadFileAsDocument(file: ContainerElementFile): Promise<Re
     local.loadSrcData(file),
     cache.loadSrcData(file),
   );
+  if (!srcData.ok) return srcData
 
-  const newDocument = Document.safeParse({
-    ...file,
-    src64: srcData,
-  });
-  if (!newDocument.success)
-    return Failure(new Error(`Unsupported type of document (${file.mimeType})`));
-
-  // TODO: PDFアノテーションをどこで読み込むか
-
-  return Success(newDocument.data);
+  return Success(DocumentSource.parse(srcData.value));
 }
