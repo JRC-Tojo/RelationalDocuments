@@ -1,8 +1,9 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
-import type { AnnotationStyle, AnnotationType, DocumentTab, IDocTool } from 'src/models/docPage';
+import type { ContainerElement } from 'src/models/container';
+import type { DrawingAnnotationStyle, DrawingAnnotationType, IDocTool } from 'src/models/docPage';
 import type { DocumentId } from 'src/models/schemas';
 
-export type PointerType = AnnotationType | 'hand' | 'pointer';
+export type PointerType = DrawingAnnotationType | 'hand' | 'pointer';
 export type Layouts<T> = { ul: T; ur: T; ll: T; lr: T };
 export type LayoutSide = keyof Layouts<never>;
 export type TileMode = 'single' | 'dubble' | 'grid';
@@ -27,7 +28,7 @@ export const useEditorStore = defineStore('editor', {
     isStoreInitialized: false,
 
     // ドキュメントレイアウトの状態
-    tabs: { ul: [], ur: [], ll: [], lr: [] } as Layouts<DocumentTab[]>,
+    tabs: { ul: [], ur: [], ll: [], lr: [] } as Layouts<ContainerElement[]>,
     activeTabs: { ul: null, ur: null, ll: null, lr: null } as Layouts<DocumentId | null>,
     activeSide: 'ul' as LayoutSide,
 

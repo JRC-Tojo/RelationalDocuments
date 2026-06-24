@@ -22,8 +22,11 @@ export type ApiErrorKey =
   | 'DOC_LIST_FAILED'
   | 'INVALID_DOCUMENT'
   // | 'DOC_NOT_FOUND'
-  // | 'DOC_SAVE_FAILED'
+  | 'DOC_SAVE_FAILED'
+  | 'DOC_DELETE_FAILED'
   // | 'DOC_PARSE_ERROR'
+  | 'DOC_ANNOT_LOAD_FAILED'
+  | 'DOC_ANNOT_EMBED_FAILED'
   // =========== ストレージ関係 ===========
   // | 'STORAGE_READ_ERROR'
   // | 'STORAGE_WRITE_ERROR'

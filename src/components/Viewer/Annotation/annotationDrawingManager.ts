@@ -6,7 +6,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Annotation, DocumentId } from 'src/models/schemas';
 import dayjs from 'dayjs';
-import type { AnnotationStyle } from 'src/models/docPage';
+import type { DrawingAnnotationStyle } from 'src/models/docPage';
 
 /**
  * アノテーションの描画開始時に呼び出す

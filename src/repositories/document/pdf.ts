@@ -11,9 +11,10 @@
 import { getDocument } from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFDocument, rgb } from 'pdf-lib';
-import type { Annotation, DocumentSource } from '../../models/document/common';
+import type { DocumentSource } from '../../models/document/common';
 import type { Result } from '../../models/error/result';
 import { Success, Failure } from '../../models/error/result';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 /** ヘルパー: base64 -> Uint8Array */
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -209,12 +210,154 @@ export async function removePageFromPdf(
 }
 
 /**
+ * PDFデータからアノテーションデータを抽出する
+ */
+export async function extractAnnotationsFromPdf(
+  src64: DocumentSource,
+): Promise<Result<AnnotationStyle[]>> {
+  const loaded = await loadPdfFromSrc64(src64);
+  if (!loaded.ok) return Failure(loaded.error);
+
+  try {
+    const pdf = loaded.value;
+    const annotations: AnnotationStyle[] = [];
+    const now = new Date().toISOString();
+
+    function rgbArrayToHex(arr: number[] | undefined): string {
+      if (!arr || arr.length < 3) return '#ff0000';
+      const [r, g, b] = arr as [number, number, number];
+      const to255 = (v: number) => (v <= 1 ? Math.round(v * 255) : Math.round(v));
+      const hr = to255(r).toString(16).padStart(2, '0');
+      const hg = to255(g).toString(16).padStart(2, '0');
+      const hb = to255(b).toString(16).padStart(2, '0');
+      return `#${hr}${hg}${hb}`;
+    }
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const pageHeight = page.getViewport({ scale: 1 }).height;
+
+      const anns = await page.getAnnotations();
+
+      for (const a of anns) {
+        // skip non-visible or widget annotations
+        if (a.subtype === 'Widget' || a.hidden || a.flags?.noView) continue;
+
+        const common = {
+          pageNumber: i,
+          color: rgbArrayToHex(a.color),
+          strokeWidth: a.borderWidth ?? a.border?.width ?? 2,
+          opacity: typeof a.opacity === 'number' ? a.opacity : undefined,
+          content: typeof a.contents === 'string' ? a.contents : undefined,
+          createdAt: now,
+          updatedAt: now,
+          comment: {},
+        } as const;
+
+        // Square -> box
+        if (a.subtype === 'Square' && Array.isArray(a.rect)) {
+          const [x1, y1, x2, y2] = a.rect as [number, number, number, number];
+          const left = Math.min(x1, x2);
+          const right = Math.max(x1, x2);
+          const bottom = Math.min(y1, y2);
+          const top = Math.max(y1, y2);
+          const width = right - left;
+          const height = top - bottom;
+          const y = pageHeight - top; // convert to top-based y
+
+          annotations.push({
+            type: 'box',
+            ...common,
+            x: left,
+            y,
+            width,
+            height,
+          } as unknown as AnnotationStyle);
+          continue;
+        }
+
+        // Circle
+        if (a.subtype === 'Circle' && Array.isArray(a.rect)) {
+          const [x1, y1, x2, y2] = a.rect as [number, number, number, number];
+          const left = Math.min(x1, x2);
+          const right = Math.max(x1, x2);
+          const bottom = Math.min(y1, y2);
+          const top = Math.max(y1, y2);
+          const width = right - left;
+          const height = top - bottom;
+          const cx = left + width / 2;
+          const cy_topDistance = pageHeight - top;
+          const radius = Math.max(width, height) / 2;
+
+          annotations.push({
+            type: 'circle',
+            ...common,
+            x: cx,
+            // keep y as center distance from top (consistent with embed logic)
+            y: cy_topDistance + radius,
+            radius,
+          } as unknown as AnnotationStyle);
+          continue;
+        }
+
+        // Ink (freehand) -> approximate as line using first stroke
+        if (a.subtype === 'Ink' && Array.isArray(a.inkLists) && a.inkLists.length > 0) {
+          const firstList = a.inkLists[0] as number[];
+          if (firstList.length >= 4) {
+            const x = firstList[0] as number;
+            const yPdf = firstList[1] as number;
+            const x2 = firstList[firstList.length - 2] as number;
+            const y2Pdf = firstList[firstList.length - 1] as number;
+            const y = pageHeight - yPdf;
+            const y2 = pageHeight - y2Pdf;
+            annotations.push({
+              type: 'line',
+              ...common,
+              x,
+              y,
+              x2,
+              y2,
+              points: [0, 0, x2 - x, y2 - y],
+            } as unknown as AnnotationStyle);
+            continue;
+          }
+        }
+
+        // fallback: any rect -> box
+        if (Array.isArray(a.rect)) {
+          const [x1, y1, x2, y2] = a.rect as [number, number, number, number];
+          const left = Math.min(x1, x2);
+          const right = Math.max(x1, x2);
+          const bottom = Math.min(y1, y2);
+          const top = Math.max(y1, y2);
+          const width = right - left;
+          const height = top - bottom;
+          const y = pageHeight - top;
+          annotations.push({
+            type: 'box',
+            ...common,
+            x: left,
+            y,
+            width,
+            height,
+          } as unknown as AnnotationStyle);
+        }
+      }
+    }
+
+    return Success(annotations);
+  } catch (e) {
+    return Failure(toError(e));
+  }
+}
+
+/**
  * PDF にアノテーションを焼き込む。Annotation 型に応じて矩形や線、円を描画する。
  * 返り値は編集後の DocumentSource を Result で返す
  */
 export async function embedAnnotationsIntoPdf(
   src64: DocumentSource,
-  annotations: Annotation[],
+  annotations: AnnotationStyle[],
 ): Promise<Result<DocumentSource>> {
   try {
     const bytes = base64ToUint8Array(src64 as unknown as string);

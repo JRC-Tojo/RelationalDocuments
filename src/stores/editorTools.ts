@@ -1,4 +1,4 @@
-import type { AnnotationTool, AnnotationType, IDocTool } from 'src/models/docPage';
+import type { AnnotationTool, DrawingAnnotationType, IDocTool } from 'src/models/docPage';
 import { useEditorStore } from './editorStore';
 import { useBackendApi } from 'src/apis/backendApi';
 
@@ -54,7 +54,7 @@ async function callAnnotationTools(t: (key: string) => string): Promise<IDocTool
   const settings = await api.getSettings();
   if (!settings.ok) return [];
 
-  const registSubTools = (toolType: AnnotationType) => {
+  const registSubTools = (toolType: DrawingAnnotationType) => {
     const docTools = settings.data.tools.annotations
       .filter((ann) => ann.style.type === toolType)
       .map((ann) => annotationCnf2Tool(ann));

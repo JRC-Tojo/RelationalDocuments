@@ -187,17 +187,24 @@ async function addContainerElement(
   }
 
   // 要素を追加
-  c.value.elements.push(newElement);
+  const oldElement = c.value.elements[newElement.path];
+  if (oldElement !== undefined) {
+    newElement.createdAt = oldElement.createdAt;
+  }
+  c.value.elements[newElement.path] = newElement;
+
 
   // キャッシュの更新
   cachedContainers[newElement.containerID] = c.value;
 
   // 実態データの更新
+  // TODO: システム外でファイル操作されたときに、コンフリクトを起こす可能性あり
+  // （そもそもシステム外でファイル操作された場合、どのようにフロントエンドなどに反映するのか？）
   return switchContainerProcess(
     c.value.type,
-    box.createFile(c.value, srcData),
-    local.createFile(c.value, srcData),
-    cache.createFile(c.value, srcData),
+    box.createFile(c.value, newElement.path, srcData),
+    local.createFile(c.value, newElement.path, srcData),
+    cache.createFile(c.value, newElement.path, srcData),
   );
 }
 
@@ -213,8 +220,7 @@ async function deleteContainerElement(
   }
 
   // 要素を削除
-  const targetIdx = c.elements.findIndex((e) => e.path === deleteElement.path);
-  c.elements.splice(targetIdx, 1);
+  delete c.elements[deleteElement.path]
 
   // キャッシュの更新
   cachedContainers[c.id] = c;
@@ -233,17 +239,14 @@ async function deleteContainerElement(
  */
 export async function createFile(
   cId: ContainerID,
-  folderPath: string,
-  fileName: string,
+  filePathStr: string,
   srcData: DocumentSource,
 ): Promise<Result<ContainerElementFile>> {
   const element: ContainerElementFile = {
     containerID: cId,
     type: 'File',
-    path: folderPath,
-    name: fileName,
+    path: filePathStr,
     fileSize: Buffer.byteLength(srcData, 'base64'),
-    mimeType: fileName.split('.').pop()?.toLowerCase() || 'unknown',
     createdAt: new Date(),
     updatedAt: new Date(),
     description: '',

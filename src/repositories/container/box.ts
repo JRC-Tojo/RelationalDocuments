@@ -36,7 +36,7 @@ export async function loadContainerElements(c: Container): Promise<Result<Contai
 /**
  * Boxにファイルの実態を追加する
  */
-export async function createFile(c: Container, srcData: DocumentSource): Promise<Result<void>> {
+export async function createFile(c: Container, filePath: string, srcData: DocumentSource): Promise<Result<void>> {
   return new Promise((resolve) => resolve(Success()));
 }
 

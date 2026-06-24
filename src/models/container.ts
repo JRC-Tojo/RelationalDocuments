@@ -7,9 +7,7 @@ export const ContainerElementFile = z.object({
   containerID: ContainerID,
   type: z.literal('File'),
   path: z.string(),
-  name: z.string(),
   fileSize: z.number().int().positive(),
-  mimeType: z.string(),
   createdAt: z.date(),
   updatedAt: z.date(),
   lastViewedAt: z.date().optional(),
@@ -21,7 +19,6 @@ export type ContainerElementFile = z.infer<typeof ContainerElementFile>;
 export const ContainerElementFolder = z.object({
   containerID: ContainerID,
   type: z.literal('Folder'),
-  name: z.string(),
   path: z.string(),
   createdAt: z.date(),
 });
@@ -39,6 +36,6 @@ export const Container = z.object({
   name: z.string(),
   type: ContainerType,
   containerPath: z.string(),
-  elements: ContainerElement.array().optional(),
+  elements: z.record(z.string(), ContainerElement).optional(),
 });
 export type Container = z.infer<typeof Container>;

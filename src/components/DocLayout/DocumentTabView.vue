@@ -105,7 +105,7 @@ async function loadDocument(docId: string) {
   loading.value = true;
 
   const api = useBackendApi();
-  const doc = await api.getDocument(docId);
+  const doc = await api.getDocumentSource(docId);
   if (!doc.success || !doc.data) {
     loading.value = false;
     return;
@@ -132,7 +132,7 @@ async function loadDocument(docId: string) {
   );
 
   // PDFマネージャーからアノテーションを読み込む
-  const annotationRes = await api.getAnnotationsByDocument(prop.documentId);
+  const annotationRes = await api.getAnnotationsBySource(prop.documentId);
   if (annotationRes.success) annotations.value = annotationRes.data || [];
 
   loading.value = false;

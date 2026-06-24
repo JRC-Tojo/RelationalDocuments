@@ -64,7 +64,7 @@ export async function createDemoData() {
   console.log('デモデータを作成中...');
 
   for (const doc of sampleDocs) {
-    const response = await api.createDocument(
+    const response = await api.saveFile(
       doc.title,
       new URL('../assets/sampleDocs/sampleArticle.pdf', import.meta.url).href,
       doc.title,
@@ -86,7 +86,7 @@ export async function createDemoData() {
         const colorIdx = Math.floor(Math.random() * colors.length);
         const color: string = colors[colorIdx] || '#FFD700';
 
-        await api.saveAnnotationsByDocument(response.data.id, [
+        await api.packAnnotationsInSource(response.data.id, [
           {
             id: uuidv4(),
             documentId: response.data.id,

@@ -1,4 +1,6 @@
 import z from 'zod';
+import { RelationalID } from './relational';
+import { ImageURI } from '../common';
 
 /**
  * アノテーションスキーマ
@@ -13,10 +15,18 @@ const AnnotationBase = z.object({
   content: z.string().optional(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
-  // relational: ???
+  comment: z
+    .object({
+      chat: z.unknown().optional(), // TODO: チャットの形式は要検討
+      relationalID: RelationalID.optional(),
+    })
+    .default({}),
 });
 
-export const Annotation = z.discriminatedUnion('type', [
+/**
+ * アノテーション本体の情報
+ */
+export const AnnotationStyle = z.discriminatedUnion('type', [
   AnnotationBase.extend({
     type: z.literal('box'),
     width: z.number().nonnegative(),
@@ -33,4 +43,13 @@ export const Annotation = z.discriminatedUnion('type', [
     points: z.array(z.number()).length(4),
   }),
 ]);
-export type Annotation = z.infer<typeof Annotation>;
+export type AnnotationStyle = z.infer<typeof AnnotationStyle>;
+
+/**
+ * アノテーション位置におけるPDF本体の情報
+ */
+export const AnnotationContext = z.object({
+  img: ImageURI,
+  text: z.string(),
+});
+export type AnnotationContext = z.infer<typeof AnnotationContext>;

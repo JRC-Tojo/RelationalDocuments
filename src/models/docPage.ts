@@ -63,14 +63,14 @@ export const AnnotationTextStyle = z.object({
   fillPattern: z.enum(['none', 'hatch', 'solid']),
   fillOpacity: z.number(),
 });
-export const AnnotationStyle = z.discriminatedUnion('type', [
+export const DrawingAnnotationStyle = z.discriminatedUnion('type', [
   AnnotationLineStyle,
   AnnotationBoxStyle,
   AnnotationCircleStyle,
   AnnotationTextStyle,
 ]);
-export type AnnotationStyle = z.infer<typeof AnnotationStyle>;
-export type AnnotationType = AnnotationStyle['type'];
+export type DrawingAnnotationStyle = z.infer<typeof DrawingAnnotationStyle>;
+export type DrawingAnnotationType = DrawingAnnotationStyle['type'];
 
 /**
  * アノテーションプリセット
@@ -78,7 +78,7 @@ export type AnnotationType = AnnotationStyle['type'];
 export const AnnotationTool = z.object({
   id: z.string(),
   name: z.string(),
-  style: AnnotationStyle,
+  style: DrawingAnnotationStyle,
 });
 export type AnnotationTool = z.infer<typeof AnnotationTool>;
 

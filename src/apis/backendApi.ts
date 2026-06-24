@@ -1,11 +1,12 @@
 import { getSettings, initializeSettings, saveSettings } from 'src/settings/main';
-import type { DocumentMetadata, Annotation } from '../models/schemas';
 import { toApiResponse, type ApiResponse } from 'src/models/error/api';
 import { Failure, Success } from 'src/models/error/result';
 import * as containerService from 'src/services/container/main';
-import type { ContainerElement } from 'src/models/container';
-import type { Document } from 'src/models/document/common';
-import { AppSettings } from 'src/models/settings';
+import * as pdfRepo from 'src/repositories/document/pdf';
+import type { ContainerElement, ContainerElementFile, ContainerID } from 'src/models/container';
+import type { AppSettings } from 'src/models/settings';
+import type { DocumentSource } from 'src/models/document/common';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 /**
  * バックエンド統合 API層
@@ -50,7 +51,9 @@ class BackendApi {
 
     // Resultをunwrapしてファイル要素を抽出
     const containers = allContainersWithElements.filter((res) => res.ok).map((res) => res.value);
-    const elements = containers.flatMap((c) => c.elements).filter((e) => e !== void 0);
+    const elements = containers
+      .flatMap((c) => Object.values(c.elements ?? {}))
+      .filter((e) => e !== void 0);
 
     return toApiResponse(Success(elements));
   }
@@ -58,72 +61,34 @@ class BackendApi {
   /**
    * 文書を取得
    */
-  async getDocument(file: ContainerElement): Promise<ApiResponse<Document>> {
+  async getDocumentSource(file: ContainerElement): Promise<ApiResponse<DocumentSource>> {
     if (file.type !== 'File')
       return toApiResponse(
         Failure(new Error('Container element is not a file')),
         'INVALID_DOCUMENT',
       );
-    const doc = await containerService.loadDocument(file);
-    return toApiResponse(doc, 'INVALID_DOCUMENT');
+    const docSrc = await containerService.loadFileAsDocumentSource(file);
+    return toApiResponse(docSrc, 'INVALID_DOCUMENT');
   }
 
   /**
    * 文書を新規登録
    */
-  async createDocument(
-    title: string,
+  async saveFile(
+    cId: ContainerID,
     filePath: string,
-    fileName: string,
-    pageCount: number,
-    fileSize: number,
-    description?: string,
-    genre?: string,
-  ): Promise<ApiResponse<Document>> {
-    const doc = await containerService.
-  }
-
-  /**
-   * 文書を更新
-   */
-  async updateDocument(
-    id: string,
-    updates: Partial<DocumentMetadata>,
-  ): Promise<ApiResponse<DocumentMetadata | null>> {
-    try {
-      const doc = await documentService.updateDocument(id, updates);
-      return {
-        success: true,
-        data: doc,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to update document',
-        timestamp: new Date(),
-      };
-    }
+    srcData: DocumentSource,
+  ): Promise<ApiResponse<ContainerElementFile>> {
+    const file = await containerService.createFile(cId, filePath, srcData);
+    return toApiResponse(file, 'DOC_SAVE_FAILED');
   }
 
   /**
    * 文書を削除
    */
-  async deleteDocument(id: string): Promise<ApiResponse<boolean>> {
-    try {
-      const result = await documentService.deleteDocument(id);
-      return {
-        success: true,
-        data: result,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete document',
-        timestamp: new Date(),
-      };
-    }
+  async deleteFile(cId: ContainerID, file: ContainerElementFile): Promise<ApiResponse<void>> {
+    const deleteRes = await containerService.deleteFile(cId, file);
+    return toApiResponse(deleteRes, 'DOC_DELETE_FAILED');
   }
 
   // ============ アノテーション操作 ============
@@ -131,43 +96,20 @@ class BackendApi {
   /**
    * 文書別アノテーションを取得
    */
-  async getAnnotationsByDocument(documentId: string): Promise<ApiResponse<Annotation[]>> {
-    try {
-      const annotations = await annotationService.getAnnotationByDocument(documentId);
-      return {
-        success: true,
-        data: annotations,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get annotations',
-        timestamp: new Date(),
-      };
-    }
+  async getAnnotationsBySource(docSrc: DocumentSource): Promise<ApiResponse<AnnotationStyle[]>> {
+    const annots = await pdfRepo.extractAnnotationsFromPdf(docSrc);
+    return toApiResponse(annots, 'DOC_ANNOT_LOAD_FAILED');
   }
 
   /**
    * 文書別アノテーションを保存
    */
-  async saveAnnotationsByDocument(
-    documentId: string,
-    annotations: Annotation[],
-  ): Promise<ApiResponse<void>> {
-    try {
-      await annotationService.saveAnnotationsByDocument(documentId, annotations);
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save annotations',
-        timestamp: new Date(),
-      };
-    }
+  async packAnnotationsInSource(
+    docSrc: DocumentSource,
+    annotations: AnnotationStyle[],
+  ): Promise<ApiResponse<DocumentSource>> {
+    const packedSrc = await pdfRepo.embedAnnotationsIntoPdf(docSrc, annotations);
+    return toApiResponse(packedSrc, 'DOC_ANNOT_EMBED_FAILED');
   }
 
   // ============ 設定操作 ============

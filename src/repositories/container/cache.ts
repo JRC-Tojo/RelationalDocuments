@@ -21,8 +21,8 @@ const SOURCE_STORE_NAME = 'virtual-storage-body';
 /**
  * 本体データを保存するストアにおいて、本体データと紐づくキー
  */
-function getDocKey(cId: ContainerID, folderPath: string, fileName: string): string {
-  return `${cId}-${folderPath}/${fileName}`;
+function getDocKey(cId: ContainerID, path: string): string {
+  return `${cId}-${path}`;
 }
 
 /**
@@ -58,8 +58,8 @@ export async function loadContainerElements(c: Container): Promise<Result<Contai
 /**
  * ファイルの実態を追加する
  */
-export async function createFile(c: Container, srcData: DocumentSource): Promise<Result<void>> {
-  const docKey = getDocKey(c.id, c.containerPath, c.name);
+export async function createFile(c: Container, filePath: string, srcData: DocumentSource): Promise<Result<void>> {
+  const docKey = getDocKey(c.id, filePath);
   // キャッシュのみアノテーションは新規作成の際には保存しない（今後必要な場合は検討）
   return db.setValue(SOURCE_STORE_NAME, docKey, srcData);
 }
@@ -68,7 +68,7 @@ export async function createFile(c: Container, srcData: DocumentSource): Promise
  * ファイルの実態を削除する
  */
 export async function deleteFile(c: Container, element: ContainerElement): Promise<Result<void>> {
-  const docKey = getDocKey(c.id, element.path, element.name);
+  const docKey = getDocKey(c.id, element.path);
   return db.deleteValue(SOURCE_STORE_NAME, docKey);
 }
 
@@ -76,6 +76,6 @@ export async function deleteFile(c: Container, element: ContainerElement): Promi
  * ファイルの実態を読み込む
  */
 export async function loadSrcData(file: ContainerElementFile): Promise<Result<DocumentSource>> {
-  const docKey = getDocKey(file.containerID, file.path, file.name);
+  const docKey = getDocKey(file.containerID, file.path);
   return db.getValue(SOURCE_STORE_NAME, DocumentSource, docKey);
 }
