@@ -8,8 +8,6 @@ import { ContainerSkel } from './container';
  * アプリケーション設定スキーマ
  */
 export const AppSettings = z.object({
-  storagePath: z.string().optional(),
-  cloudProvider: z.enum(['local', 'box', 'sharepoint']).optional(),
   darkMode: z.boolean().default(false),
   viewMode: z.enum(['rich', 'list1', 'list2']).default('rich'),
   sortBy: z.enum(['name', 'updatedAt', 'genre']).default('updatedAt'),

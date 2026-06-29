@@ -14,16 +14,8 @@ const SETTINGS_STORE_NAME = 'settings';
  * 設定の初期化
  */
 export async function initializeSettings(): Promise<Result<AppSettings>> {
-  const def: AppSettings = {
-    darkMode: false,
-    viewMode: 'rich',
-    sortBy: 'updatedAt',
-    initialized: true,
-    containerSkels: [],
-    tools: {
-      annotations: defaultAnnotationTools,
-    },
-  } as const;
+  const def = AppSettings.parse({});
+  def.tools.annotations = defaultAnnotationTools;
 
   const res = await Promise.all(
     Object.entries(def).map(([k, v]) => db.setValue(SETTINGS_STORE_NAME, k, v)),

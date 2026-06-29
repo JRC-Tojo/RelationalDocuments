@@ -11,41 +11,38 @@
     >
       <v-layer>
         <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
-        <template v-for="annotation in annotations">
+        <template v-for="(annotation, i) in annotations">
           <!-- ボックスアノテーション -->
           <BoxAnnotation
+            ref="boxRefs"
             v-if="annotation.type === 'box'"
             :key="annotation.id"
             :annotation="annotation"
-            :is-selected="selectedIds.has(annotation.id)"
             :is-editing="isEditing"
-            @select="selectAnnotation"
-            @update="updateAnnotation"
-            @delete="deleteAnnotation"
+            @update="(newAnnot) => updateAnnotation(newAnnot, i)"
+            @delete="deleteAnnotation(i)"
           />
 
           <!-- 線アノテーション -->
           <LineAnnotation
+            ref="lineRefs"
             v-if="annotation.type === 'line'"
             :key="annotation.id"
             :annotation="annotation"
-            :is-selected="selectedIds.has(annotation.id)"
             :is-editing="isEditing"
-            @select="selectAnnotation"
-            @update="updateAnnotation"
-            @delete="deleteAnnotation"
+            @update="(newAnnot) => updateAnnotation(newAnnot, i)"
+            @delete="deleteAnnotation(i)"
           />
 
           <!-- 円アノテーション -->
           <CircleAnnotation
+            ref="circleRefs"
             v-if="annotation.type === 'circle'"
             :key="annotation.id"
             :annotation="annotation"
-            :is-selected="selectedIds.has(annotation.id)"
             :is-editing="isEditing"
-            @select="selectAnnotation"
-            @update="updateAnnotation"
-            @delete="deleteAnnotation"
+            @update="(newAnnot) => updateAnnotation(newAnnot, i)"
+            @delete="deleteAnnotation(i)"
           />
         </template>
 
@@ -64,31 +61,29 @@
         />
 
         <!-- トランスフォーマー（選択時のリサイズ操作用） -->
-        <v-transformer v-if="isEditing" :config="transformerConfig" />
+        <v-transformer ref="transformerRef" v-if="isEditing" />
       </v-layer>
     </v-stage>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, reactive, computed } from 'vue';
+import { ref, computed, useTemplateRef, watch } from 'vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
-import type { Annotation, DocumentId } from 'src/models/schemas';
 import type Konva from 'konva';
-import type { Node, NodeConfig } from 'konva/lib/Node';
 import { startDrawingAnnotation } from './annotationDrawingManager';
 import { useEditorStore } from 'src/stores/editorStore';
+import type { AnnotationStyle } from 'src/models/document/pdf.js';
 
 // Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
 
 interface Props {
-  annotations: Annotation[];
-  documentId: DocumentId;
+  annotations: AnnotationStyle[];
 }
-const props = defineProps<Props>();
+defineProps<Props>();
 const editorStore = useEditorStore();
 
 const page = defineModel<number>('page', { required: true });
@@ -96,15 +91,20 @@ const canvasSize = defineModel<{ width: number; height: number }>('canvasSize', 
 const scale = defineModel<number>('scale', { required: true });
 
 const emit = defineEmits<{
-  addAnnotation: [annotation: Annotation];
-  updateAnnotation: [annotation: Annotation];
-  deleteAnnotation: [id: string];
+  addAnnotation: [newAnnot: AnnotationStyle];
+  updateAnnotation: [newAnnot: AnnotationStyle, targetIdx: number];
+  deleteAnnotation: [targetIdx: number];
 }>();
 
-const stageRef = ref<Konva.Stage | null>(null);
+const stageRef = useTemplateRef<Konva.Stage>('stageRef')
+const transformerRef = useTemplateRef<Konva.TransformerConfig>('transformerRef')
+const boxRefs = useTemplateRef<Konva.RectConfig[]>('boxRefs')
+const lineRefs = useTemplateRef<Konva.LineConfig[]>('lineRefs')
+const circleRefs = useTemplateRef<Konva.CircleConfig[]>('circleRefs')
+const selectedAnnotIds = ref<number[]>([])
+
 const isDrawing = ref(false);
 const startPos = ref<{ x: number; y: number } | null>(null);
-const selectedIds = ref(new Set());
 const drawingPreview = ref<{
   rect?: {
     x: number;
@@ -122,12 +122,8 @@ const drawingPreview = ref<{
 const drawingType = computed(() => editorStore.currentTools);
 const isEditing = computed(() => !['hand'].includes(drawingType.value));
 const cursorStyle = computed(() => (isEditing.value ? 'crosshair' : 'default'));
-// Transformerの設定。nodes プロパティで制御する
-const transformerConfig = reactive({
-  nodes: [] as Node<NodeConfig>[],
-});
 
-let endDrawingAnnotation: ((endX: number, endY: number) => Annotation | null) | undefined;
+let endDrawingAnnotation: ((endX: number, endY: number) => AnnotationStyle | null) | undefined;
 
 /**
  * マウスダウンイベント
@@ -157,7 +153,6 @@ function handleMouseDown(e: KonvaMouseEvent) {
   isDrawing.value = true;
   startPos.value = adjustedPos;
   endDrawingAnnotation = startDrawingAnnotation(
-    props.documentId,
     page.value,
     adjustedPos.x,
     adjustedPos.y,
@@ -222,10 +217,34 @@ function handleMouseUp(e: KonvaMouseEvent) {
  * ステージクリック（背景クリック時の選択解除）
  */
 function handleStageClick(e: KonvaMouseEvent) {
-  // ポインターモード時のみ、背景クリックで選択を解除
+  // if click on empty area - remove all selections
   if (drawingType.value === 'pointer' && e.target === e.target.getStage()) {
-    selectedIds.value.clear();
-    transformerConfig.nodes = [];
+    selectedAnnotIds.value = [];
+    return;
+  }
+
+  // do nothing if clicked NOT on our rectangles
+  if (!e.target.hasName('rect')) {
+    return;
+  }
+
+  const clickedId = e.target.attrs.id;
+
+  // do we pressed shift or ctrl?
+  const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
+  const isSelected = selectedAnnotIds.value.includes(clickedId);
+
+  if (!metaPressed && !isSelected) {
+    // if no key pressed and the node is not selected
+    // select just one
+    selectedAnnotIds.value = [clickedId];
+  } else if (metaPressed && isSelected) {
+    // if we pressed keys and node was selected
+    // we need to remove it from selection:
+    selectedAnnotIds.value = selectedAnnotIds.value.filter(id => id !== clickedId);
+  } else if (metaPressed && !isSelected) {
+    // add the node into selection
+    selectedAnnotIds.value = [...selectedAnnotIds.value, clickedId];
   }
 }
 
@@ -277,53 +296,32 @@ function updateDrawingPreview(endX: number, endY: number) {
 }
 
 /**
- * アノテーションを選択
- */
-async function selectAnnotation(id: string) {
-  selectedIds.value.add(id);
-
-  await nextTick(() => {
-    attachTransformer(id);
-  });
-}
-
-/**
- * トランスフォーマーをアタッチ
- */
-function attachTransformer(annotationId: string) {
-  if (!stageRef.value) return;
-
-  const stage = stageRef.value.getStage();
-  const layer = stage.getLayers()[0];
-
-  if (!layer) return;
-
-  // IDでシェイプを検索
-  const shape = layer.findOne((node: Node<NodeConfig>) => {
-    const attrs = (node as Konva.Shape).getAttrs?.();
-    return attrs?.id === annotationId;
-  });
-
-  if (shape) {
-    transformerConfig.nodes = [shape];
-    layer.draw();
-  }
-}
-
-/**
  * アノテーションを更新
  */
-function updateAnnotation(annotation: Annotation) {
-  emit('updateAnnotation', annotation);
+function updateAnnotation(annotation: AnnotationStyle, targetIdx: number) {
+  emit('updateAnnotation', annotation, targetIdx);
 }
 
 /**
  * アノテーションを削除
  */
-function deleteAnnotation(id: string) {
-  emit('deleteAnnotation', id);
-  selectedIds.value.delete(id);
+function deleteAnnotation(targetIdx: number) {
+  emit('deleteAnnotation', targetIdx);
 }
+
+watch(selectedAnnotIds, () => {
+  if (!transformerRef.value) return;
+  if (!boxRefs.value) return;
+  if (!lineRefs.value) return;
+  if (!circleRefs.value) return;
+
+  const refs = [...boxRefs.value, ...lineRefs.value, ...circleRefs.value]
+  const nodes = selectedAnnotIds.value.map(id => {
+    return refs.find(ref => ref.getNode().attrs.id === id)?.getNode();
+  }).filter(Boolean);
+
+  transformerRef.value.getNode().nodes(nodes);
+})
 </script>
 
 <style scoped lang="scss">

@@ -4,8 +4,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { Annotation, DocumentId } from 'src/models/schemas';
 import dayjs from 'dayjs';
+import { AnnotationID, type AnnotationStyle } from 'src/models/document/pdf';
 import type { DrawingAnnotationStyle } from 'src/models/docPage';
 
 /**
@@ -14,60 +14,46 @@ import type { DrawingAnnotationStyle } from 'src/models/docPage';
  * 終了時に呼び出すことで新規アノテーションオブジェクトを取得する関数を返す
  */
 export function startDrawingAnnotation(
-  documentId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
-  annotationStyle: AnnotationStyle,
+  annotationStyle: DrawingAnnotationStyle,
 ) {
   return (endX: number, endY: number) =>
-    endDrawingAnnotation(documentId, pageNumber, startX, startY, endX, endY, annotationStyle);
+    endDrawingAnnotation(pageNumber, startX, startY, endX, endY, annotationStyle);
 }
 
 function endDrawingAnnotation(
-  documentId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
   endX: number,
   endY: number,
-  annotationStyle: AnnotationStyle,
+  annotationStyle: DrawingAnnotationStyle,
 ) {
-  const newAnnotation = createAnnotation(
-    documentId,
-    pageNumber,
-    startX,
-    startY,
-    endX,
-    endY,
-    annotationStyle,
-  );
+  const newAnnotation = createAnnotation(pageNumber, startX, startY, endX, endY, annotationStyle);
   return newAnnotation;
 }
 
 function createAnnotation(
-  docId: DocumentId,
   pageNumber: number,
   startX: number,
   startY: number,
   endX: number,
   endY: number,
-  annotationStyle: AnnotationStyle,
-): Annotation | null {
+  annotationStyle: DrawingAnnotationStyle,
+): AnnotationStyle | null {
   const deltaX = endX - startX;
   const deltaY = endY - startY;
 
   const baseAnnotation = {
-    id: uuidv4(),
-    documentId: docId,
+    id: AnnotationID.parse(uuidv4()),
     pageNumber: pageNumber,
     x: Math.min(startX, endX),
     y: Math.min(startY, endY),
     createdAt: dayjs().toISOString(),
     updatedAt: dayjs().toISOString(),
-    linkedAnnotationIds: [],
-    tags: [],
-    relatedDocumentIds: [],
+    comment: {},
   };
 
   if (annotationStyle.type === 'box') {

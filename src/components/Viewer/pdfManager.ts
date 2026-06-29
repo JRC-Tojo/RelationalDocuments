@@ -4,6 +4,8 @@
  */
 
 import * as pdfjsLib from 'pdfjs-dist';
+import type { DocumentSource } from 'src/models/document/common';
+import { base64ToUint8Array } from 'src/utils/binary/base64';
 
 export type PdfDocument = pdfjsLib.PDFDocumentProxy;
 
@@ -20,15 +22,10 @@ function initWorker() {
 /**
  * PDFファイルを読み込む
  */
-export async function loadPdf(pdfPath: string): Promise<PdfDocument> {
+export async function loadPdf(docSrc: DocumentSource): Promise<PdfDocument> {
   try {
-    const response = await fetch(pdfPath);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.statusText}`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    return await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const typedArray = base64ToUint8Array(docSrc)
+    return await pdfjsLib.getDocument({ data: typedArray }).promise;
   } catch (error) {
     throw new Error(`PDF読み込みエラー: ${error instanceof Error ? error.message : 'Unknown'}`);
   }

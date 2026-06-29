@@ -3,6 +3,7 @@
  */
 import type { Result } from 'src/models/error/result';
 import { Failure, Success } from 'src/models/error/result';
+import { fromEntries } from 'src/utils/obj/obj';
 import { ref } from 'vue';
 import type z from 'zod';
 
@@ -12,6 +13,7 @@ import type z from 'zod';
  */
 const dbName = 'RelationalDocumentsDB';
 
+let currentVersion = -1;
 let db: IDBDatabase | null = null;
 const isInitialized = ref(false);
 
@@ -20,7 +22,7 @@ const isInitialized = ref(false);
  */
 async function initialize(storeName: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, 1);
+    const request = indexedDB.open(dbName, currentVersion < 1 ? undefined : currentVersion);
 
     request.onerror = () => {
       console.error('IndexedDB initialization failed');
@@ -32,14 +34,22 @@ async function initialize(storeName: string): Promise<void> {
 
       // ストアの作成
       if (!tmpDb.objectStoreNames.contains(storeName)) {
-        tmpDb.createObjectStore(storeName, { keyPath: 'id' });
+        tmpDb.createObjectStore(storeName);
       }
     };
 
     request.onsuccess = () => {
       db = request.result;
+      // バージョン番号を登録
+      currentVersion = db.version;
       isInitialized.value = true;
       resolve();
+    };
+
+    request.onblocked = () => {
+      console.warn('IndexedDB open blocked, closing other connections...');
+      // 他のタブで使用中の場合のハンドリング
+      window.location.reload();
     };
   });
 }
@@ -48,13 +58,34 @@ async function initialize(storeName: string): Promise<void> {
  * ストアの初期化が必要か確認する
  */
 function isNeedInitialize(storeName: string) {
-  return !db || !db.objectStoreNames.contains(storeName);
+  if (!db) return true;
+
+  // ストアが存在しない場合、バージョンアップが必要
+  if (!db.objectStoreNames.contains(storeName)) {
+    currentVersion++;
+    db.close();
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * IndexedDBストアへのアクセス処理をPromise<Result>でラップする
+ */
+function wrapRequest<T>(starter: () => IDBRequest<T>): Promise<Result<T>> {
+  return new Promise((resolve) => {
+    const req = starter();
+    req.onsuccess = () => resolve(Success(req.result));
+    req.onerror = () =>
+      resolve(Failure(new Error(req.error?.message || 'IndexedDB request failed')));
+  });
 }
 
 /**
  * ストアから値を取得する
  *
- * @param key 値を取得する対象のキー（指定しない場合はストア全体を返す）
+ * @param key 値を取得する対象のキー（指定しない場合はストア全体をRecordで返す）
  */
 export async function getValue<T extends z.ZodType>(
   storeName: string,
@@ -62,28 +93,28 @@ export async function getValue<T extends z.ZodType>(
   key?: string,
 ): Promise<Result<z.infer<T>>> {
   if (isNeedInitialize(storeName)) await initialize(storeName);
-  return new Promise((resolve) => {
-    const transaction = db!.transaction([storeName], 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = key ? store.get(key) : store.getAll();
 
-    request.onsuccess = () => {
-      const parsed = targetZodType.safeParse(request.result);
-      if (parsed.success) {
-        resolve(Success(parsed.data));
-      } else {
-        resolve(Failure(parsed.error));
-      }
-    };
-    request.onerror = () =>
-      resolve(
-        Failure(
-          new Error(
-            request.error?.message || `Failed to get an item (key=${key}) from ${storeName}`,
-          ),
-        ),
-      );
-  });
+  const transaction = db!.transaction([storeName], 'readonly');
+  const store = transaction.objectStore(storeName);
+
+  let gotData;
+  if (key) {
+    const res = await wrapRequest(() => store.get(key));
+    if (!res.ok) return res;
+    gotData = res.value;
+  } else {
+    const keys = await wrapRequest(() => store.getAllKeys());
+    const values = await wrapRequest(() => store.getAll());
+    if (!keys.ok) return keys;
+    if (!values.ok) return values;
+    gotData = fromEntries(
+      keys.value.filter((k) => typeof k === 'string').map((k, i) => [k, values.value[i]]),
+    );
+  }
+
+  const parsed = targetZodType.safeParse(gotData);
+  if (parsed.success) return Success(parsed.data);
+  return Failure(parsed.error);
 }
 
 /**

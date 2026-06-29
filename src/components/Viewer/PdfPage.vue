@@ -4,7 +4,6 @@
     <!-- Konvaアノテーションレイヤー -->
     <AnnotationLayer
       v-if="canvasRendered"
-      :document-id="documentId"
       :annotations="currentPageAnnotations"
       v-model:page="page"
       v-model:scale="scale"
@@ -20,15 +19,16 @@
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import AnnotationLayer from './Annotation/AnnotationLayer.vue';
 import { debounce, useQuasar } from 'quasar';
-import type { Annotation, DocumentId } from 'src/models/schemas';
+import type { ContainerElementFile } from 'src/models/container.js';
+import type { AnnotationStyle } from 'src/models/document/pdf.js';
 
 interface Props {
-  documentId: DocumentId;
+  file: ContainerElementFile;
   onRender: (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 }
 const props = defineProps<Props>();
 const page = defineModel<number>('page', { required: true });
-const annotations = defineModel<Annotation[]>('annotations', { required: true });
+const annotations = defineModel<AnnotationStyle[]>('annotations', { required: true });
 const scale = defineModel<number>('scale', { required: true });
 
 const $q = useQuasar();
@@ -53,19 +53,15 @@ async function render(scale: number) {
 }
 
 // ================= TODO: 暫定実装（本来はコマンド化して呼び出し）=================
-function addAnnotation(annotation: Annotation) {
+function addAnnotation(annotation: AnnotationStyle) {
   annotations.value.push(annotation);
 }
 
-function updateAnnotation(annotation: Annotation) {
-  const targetIdx = annotations.value.findIndex((a) => a.id === annotation.id);
-  if (targetIdx === -1) return;
-  annotations.value[targetIdx] = annotation;
+function updateAnnotation(newAnnot: AnnotationStyle, targetIdx: number) {
+  annotations.value[targetIdx] = newAnnot;
 }
 
-function deleteAnnotation(id: string) {
-  const targetIdx = annotations.value.findIndex((a) => a.id === id);
-  if (targetIdx === -1) return;
+function deleteAnnotation(targetIdx: number) {
   annotations.value.splice(targetIdx, 1);
 }
 // ================= TODO: 暫定実装（本来はコマンド化して呼び出し）=================

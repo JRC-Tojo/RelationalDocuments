@@ -69,6 +69,8 @@ function handleMainToolClick(tool: IDocTool) {
 </script>
 
 <style scoped lang="scss">
+@use 'sass:color';
+
 .editor-page {
   display: flex;
   flex-direction: column;
@@ -81,7 +83,7 @@ function handleMainToolClick(tool: IDocTool) {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
-  background: linear-gradient(135deg, $primary 0%, darken($primary, 5%) 100%);
+  background: linear-gradient(135deg, $primary 0%, color.adjust($primary, $lightness: -5%) 100%);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
 
@@ -101,7 +103,11 @@ function handleMainToolClick(tool: IDocTool) {
 }
 
 .body--dark .main-toolbar {
-  background: linear-gradient(135deg, darken($primary, 10%) 0%, darken($primary, 15%) 100%);
+  background: linear-gradient(
+    135deg,
+    color.adjust($primary, $lightness: -10%) 0%,
+    color.adjust($primary, $lightness: -15%) 100%
+  );
 }
 
 .sub-toolbar {

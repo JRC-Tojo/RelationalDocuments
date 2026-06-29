@@ -3,7 +3,6 @@
     :config="lineConfig"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
-    @mousedown="onMouseDown"
     @dragmove="onDragMove"
   />
 </template>
@@ -11,14 +10,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type Konva from 'konva';
-import type { Annotation } from 'src/models/schemas';
 import dayjs from 'dayjs';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 type KonvaEvent = Konva.KonvaEventObject<Event>;
 
 interface Props {
-  annotation: Annotation;
-  isSelected: boolean;
+  annotation: AnnotationStyle;
   isEditing: boolean;
 }
 
@@ -26,7 +24,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   select: [id: string];
-  update: [annotation: Annotation];
+  update: [annotation: AnnotationStyle];
   delete: [id: string];
 }>();
 
@@ -44,7 +42,7 @@ const lineConfig = computed(() => {
     props.annotation.y2 ?? 0,
   ];
   return {
-    id: props.annotation.id, // ← IDを追加
+    id: props.annotation.id,
     x: props.annotation.x,
     y: props.annotation.y,
     points: points,
@@ -65,13 +63,6 @@ function onMouseEnter() {
 
 function onMouseLeave() {
   isHovered.value = false;
-}
-
-/**
- * マウスダウン時の選択
- */
-function onMouseDown() {
-  emit('select', props.annotation.id);
 }
 
 /**

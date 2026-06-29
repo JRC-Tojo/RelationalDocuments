@@ -135,6 +135,8 @@ watch(zoomLevel, (newZoomLevel) => {
 </script>
 
 <style scoped lang="scss">
+@use 'sass:color';
+
 .document-footer {
   display: flex;
   align-items: center;
@@ -297,7 +299,7 @@ watch(zoomLevel, (newZoomLevel) => {
 }
 
 .body--dark .document-footer {
-  background-color: darken($dark, 5%);
+  background-color: color.adjust($dark, $lightness: -5%);
   border-top-color: $grey-8;
   box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.3);
 
@@ -316,7 +318,7 @@ watch(zoomLevel, (newZoomLevel) => {
       &:focus {
         border-color: $primary;
         box-shadow: 0 0 0 2px rgba($primary, 0.2);
-        background: darken($grey-8, 5%);
+        background: color.adjust($grey-8, $lightness: -5%);
       }
     }
 
@@ -333,7 +335,7 @@ watch(zoomLevel, (newZoomLevel) => {
         color: $grey-4;
 
         &.q-btn--active {
-          background: darken($dark, 3%);
+          background: color.adjust($dark, $lightness: -3%);
           color: $primary;
         }
       }
@@ -348,7 +350,7 @@ watch(zoomLevel, (newZoomLevel) => {
         color: $grey-4;
 
         &.q-btn--active {
-          background: darken($dark, 3%);
+          background: color.adjust($dark, $lightness: -3%);
           color: $primary;
         }
       }
@@ -364,7 +366,7 @@ watch(zoomLevel, (newZoomLevel) => {
       &:focus {
         border-color: $primary;
         box-shadow: 0 0 0 2px rgba($primary, 0.2);
-        background: darken($grey-8, 5%);
+        background: color.adjust($grey-8, $lightness: -5%);
       }
     }
 

@@ -18,6 +18,7 @@ import * as settings from 'src/settings/main';
 import { fromEntries } from 'src/utils/obj/obj';
 import { DocumentSource } from 'src/models/document/common';
 import { v4 as uuidv4 } from 'uuid';
+import { getBase64FileSize } from 'src/utils/binary/base64';
 
 /**
  * 処理をコンテナ種別ごとに振り分ける
@@ -52,7 +53,7 @@ function getContainer(id: ContainerID): Result<Container | ContainerSkel> {
  * コンテナの内部が読み込み済みであるか否かを返す
  */
 function parseContainer(c: Container | ContainerSkel) {
-  return Container.safeParse(c)
+  return Container.safeParse(c);
 }
 
 /**
@@ -249,7 +250,7 @@ export async function createFile(
     containerID: cId,
     type: 'File',
     path: filePathStr,
-    fileSize: Buffer.byteLength(srcData, 'base64'),
+    fileSize: getBase64FileSize(srcData),
     createdAt: new Date(),
     updatedAt: new Date(),
     description: '',
@@ -274,8 +275,8 @@ export async function deleteFile(
   const c = getContainer(cId);
   if (!c.ok) return c;
 
-  const parsedContainer = parseContainer(c.value)
-  if (!parsedContainer.success) return Failure(new Error('This is not a filled container'))
+  const parsedContainer = parseContainer(c.value);
+  if (!parsedContainer.success) return Failure(new Error('This is not a filled container'));
 
   // コンテナキャッシュの更新 & 実態データの更新
   return deleteContainerElement(parsedContainer.data, file);

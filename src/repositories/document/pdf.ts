@@ -11,28 +11,11 @@
 import { getDocument } from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PDFDocument, rgb } from 'pdf-lib';
-import type { DocumentSource } from '../../models/document/common';
+import { DocumentSource } from '../../models/document/common';
 import type { Result } from '../../models/error/result';
 import { Success, Failure } from '../../models/error/result';
 import type { AnnotationStyle } from 'src/models/document/pdf';
-
-/** ヘルパー: base64 -> Uint8Array */
-function base64ToUint8Array(base64: string): Uint8Array {
-  const cleaned = base64.replace(/^data:.*;base64,/, '');
-  const binaryString = atob(cleaned);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-  return bytes;
-}
-
-/** ヘルパー: Uint8Array -> base64 (純粋な base64 を返す) */
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]!);
-  return btoa(binary);
-}
+import { base64ToUint8Array, uint8ArrayToBase64 } from 'src/utils/binary/base64';
 
 function toError(e: unknown): Error {
   return e instanceof Error ? e : new Error(String(e));
@@ -170,7 +153,7 @@ export async function extractImageFromRegion(
 
 /** PDF バイナリを base64 にして返す */
 function uint8ToDocSrc(bytes: Uint8Array): DocumentSource {
-  return uint8ArrayToBase64(bytes) as unknown as DocumentSource;
+  return DocumentSource.parse(uint8ArrayToBase64(bytes));
 }
 
 /** ページの追加 */
@@ -360,8 +343,7 @@ export async function embedAnnotationsIntoPdf(
   annotations: AnnotationStyle[],
 ): Promise<Result<DocumentSource>> {
   try {
-    const bytes = base64ToUint8Array(src64 as unknown as string);
-    const pdfDoc = await PDFDocument.load(bytes);
+    const pdfDoc = await PDFDocument.load(src64);
 
     function hexToRgb(hex: string) {
       const h = hex.replace('#', '');
@@ -404,7 +386,6 @@ export async function embedAnnotationsIntoPdf(
           height,
           borderColor: rgb(color.r, color.g, color.b),
           borderWidth: strokeWidth,
-          color: undefined,
           opacity,
         });
       } else if (a.type === 'line') {
@@ -426,7 +407,6 @@ export async function embedAnnotationsIntoPdf(
           yScale: radius,
           borderColor: rgb(color.r, color.g, color.b),
           borderWidth: strokeWidth,
-          color: undefined,
           opacity,
         });
       }

@@ -13,16 +13,16 @@
         <!-- タブを並べる -->
         <div
           v-for="tab in tabs"
-          :key="tab.documentId"
+          :key="tab.path"
           :class="[
             'tab-item',
-            { active: tab.documentId === selectedDocId && activeLayout === layoutSide },
+            { active: tab.path === activeTabFile?.path && activeLayout === layoutSide },
           ]"
-          @click="selectTab(tab.documentId, true)"
+          @click="selectTab(tab, true)"
         >
           <div class="tab-content">
             <q-icon name="description" class="tab-icon" />
-            <span class="tab-title">{{ tab.title }}</span>
+            <span class="tab-title">{{ tabTitle(tab.path) }}</span>
           </div>
           <q-btn
             flat
@@ -31,7 +31,7 @@
             icon="close"
             size="xs"
             class="tab-close-btn"
-            @click.stop="closeTab(tab.documentId)"
+            @click.stop="closeTab(tab)"
           />
         </div>
       </VueDraggable>
@@ -39,7 +39,7 @@
 
     <!-- コンテンツエリア -->
     <div class="tabs-content">
-      <DocumentTabView v-if="selectedDocId" :document-id="selectedDocId" :key="selectedDocId" />
+      <DocumentTabView v-if="activeTabFile" :file="activeTabFile" :key="activeTabFile.path" />
       <div v-else class="empty-state">
         <q-icon name="description" size="3rem" color="grey-5" />
         <p class="q-mt-md text-grey-6">{{ $t('pdfEditor.document.noDocumentSelected') }}</p>
@@ -50,13 +50,13 @@
 
 <script setup lang="ts">
 import DocumentTabView from 'src/components/DocLayout/DocumentTabView.vue';
-import type { DocumentId } from 'src/models/schemas';
+import type { ContainerElementFile } from 'src/models/container';
 import { useEditorStore } from 'src/stores/editorStore';
 import type { LayoutSide } from 'src/stores/editorStore';
+import { Path } from 'src/utils/binary/path';
 import { computed } from 'vue';
 import type { DraggableEvent } from 'vue-draggable-plus';
 import { VueDraggable } from 'vue-draggable-plus';
-import type { DocumentTab } from 'src/models/docPage';
 
 interface Prop {
   layoutSide: LayoutSide;
@@ -70,30 +70,36 @@ const tabs = computed({
     editorStore.tabs[prop.layoutSide] = newTabList;
   },
 });
-const selectedDocId = computed(() => editorStore.getActiveTab(prop.layoutSide)?.documentId);
+const activeTabFile = computed(() => editorStore.getActiveTab(prop.layoutSide));
 const activeLayout = computed(() => editorStore.activeSide);
 
-function selectTab(docId: DocumentId, isFocus: boolean) {
-  editorStore.selectTab(docId, prop.layoutSide, isFocus);
+function tabTitle(path: string) {
+  return new Path(path).basename();
 }
 
-function closeTab(docId: DocumentId) {
-  editorStore.closeTab(docId, prop.layoutSide);
+function selectTab(file: ContainerElementFile, isFocus: boolean) {
+  editorStore.selectTab(file, prop.layoutSide, isFocus);
 }
 
-function onTabAdded(e: DraggableEvent<DocumentTab>) {
-  const docId = tabs.value[e.newIndex ?? 0]?.documentId;
-  if (docId !== void 0) selectTab(docId, true);
+function closeTab(file: ContainerElementFile) {
+  editorStore.closeTab(file, prop.layoutSide);
 }
 
-function onTabRemoved(e: DraggableEvent<DocumentTab>) {
+function onTabAdded(e: DraggableEvent<ContainerElementFile>) {
+  const tabFile = tabs.value[e.newIndex ?? 0];
+  if (tabFile !== void 0) selectTab(tabFile, true);
+}
+
+function onTabRemoved(e: DraggableEvent<ContainerElementFile>) {
   const targetIdx = Math.max(0, (e.oldIndex ?? 0) - 1);
-  const docId = tabs.value[targetIdx]?.documentId;
-  if (docId !== void 0) selectTab(docId, false);
+  const tabFile = tabs.value[targetIdx];
+  if (tabFile !== void 0) selectTab(tabFile, false);
 }
 </script>
 
 <style scoped lang="scss">
+@use 'sass:color';
+
 .doc-tabs-page {
   display: flex;
   flex-direction: column;
@@ -254,7 +260,7 @@ function onTabRemoved(e: DraggableEvent<DocumentTab>) {
   }
 
   &.active {
-    background: darken($dark, 5%);
+    background: color.adjust($dark, $lightness: -5%);;
     border-top-color: $primary;
 
     .tab-content {

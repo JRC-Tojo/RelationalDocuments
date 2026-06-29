@@ -8,9 +8,9 @@ export const ContainerElementFile = z.object({
   type: z.literal('File'),
   path: z.string(),
   fileSize: z.number().int().positive(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  lastViewedAt: z.date().optional(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  lastViewedAt: z.coerce.date().optional(),
   description: z.string().optional().default(''),
   genre: z.string().optional().default(''),
   tags: z.array(z.string()).optional().default([]),
@@ -20,7 +20,7 @@ export const ContainerElementFolder = z.object({
   containerID: ContainerID,
   type: z.literal('Folder'),
   path: z.string(),
-  createdAt: z.date(),
+  createdAt: z.coerce.date(),
 });
 export type ContainerElementFolder = z.infer<typeof ContainerElementFolder>;
 export const ContainerElement = z.discriminatedUnion('type', [

@@ -1,37 +1,30 @@
 <template>
   <v-rect
     :config="rectConfig"
-    @mouseenter="onMouseEnter"
-    @mouseleave="onMouseLeave"
-    @mousedown="onMouseDown"
     @dragmove="onDragMove"
     @transformend="onTransformEnd"
   />
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 import type Konva from 'konva';
-import type { Annotation } from 'src/models/schemas';
 import dayjs from 'dayjs';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 type KonvaEvent = Konva.KonvaEventObject<Event>;
 
 interface Props {
-  annotation: Annotation;
-  isSelected: boolean;
+  annotation: AnnotationStyle;
   isEditing: boolean;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  select: [id: string];
-  update: [annotation: Annotation];
+  update: [annotation: AnnotationStyle];
   delete: [id: string];
 }>();
-
-const isHovered = ref(false);
 
 /**
  * ボックス矩形の設定を計算
@@ -39,7 +32,7 @@ const isHovered = ref(false);
 const rectConfig = computed(() => {
   if (props.annotation.type !== 'box') return;
   return {
-    id: props.annotation.id, // ← IDを追加
+    id: props.annotation.id,
     x: props.annotation.x,
     y: props.annotation.y,
     width: props.annotation.width ?? 0,
@@ -51,24 +44,6 @@ const rectConfig = computed(() => {
     opacity: props.annotation.opacity || 1,
   };
 });
-
-/**
- * マウスホバー時の処理
- */
-function onMouseEnter() {
-  isHovered.value = true;
-}
-
-function onMouseLeave() {
-  isHovered.value = false;
-}
-
-/**
- * マウスダウン時の選択
- */
-function onMouseDown() {
-  emit('select', props.annotation.id);
-}
 
 /**
  * ドラッグ移動完了

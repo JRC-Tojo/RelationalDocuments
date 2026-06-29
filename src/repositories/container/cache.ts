@@ -5,13 +5,14 @@
 
 import type { ContainerElementFile, Container } from 'src/models/container';
 import { ContainerElement } from 'src/models/container';
-import type { ContainerID } from 'src/models/container';
+import { ContainerID } from 'src/models/container';
 import { ContainerSkel } from 'src/models/container';
 import * as db from '../inMemory/IndexedDB';
 import type { Result } from 'src/models/error/result';
 import { Success } from 'src/models/error/result';
 import { DocumentSource } from 'src/models/document/common';
 import { fromEntries } from 'src/utils/obj/obj';
+import z from 'zod';
 
 /** IndexedDBに仮想のファイル群情報を持たせる */
 const SKEL_STORE_NAME = 'virtual-storage-skel';
@@ -29,10 +30,11 @@ function getDocKey(cId: ContainerID, path: string): string {
 
 /**
  * 要素読み込み前のコンテナ一覧を返す
- * （IndexedDBには全データをまとめて保管しているため、要素情報もすでに入っている）
  */
 export async function getContainers(): Promise<Result<ContainerSkel[]>> {
-  return db.getValue(SKEL_STORE_NAME, ContainerSkel.array());
+  const containers = await db.getValue(SKEL_STORE_NAME, z.record(ContainerID, ContainerSkel));
+  if (!containers.ok) return containers;
+  return Success(Object.values(containers.value));
 }
 
 /**
@@ -55,7 +57,7 @@ export async function saveContainer(c: ContainerSkel): Promise<Result<void>> {
  * 指定されたコンテナに最新の要素情報を注入して返す
  */
 export async function loadContainerElements(c: ContainerSkel): Promise<Result<Container>> {
-  const elems = await db.getValue(ELEM_STORE_NAME, ContainerElement.array(), c.id);
+  const elems = await db.getValue(ELEM_STORE_NAME, ContainerElement.array().default([]), c.id);
   if (!elems.ok) return elems;
   const elemRecord: Record<string, ContainerElement> = fromEntries(
     elems.value.map((e) => [e.path, e]),
