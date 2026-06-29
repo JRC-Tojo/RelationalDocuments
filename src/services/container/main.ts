@@ -3,11 +3,12 @@
  */
 
 import type {
-  Container,
   ContainerElement,
   ContainerElementFile,
+  ContainerSkel,
   ContainerType,
 } from 'src/models/container';
+import { Container } from 'src/models/container';
 import { ContainerID } from 'src/models/container';
 import { Failure, Success, type Result } from 'src/models/error/result';
 import * as cache from 'src/repositories/container/cache';
@@ -37,9 +38,9 @@ async function switchContainerProcess<T>(
   }
 }
 
-let cachedContainers: { [id: ContainerID]: Container } = {};
+let cachedContainers: { [id: ContainerID]: Container | ContainerSkel } = {};
 
-function getContainer(id: ContainerID): Result<Container> {
+function getContainer(id: ContainerID): Result<Container | ContainerSkel> {
   const c = cachedContainers[id];
   if (c === void 0) {
     return Failure(new Error(`Not Found Container (id: ${id})`));
@@ -48,11 +49,18 @@ function getContainer(id: ContainerID): Result<Container> {
 }
 
 /**
+ * コンテナの内部が読み込み済みであるか否かを返す
+ */
+function parseContainer(c: Container | ContainerSkel) {
+  return Container.safeParse(c)
+}
+
+/**
  * コンテナ一覧を取得する
  *
  * コンテナ要素であるファイル情報などは未取得の状態で返す
  */
-export async function getAllContainers(): Promise<Result<Container[]>> {
+export async function getAllContainers(): Promise<Result<ContainerSkel[]>> {
   const gotContainers = await Promise.all([
     cache.getContainers(),
     box.getContainers(),
@@ -84,8 +92,8 @@ export async function loadContainer(id: ContainerID): Promise<Result<Container>>
   if (!c.ok) return c;
 
   // キャッシュがすでに入っている場合はそのデータを返す
-  const cached = cachedContainers[c.value.id];
-  if (cached?.elements !== void 0) return Success(cached);
+  const cached = parseContainer(c.value);
+  if (cached.success) return Success(cached.data);
 
   // コンテナ要素情報の読み取り
   const loadedContainer = await switchContainerProcess(
@@ -109,8 +117,8 @@ export async function createContainer(
   type: ContainerType,
   name: string,
   path: string,
-): Promise<Result<Container>> {
-  const newContainer: Container = {
+): Promise<Result<ContainerSkel>> {
+  const newContainer: ContainerSkel = {
     id: ContainerID.parse(uuidv4()),
     name,
     type,
@@ -134,7 +142,7 @@ export async function createContainer(
   if (!settingsRes.ok) return settingsRes;
 
   // コンテナ内部のElementsの読み取り
-  return loadContainer(newContainer.id);
+  return Success(newContainer);
 }
 
 /**
@@ -182,29 +190,28 @@ async function addContainerElement(
 ): Promise<Result<void>> {
   const c = getContainer(newElement.containerID);
   if (!c.ok) return c;
-  if (c.value.elements === void 0) {
-    return Failure(new Error('Unloaded container elements'));
-  }
+
+  const parsedContainer = parseContainer(c.value);
+  if (!parsedContainer.success) return Failure(new Error('Unloaded container elements'));
 
   // 要素を追加
-  const oldElement = c.value.elements[newElement.path];
+  const oldElement = parsedContainer.data.elements[newElement.path];
   if (oldElement !== undefined) {
     newElement.createdAt = oldElement.createdAt;
   }
-  c.value.elements[newElement.path] = newElement;
-
+  parsedContainer.data.elements[newElement.path] = newElement;
 
   // キャッシュの更新
-  cachedContainers[newElement.containerID] = c.value;
+  cachedContainers[newElement.containerID] = parsedContainer.data;
 
   // 実態データの更新
   // TODO: システム外でファイル操作されたときに、コンフリクトを起こす可能性あり
   // （そもそもシステム外でファイル操作された場合、どのようにフロントエンドなどに反映するのか？）
   return switchContainerProcess(
-    c.value.type,
-    box.createFile(c.value, newElement.path, srcData),
-    local.createFile(c.value, newElement.path, srcData),
-    cache.createFile(c.value, newElement.path, srcData),
+    parsedContainer.data.type,
+    box.createFile(parsedContainer.data, newElement.path, srcData),
+    local.createFile(parsedContainer.data, newElement.path, srcData),
+    cache.createFile(parsedContainer.data, newElement.path, srcData),
   );
 }
 
@@ -215,12 +222,8 @@ async function deleteContainerElement(
   c: Container,
   deleteElement: ContainerElement,
 ): Promise<Result<void>> {
-  if (c.elements === void 0) {
-    return Failure(new Error('Unloaded container elements'));
-  }
-
   // 要素を削除
-  delete c.elements[deleteElement.path]
+  delete c.elements[deleteElement.path];
 
   // キャッシュの更新
   cachedContainers[c.id] = c;
@@ -271,14 +274,19 @@ export async function deleteFile(
   const c = getContainer(cId);
   if (!c.ok) return c;
 
+  const parsedContainer = parseContainer(c.value)
+  if (!parsedContainer.success) return Failure(new Error('This is not a filled container'))
+
   // コンテナキャッシュの更新 & 実態データの更新
-  return deleteContainerElement(c.value, file);
+  return deleteContainerElement(parsedContainer.data, file);
 }
 
 /**
  * ファイルからドキュメントの本体データを読みこむ
  */
-export async function loadFileAsDocumentSource(file: ContainerElementFile): Promise<Result<DocumentSource>> {
+export async function loadFileAsDocumentSource(
+  file: ContainerElementFile,
+): Promise<Result<DocumentSource>> {
   const c = getContainer(file.containerID);
   if (!c.ok) return c;
 
@@ -288,7 +296,7 @@ export async function loadFileAsDocumentSource(file: ContainerElementFile): Prom
     local.loadSrcData(file),
     cache.loadSrcData(file),
   );
-  if (!srcData.ok) return srcData
+  if (!srcData.ok) return srcData;
 
   return Success(DocumentSource.parse(srcData.value));
 }

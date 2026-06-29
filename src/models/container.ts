@@ -31,11 +31,14 @@ export type ContainerElement = z.infer<typeof ContainerElement>;
 
 export const ContainerType = z.enum(['box', 'cache', 'local']);
 export type ContainerType = z.infer<typeof ContainerType>;
-export const Container = z.object({
+export const ContainerSkel = z.object({
   id: ContainerID,
   name: z.string(),
   type: ContainerType,
   containerPath: z.string(),
-  elements: z.record(z.string(), ContainerElement).optional(),
+});
+export type ContainerSkel = z.infer<typeof ContainerSkel>;
+export const Container = ContainerSkel.extend({
+  elements: z.record(z.string(), ContainerElement),
 });
 export type Container = z.infer<typeof Container>;

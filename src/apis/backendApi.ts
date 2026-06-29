@@ -3,7 +3,14 @@ import { toApiResponse, type ApiResponse } from 'src/models/error/api';
 import { Failure, Success } from 'src/models/error/result';
 import * as containerService from 'src/services/container/main';
 import * as pdfRepo from 'src/repositories/document/pdf';
-import type { ContainerElement, ContainerElementFile, ContainerID } from 'src/models/container';
+import type {
+  Container,
+  ContainerElement,
+  ContainerElementFile,
+  ContainerID,
+  ContainerSkel,
+  ContainerType,
+} from 'src/models/container';
 import type { AppSettings } from 'src/models/settings';
 import type { DocumentSource } from 'src/models/document/common';
 import type { AnnotationStyle } from 'src/models/document/pdf';
@@ -31,6 +38,37 @@ class BackendApi {
     return toApiResponse(Success());
   }
 
+  // ============ コンテナ操作 ============
+
+  /**
+   * コンテナ一覧を取得する
+   */
+  async getAllContainers(): Promise<ApiResponse<ContainerSkel[]>> {
+    // 保存済みのコンテナ情報を取得
+    const allContainers = await containerService.getAllContainers();
+    return toApiResponse(allContainers, 'CONTAINERS_GET_FAILED');
+  }
+
+  /**
+   * コンテナを作成する
+   */
+  async createContainer(
+    type: ContainerType,
+    name: string,
+    path: string,
+  ): Promise<ApiResponse<ContainerSkel>> {
+    const createdContainer = await containerService.createContainer(type, name, path);
+    return toApiResponse(createdContainer, 'CONTAINER_CREATE_FAILED');
+  }
+
+  /**
+   * コンテナの中身（ファイル群）を読み取る
+   */
+  async loadContainer(id: ContainerID): Promise<ApiResponse<Container>> {
+    const loadedContainers = await containerService.loadContainer(id)
+    return toApiResponse(loadedContainers, 'CONTAINER_LOAD_FAILED')
+  }
+
   // ============ 文書操作 ============
 
   /**
@@ -39,7 +77,7 @@ class BackendApi {
   async getAllDocuments(): Promise<ApiResponse<ContainerElement[]>> {
     // 保存済みのコンテナ情報を取得
     const allContainers = await containerService.getAllContainers();
-    if (!allContainers.ok) return toApiResponse(allContainers, 'DOC_LIST_FAILED');
+    if (!allContainers.ok) return toApiResponse(allContainers, 'CONTAINER_LOAD_FAILED');
 
     // TODO: 将来的には「コンテナ取得」と「コンテナ読み込み」は分離するが、現状はフロントエンドに媚びた実装
     // コンテナの要素をすべて読み込む

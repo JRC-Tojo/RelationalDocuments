@@ -2,7 +2,7 @@
  * ユーザー固有の設定を保存しておく
  */
 
-import type { Container, ContainerID } from 'src/models/container';
+import type { ContainerID, ContainerSkel } from 'src/models/container';
 import type { AnnotationTool } from 'src/models/docPage';
 import { Success, type Result } from 'src/models/error/result';
 import { AppSettings } from 'src/models/settings';
@@ -19,7 +19,7 @@ export async function initializeSettings(): Promise<Result<AppSettings>> {
     viewMode: 'rich',
     sortBy: 'updatedAt',
     initialized: true,
-    loadedContainers: [],
+    containerSkels: [],
     tools: {
       annotations: defaultAnnotationTools,
     },
@@ -57,13 +57,13 @@ export async function saveSettings<K extends keyof AppSettings>(
 /**
  * 読み込み対象のコンテナを追加する
  */
-export async function addLoadedContainer(c: Container): Promise<Result<void>> {
+export async function addLoadedContainer(c: ContainerSkel): Promise<Result<void>> {
   const settingsRes = await getSettings();
   if (!settingsRes.ok) return settingsRes;
 
   const settings = settingsRes.value;
-  const newContainers = [...settings.loadedContainers, c];
-  return saveSettings('loadedContainers', newContainers);
+  const newContainers = [...settings.containerSkels, c];
+  return saveSettings('containerSkels', newContainers);
 }
 
 /**
@@ -74,8 +74,8 @@ export async function removeLoadedContainer(cId: ContainerID): Promise<Result<vo
   if (!settingsRes.ok) return settingsRes;
 
   const settings = settingsRes.value;
-  const newContainers = settings.loadedContainers.filter((c) => c.id !== cId);
-  return saveSettings('loadedContainers', newContainers);
+  const newContainers = settings.containerSkels.filter((c) => c.id !== cId);
+  return saveSettings('containerSkels', newContainers);
 }
 
 const defaultAnnotationTools: AnnotationTool[] = [

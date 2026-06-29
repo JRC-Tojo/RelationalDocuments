@@ -18,6 +18,10 @@ export type ApiErrorKey =
   // =========== 認証関係 ===========
   // | 'AUTH_UNAUTHORIZED'
   // | 'AUTH_FORBIDDEN'
+  // =========== コンテナ関係 ===========
+  | 'CONTAINERS_GET_FAILED'
+  | 'CONTAINER_LOAD_FAILED'
+  | 'CONTAINER_CREATE_FAILED'
   // =========== ドキュメント関係 ===========
   | 'DOC_LIST_FAILED'
   | 'INVALID_DOCUMENT'

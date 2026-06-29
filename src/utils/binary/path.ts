@@ -49,16 +49,6 @@ export class Path {
     return `"${this._path.replace('\\', '\\\\').replace('"', '\\"')}"`;
   }
 
-  /** @deprecated .pathを用いること*/
-  str() {
-    return this.path;
-  }
-
-  /** @deprecated .quotedPathを用いること */
-  strQuoted() {
-    return this.quotedPath;
-  }
-
   /** ディレクトリ階層を除いたファイル名を返す ".../../file.txt" -> "file.txt" */
   basename() {
     return path.basename(this._path);

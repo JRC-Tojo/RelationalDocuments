@@ -3,20 +3,22 @@
  * （その場合、CacheはIndexedDBがすでにRepoにあるため、実装なし？）
  */
 
-import type { ContainerElement, ContainerElementFile } from 'src/models/container';
+import type { ContainerElementFile, Container } from 'src/models/container';
+import { ContainerElement } from 'src/models/container';
 import type { ContainerID } from 'src/models/container';
-import { Container } from 'src/models/container';
+import { ContainerSkel } from 'src/models/container';
 import * as db from '../inMemory/IndexedDB';
 import type { Result } from 'src/models/error/result';
 import { Success } from 'src/models/error/result';
 import { DocumentSource } from 'src/models/document/common';
+import { fromEntries } from 'src/utils/obj/obj';
 
 /** IndexedDBに仮想のファイル群情報を持たせる */
-const CACHE_STORE_NAME = 'virtual-storage';
+const SKEL_STORE_NAME = 'virtual-storage-skel';
+/** IndexedDBに仮想のファイル属性情報を持たせる */
+const ELEM_STORE_NAME = 'virtual-storage-element';
 /** IndexedDB内で指定したファイル情報の本体データを保存する */
 const SOURCE_STORE_NAME = 'virtual-storage-body';
-/** IndexedDB内で指定したファイル情報のアノテーションデータを保存する */
-// const ANNOTATION_STORE_NAME = 'virtual-storage-annot';
 
 /**
  * 本体データを保存するストアにおいて、本体データと紐づくキー
@@ -29,46 +31,69 @@ function getDocKey(cId: ContainerID, path: string): string {
  * 要素読み込み前のコンテナ一覧を返す
  * （IndexedDBには全データをまとめて保管しているため、要素情報もすでに入っている）
  */
-export async function getContainers(): Promise<Result<Container[]>> {
-  return db.getValue(CACHE_STORE_NAME, Container.array());
+export async function getContainers(): Promise<Result<ContainerSkel[]>> {
+  return db.getValue(SKEL_STORE_NAME, ContainerSkel.array());
 }
 
 /**
  * コンテナを削除する
  */
 export async function deleteContainer(id: ContainerID): Promise<Result<void>> {
-  return db.deleteValue(CACHE_STORE_NAME, id);
+  const elemRes = await db.deleteValue(ELEM_STORE_NAME, id);
+  if (!elemRes.ok) return elemRes;
+  return db.deleteValue(SKEL_STORE_NAME, id);
 }
 
 /**
  * コンテナを保存する
  */
-export async function saveContainer(c: Container): Promise<Result<void>> {
-  return db.setValue(CACHE_STORE_NAME, c.id, c);
+export async function saveContainer(c: ContainerSkel): Promise<Result<void>> {
+  return db.setValue(SKEL_STORE_NAME, c.id, c);
 }
 
 /**
  * 指定されたコンテナに最新の要素情報を注入して返す
- * Cacheでは本体データもまとめて保管しているため、何もせずに返す
  */
-export async function loadContainerElements(c: Container): Promise<Result<Container>> {
-  return new Promise<Result<Container>>((resolve) => resolve(Success(c)));
+export async function loadContainerElements(c: ContainerSkel): Promise<Result<Container>> {
+  const elems = await db.getValue(ELEM_STORE_NAME, ContainerElement.array(), c.id);
+  if (!elems.ok) return elems;
+  const elemRecord: Record<string, ContainerElement> = fromEntries(
+    elems.value.map((e) => [e.path, e]),
+  );
+
+  const container = { ...c, elements: elemRecord };
+  return Success(container);
 }
 
 /**
  * ファイルの実態を追加する
+ *
+ * コンテナにはファイル情報が追記済みである前提とする
  */
-export async function createFile(c: Container, filePath: string, srcData: DocumentSource): Promise<Result<void>> {
+export async function createFile(
+  c: Container,
+  filePath: string,
+  srcData: DocumentSource,
+): Promise<Result<void>> {
   const docKey = getDocKey(c.id, filePath);
-  // キャッシュのみアノテーションは新規作成の際には保存しない（今後必要な場合は検討）
+
+  const elemRes = await db.setValue(ELEM_STORE_NAME, c.id, Object.values(c.elements));
+  if (!elemRes.ok) return elemRes;
+
   return db.setValue(SOURCE_STORE_NAME, docKey, srcData);
 }
 
 /**
  * ファイルの実態を削除する
+ *
+ * コンテナにはファイル情報が削除済みである前提とする
  */
 export async function deleteFile(c: Container, element: ContainerElement): Promise<Result<void>> {
   const docKey = getDocKey(c.id, element.path);
+
+  const elemRes = await db.setValue(ELEM_STORE_NAME, c.id, Object.values(c.elements));
+  if (!elemRes.ok) return elemRes;
+
   return db.deleteValue(SOURCE_STORE_NAME, docKey);
 }
 

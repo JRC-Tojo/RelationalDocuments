@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { ContainerElement, ContainerElementFile } from 'src/models/container';
+import type { ContainerElement, ContainerElementFile, ContainerSkel } from 'src/models/container';
 import { type Container } from 'src/models/container';
 import type { DocumentSource } from 'src/models/document/common';
 import type { Result } from 'src/models/error/result';
@@ -8,7 +8,7 @@ import { Success } from 'src/models/error/result';
 /**
  * ローカルに保存されたコンテナを取得する
  */
-export async function getContainers(): Promise<Result<Container[]>> {
+export async function getContainers(): Promise<Result<ContainerSkel[]>> {
   return new Promise((resolve) => resolve(Success([])));
 }
 
@@ -22,21 +22,26 @@ export async function deleteContainer(id: string): Promise<Result<void>> {
 /**
  * ローカルにデータを保存する
  */
-export async function saveContainer(c: Container): Promise<Result<void>> {
+export async function saveContainer(c: ContainerSkel): Promise<Result<void>> {
   return new Promise((resolve) => resolve(Success()));
 }
 
 /**
  * ローカルに保存されたコンテナの要素情報を取得する
  */
-export async function loadContainerElements(c: Container): Promise<Result<Container>> {
-  return new Promise((resolve) => resolve(Success(c)));
+export async function loadContainerElements(c: ContainerSkel): Promise<Result<Container>> {
+  const newContainer: Container = { ...c, elements: {} };
+  return new Promise((resolve) => resolve(Success(newContainer)));
 }
 
 /**
  * ローカルにファイルの実態を追加する
  */
-export async function createFile(c: Container, filePath: string, srcData: DocumentSource): Promise<Result<void>> {
+export async function createFile(
+  c: Container,
+  filePath: string,
+  srcData: DocumentSource,
+): Promise<Result<void>> {
   return new Promise((resolve) => resolve(Success()));
 }
 
