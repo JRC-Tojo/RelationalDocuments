@@ -2,8 +2,8 @@ import z from 'zod';
 import { RelationalID } from './relational';
 import { ImageURI } from '../common';
 
-export const AnnotationID = z.uuidv4().brand('AnnotationID')
-export type AnnotationID = z.infer<typeof AnnotationID>
+export const AnnotationID = z.uuidv4().brand('AnnotationID');
+export type AnnotationID = z.infer<typeof AnnotationID>;
 
 /**
  * アノテーションスキーマ

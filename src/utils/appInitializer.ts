@@ -38,7 +38,7 @@ export async function createDemoData() {
   }
 
   // コンテナ内部を読み込み
-  const loadedContainer = await api.loadContainer(targetContainer.data.id)
+  const loadedContainer = await api.loadContainer(targetContainer.data.id);
   if (!loadedContainer.ok) return;
 
   // タイトルは違うが内容は同じドキュメントを生成するため、読み込みデータは１つだけ
@@ -62,7 +62,7 @@ export async function createDemoData() {
     );
     if (!response.ok) {
       console.error(`Failed to save new document (${doc.title})`);
-      console.log(response)
+      console.log(response);
       return;
     }
   }

@@ -1,9 +1,5 @@
 <template>
-  <v-rect
-    :config="rectConfig"
-    @dragmove="onDragMove"
-    @transformend="onTransformEnd"
-  />
+  <v-rect :config="rectConfig" @dragmove="onDragMove" @transformend="onTransformEnd" />
 </template>
 
 <script setup lang="ts">

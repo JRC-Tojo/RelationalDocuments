@@ -96,12 +96,12 @@ const emit = defineEmits<{
   deleteAnnotation: [targetIdx: number];
 }>();
 
-const stageRef = useTemplateRef<Konva.Stage>('stageRef')
-const transformerRef = useTemplateRef<Konva.TransformerConfig>('transformerRef')
-const boxRefs = useTemplateRef<Konva.RectConfig[]>('boxRefs')
-const lineRefs = useTemplateRef<Konva.LineConfig[]>('lineRefs')
-const circleRefs = useTemplateRef<Konva.CircleConfig[]>('circleRefs')
-const selectedAnnotIds = ref<number[]>([])
+const stageRef = useTemplateRef<Konva.Stage>('stageRef');
+const transformerRef = useTemplateRef<Konva.TransformerConfig>('transformerRef');
+const boxRefs = useTemplateRef<Konva.RectConfig[]>('boxRefs');
+const lineRefs = useTemplateRef<Konva.LineConfig[]>('lineRefs');
+const circleRefs = useTemplateRef<Konva.CircleConfig[]>('circleRefs');
+const selectedAnnotIds = ref<number[]>([]);
 
 const isDrawing = ref(false);
 const startPos = ref<{ x: number; y: number } | null>(null);
@@ -241,7 +241,7 @@ function handleStageClick(e: KonvaMouseEvent) {
   } else if (metaPressed && isSelected) {
     // if we pressed keys and node was selected
     // we need to remove it from selection:
-    selectedAnnotIds.value = selectedAnnotIds.value.filter(id => id !== clickedId);
+    selectedAnnotIds.value = selectedAnnotIds.value.filter((id) => id !== clickedId);
   } else if (metaPressed && !isSelected) {
     // add the node into selection
     selectedAnnotIds.value = [...selectedAnnotIds.value, clickedId];
@@ -315,13 +315,15 @@ watch(selectedAnnotIds, () => {
   if (!lineRefs.value) return;
   if (!circleRefs.value) return;
 
-  const refs = [...boxRefs.value, ...lineRefs.value, ...circleRefs.value]
-  const nodes = selectedAnnotIds.value.map(id => {
-    return refs.find(ref => ref.getNode().attrs.id === id)?.getNode();
-  }).filter(Boolean);
+  const refs = [...boxRefs.value, ...lineRefs.value, ...circleRefs.value];
+  const nodes = selectedAnnotIds.value
+    .map((id) => {
+      return refs.find((ref) => ref.getNode().attrs.id === id)?.getNode();
+    })
+    .filter(Boolean);
 
   transformerRef.value.getNode().nodes(nodes);
-})
+});
 </script>
 
 <style scoped lang="scss">

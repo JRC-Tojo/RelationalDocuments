@@ -260,7 +260,7 @@ function onTabRemoved(e: DraggableEvent<ContainerElementFile>) {
   }
 
   &.active {
-    background: color.adjust($dark, $lightness: -5%);;
+    background: color.adjust($dark, $lightness: -5%);
     border-top-color: $primary;
 
     .tab-content {

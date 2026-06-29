@@ -65,8 +65,8 @@ class BackendApi {
    * コンテナの中身（ファイル群）を読み取る
    */
   async loadContainer(id: ContainerID): Promise<ApiResponse<Container>> {
-    const loadedContainers = await containerService.loadContainer(id)
-    return toApiResponse(loadedContainers, 'CONTAINER_LOAD_FAILED')
+    const loadedContainers = await containerService.loadContainer(id);
+    return toApiResponse(loadedContainers, 'CONTAINER_LOAD_FAILED');
   }
 
   // ============ 文書操作 ============
