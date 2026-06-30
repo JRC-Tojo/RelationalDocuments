@@ -57,7 +57,7 @@ function createAnnotation(
   };
 
   const strokeColor = ColorCode.safeParse(annotationStyle.strokeColor);
-  if (!strokeColor.success) return null
+  if (!strokeColor.success) return null;
 
   if (annotationStyle.type === 'box') {
     return {

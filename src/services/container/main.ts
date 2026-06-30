@@ -145,7 +145,7 @@ export async function createContainer(
     // 設定ファイルへの書きこみで失敗するため，戻り値は無視する
     await unloadContainer(newContainer.id, true);
     return settingsRes;
-  };
+  }
 
   // コンテナ内部のElementsの読み取り
   return Success(newContainer);
@@ -154,7 +154,10 @@ export async function createContainer(
 /**
  * コンテナの読み込みを中止する
  */
-export async function unloadContainer(cId: ContainerID, deleteContainer: boolean = false): Promise<Result<void>> {
+export async function unloadContainer(
+  cId: ContainerID,
+  deleteContainer: boolean = false,
+): Promise<Result<void>> {
   const c = getContainer(cId);
   if (!c.ok) return c;
 

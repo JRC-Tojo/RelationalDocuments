@@ -346,9 +346,9 @@ export async function embedAnnotationsIntoPdf(
       const bigint = parseInt(
         h.length === 3
           ? h
-            .split('')
-            .map((c) => c + c)
-            .join('')
+              .split('')
+              .map((c) => c + c)
+              .join('')
           : h,
         16,
       );
@@ -368,7 +368,7 @@ export async function embedAnnotationsIntoPdf(
       const strokeWidth = a.strokeWidth ?? 2;
 
       if (a.type === 'box') {
-        const { x, y, width, height } = a
+        const { x, y, width, height } = a;
         const pageHeight = page.getSize().height;
         page.drawRectangle({
           x,
@@ -380,7 +380,11 @@ export async function embedAnnotationsIntoPdf(
           opacity,
         });
       } else if (a.type === 'line') {
-        const { x, y, points: [, , width, height] } = a
+        const {
+          x,
+          y,
+          points: [, , width, height],
+        } = a;
         if (typeof width !== 'number' || typeof height !== 'number') continue;
         const pageHeight = page.getSize().height;
         page.drawLine({
@@ -390,7 +394,7 @@ export async function embedAnnotationsIntoPdf(
           color: rgb(color.r, color.g, color.b),
         });
       } else if (a.type === 'circle') {
-        const { x, y, radius } = a
+        const { x, y, radius } = a;
         const pageHeight = page.getSize().height;
         page.drawEllipse({
           x,

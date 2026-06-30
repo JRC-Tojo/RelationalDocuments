@@ -79,7 +79,14 @@ export async function createDemoData() {
  */
 function generateRandomAnnots(): AnnotationStyle[] {
   const annotationCount = 3;
-  const colors: ColorCode[] = [ColorCode.parse('#FFD700'), ColorCode.parse('#FF6B6B'), ColorCode.parse('#4ECDC4'), ColorCode.parse('#45B7D1'), ColorCode.parse('#FFA07A'), ColorCode.parse('#98D8C8')];
+  const colors: ColorCode[] = [
+    ColorCode.parse('#FFD700'),
+    ColorCode.parse('#FF6B6B'),
+    ColorCode.parse('#4ECDC4'),
+    ColorCode.parse('#45B7D1'),
+    ColorCode.parse('#FFA07A'),
+    ColorCode.parse('#98D8C8'),
+  ];
 
   const annots: AnnotationStyle[] = [];
   for (let i = 0; i < annotationCount; i++) {

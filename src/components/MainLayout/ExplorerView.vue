@@ -8,8 +8,14 @@
     <ExpFolder v-if="file.type === 'Folder'" :folder="file" />
   </template>
 
-  <q-btn v-show="elems.length === 0" outline :label="$t('explorer.demo')" color="primary" class="full-width q-my-sm"
-    @click="onCreateDemo" />
+  <q-btn
+    v-show="elems.length === 0"
+    outline
+    :label="$t('explorer.demo')"
+    color="primary"
+    class="full-width q-my-sm"
+    @click="onCreateDemo"
+  />
 </template>
 
 <script setup lang="ts">

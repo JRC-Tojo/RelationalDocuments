@@ -101,7 +101,7 @@ export async function getValue<T extends z.ZodType>(
   if (isNeedInitialize(storeName)) {
     const initRes = await initialize(storeName);
     if (!initRes.ok) return initRes;
-  };
+  }
 
   const transaction = db!.transaction([storeName], 'readonly');
   const store = transaction.objectStore(storeName);
@@ -133,7 +133,7 @@ export async function setValue<T>(storeName: string, key: string, value: T): Pro
   if (isNeedInitialize(storeName)) {
     const initRes = await initialize(storeName);
     if (!initRes.ok) return initRes;
-  };
+  }
 
   return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readwrite');
@@ -159,7 +159,7 @@ export async function deleteValue(storeName: string, key: string): Promise<Resul
   if (isNeedInitialize(storeName)) {
     const initRes = await initialize(storeName);
     if (!initRes.ok) return initRes;
-  };
+  }
 
   return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readwrite');

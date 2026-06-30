@@ -5,7 +5,10 @@ import { ImageURI } from '../common';
 export const AnnotationID = z.uuidv4().brand('AnnotationID');
 export type AnnotationID = z.infer<typeof AnnotationID>;
 
-export const ColorCode = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).brand('ColorCode');
+export const ColorCode = z
+  .string()
+  .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+  .brand('ColorCode');
 export type ColorCode = z.infer<typeof ColorCode>;
 
 /**

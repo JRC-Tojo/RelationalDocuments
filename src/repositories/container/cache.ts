@@ -47,7 +47,7 @@ export async function deleteContainer(c: ContainerSkel): Promise<Result<void>> {
     for (const element of Object.values(fullContainer.value.elements)) {
       void deleteFile(fullContainer.value, element);
     }
-  };
+  }
 
   // コンテナの要素情報とコンテナ情報を削除する
   const elemRes = await db.deleteValue(ELEM_STORE_NAME, c.id);
