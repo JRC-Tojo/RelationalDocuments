@@ -57,12 +57,18 @@ function addAnnotation(annotation: AnnotationStyle) {
   annotations.value.push(annotation);
 }
 
-function updateAnnotation(newAnnot: AnnotationStyle, targetIdx: number) {
-  annotations.value[targetIdx] = newAnnot;
+function updateAnnotation(newAnnot: AnnotationStyle, targetId: string) {
+  const targetIdx = annotations.value.findIndex((annotation) => annotation.id === targetId);
+  if (targetIdx >= 0) {
+    annotations.value[targetIdx] = newAnnot;
+  }
 }
 
-function deleteAnnotation(targetIdx: number) {
-  annotations.value.splice(targetIdx, 1);
+function deleteAnnotation(targetId: string) {
+  const targetIdx = annotations.value.findIndex((annotation) => annotation.id === targetId);
+  if (targetIdx >= 0) {
+    annotations.value.splice(targetIdx, 1);
+  }
 }
 // ================= TODO: 暫定実装（本来はコマンド化して呼び出し）=================
 

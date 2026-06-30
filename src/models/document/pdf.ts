@@ -26,26 +26,32 @@ const AnnotationBase = z.object({
     })
     .default({}),
 });
+export const BoxAnnotationStyle = AnnotationBase.extend({
+  type: z.literal('box'),
+  width: z.number().nonnegative(),
+  height: z.number().nonnegative(),
+});
+export type BoxAnnotationStyle = z.infer<typeof BoxAnnotationStyle>;
+export const LineAnnotationStyle = AnnotationBase.extend({
+  type: z.literal('line'),
+  x2: z.number(),
+  y2: z.number(),
+  points: z.array(z.number()).length(4),
+});
+export type LineAnnotationStyle = z.infer<typeof LineAnnotationStyle>;
+export const CircleAnnotationStyle = AnnotationBase.extend({
+  type: z.literal('circle'),
+  radius: z.number().positive(),
+});
+export type CircleAnnotationStyle = z.infer<typeof CircleAnnotationStyle>;
 
 /**
  * アノテーション本体の情報
  */
 export const AnnotationStyle = z.discriminatedUnion('type', [
-  AnnotationBase.extend({
-    type: z.literal('box'),
-    width: z.number().nonnegative(),
-    height: z.number().nonnegative(),
-  }),
-  AnnotationBase.extend({
-    type: z.literal('circle'),
-    radius: z.number().positive(),
-  }),
-  AnnotationBase.extend({
-    type: z.literal('line'),
-    x2: z.number(),
-    y2: z.number(),
-    points: z.array(z.number()).length(4),
-  }),
+  BoxAnnotationStyle,
+  LineAnnotationStyle,
+  CircleAnnotationStyle,
 ]);
 export type AnnotationStyle = z.infer<typeof AnnotationStyle>;
 

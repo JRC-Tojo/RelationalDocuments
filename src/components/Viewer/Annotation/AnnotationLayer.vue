@@ -6,47 +6,41 @@
       @mousedown="handleMouseDown"
       @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
-      @click="handleStageClick"
-      :style="{ cursor: cursorStyle }"
+      :style="{ cursor: cursor }"
     >
       <v-layer>
-        <!-- TODO: アノテーションが増えても管理しやすいようにリファクタリング -->
-        <template v-for="(annotation, i) in annotations">
-          <!-- ボックスアノテーション -->
+        <template v-for="annotation in annotations" :key="annotation.id">
           <BoxAnnotation
-            ref="boxRefs"
             v-if="annotation.type === 'box'"
-            :key="annotation.id"
+            ref="boxRefs"
             :annotation="annotation"
             :is-editing="isEditing"
-            @update="(newAnnot) => updateAnnotation(newAnnot, i)"
-            @delete="deleteAnnotation(i)"
+            :is-selected="selectedAnnotIds.includes(annotation.id)"
+            @update="(newAnnot) => updateAnnotation(newAnnot, annotation.id)"
+            @delete="deleteAnnotation(annotation.id)"
           />
 
-          <!-- 線アノテーション -->
           <LineAnnotation
+            v-else-if="annotation.type === 'line'"
             ref="lineRefs"
-            v-if="annotation.type === 'line'"
-            :key="annotation.id"
             :annotation="annotation"
             :is-editing="isEditing"
-            @update="(newAnnot) => updateAnnotation(newAnnot, i)"
-            @delete="deleteAnnotation(i)"
+            :is-selected="selectedAnnotIds.includes(annotation.id)"
+            @update="(newAnnot) => updateAnnotation(newAnnot, annotation.id)"
+            @delete="deleteAnnotation(annotation.id)"
           />
 
-          <!-- 円アノテーション -->
           <CircleAnnotation
+            v-else-if="annotation.type === 'circle'"
             ref="circleRefs"
-            v-if="annotation.type === 'circle'"
-            :key="annotation.id"
             :annotation="annotation"
             :is-editing="isEditing"
-            @update="(newAnnot) => updateAnnotation(newAnnot, i)"
-            @delete="deleteAnnotation(i)"
+            :is-selected="selectedAnnotIds.includes(annotation.id)"
+            @update="(newAnnot) => updateAnnotation(newAnnot, annotation.id)"
+            @delete="deleteAnnotation(annotation.id)"
           />
         </template>
 
-        <!-- 描画中のプレビュー -->
         <v-rect
           v-if="isDrawing && drawingPreview && drawingType === 'box'"
           :config="drawingPreview.rect"
@@ -59,30 +53,31 @@
           v-if="isDrawing && drawingPreview && drawingType === 'circle'"
           :config="drawingPreview.circle"
         />
+        <v-rect v-if="selectionBox.visible" :config="selectionBoxConfig" />
 
-        <!-- トランスフォーマー（選択時のリサイズ操作用） -->
-        <v-transformer ref="transformerRef" v-if="isEditing" />
+        <v-transformer ref="transformerRef" :config="transformerConfig" />
       </v-layer>
     </v-stage>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, useTemplateRef, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import BoxAnnotation from './BoxAnnotation.vue';
 import LineAnnotation from './LineAnnotation.vue';
 import CircleAnnotation from './CircleAnnotation.vue';
 import type Konva from 'konva';
 import { startDrawingAnnotation } from './annotationDrawingManager';
 import { useEditorStore } from 'src/stores/editorStore';
-import type { AnnotationStyle } from 'src/models/document/pdf.js';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
-// Konvaイベント型定義
 type KonvaMouseEvent = Konva.KonvaEventObject<MouseEvent>;
+type AnnotationNodeHandle = { getNode: () => Konva.Node | null };
 
 interface Props {
   annotations: AnnotationStyle[];
 }
+
 defineProps<Props>();
 const editorStore = useEditorStore();
 
@@ -92,19 +87,23 @@ const scale = defineModel<number>('scale', { required: true });
 
 const emit = defineEmits<{
   addAnnotation: [newAnnot: AnnotationStyle];
-  updateAnnotation: [newAnnot: AnnotationStyle, targetIdx: number];
-  deleteAnnotation: [targetIdx: number];
+  updateAnnotation: [newAnnot: AnnotationStyle, targetId: string];
+  deleteAnnotation: [targetId: string];
 }>();
 
-const stageRef = useTemplateRef<Konva.Stage>('stageRef');
-const transformerRef = useTemplateRef<Konva.TransformerConfig>('transformerRef');
-const boxRefs = useTemplateRef<Konva.RectConfig[]>('boxRefs');
-const lineRefs = useTemplateRef<Konva.LineConfig[]>('lineRefs');
-const circleRefs = useTemplateRef<Konva.CircleConfig[]>('circleRefs');
-const selectedAnnotIds = ref<number[]>([]);
+const stageRef = ref<{ getNode: () => Konva.Stage | null } | null>(null);
+const transformerRef = ref<{ getNode: () => Konva.Transformer | null } | null>(null);
+const boxRefs = ref<AnnotationNodeHandle[]>([]);
+const lineRefs = ref<AnnotationNodeHandle[]>([]);
+const circleRefs = ref<AnnotationNodeHandle[]>([]);
+const selectedAnnotIds = ref<string[]>([]);
 
 const isDrawing = ref(false);
+const isSelecting = ref(false);
 const startPos = ref<{ x: number; y: number } | null>(null);
+const selectionStartPos = ref<{ x: number; y: number } | null>(null);
+const selectionBox = ref({ visible: false, x: 0, y: 0, width: 0, height: 0 });
+const selectionModeRef = ref<'window' | 'cross' | null>(null);
 const drawingPreview = ref<{
   rect?: {
     x: number;
@@ -120,31 +119,98 @@ const drawingPreview = ref<{
   circle?: { x: number; y: number; radius: number; stroke: string; strokeWidth: number };
 } | null>(null);
 const drawingType = computed(() => editorStore.currentTools);
-const isEditing = computed(() => !['hand'].includes(drawingType.value));
-const cursorStyle = computed(() => (isEditing.value ? 'crosshair' : 'default'));
+const isDrawingTool = computed(() => ['box', 'line', 'circle'].includes(drawingType.value));
+// 編集は明示的な 'hand'（読み取り専用）モード以外で許可されます。
+const isEditingMode = computed(() => drawingType.value !== 'hand');
+const isEditing = computed(() => isEditingMode.value);
+// カーソル状態はモードに基づき動的に変化します。編集可能な注釈上にホバーした場合は切り替わります。
+const cursor = ref('default');
+watch(isDrawingTool, (v) => {
+  cursor.value = v ? 'crosshair' : 'default';
+});
+const transformerConfig = computed(() => ({
+  ignoreStroke: true,
+  rotationSnaps: [
+    -180, -150, -120, -90, -60, -45, -30, -15, 0, 15, 30, 45, 60, 90, 120, 135, 150, 180, 270,
+  ],
+  rotationSnapTolerance: 30,
+}));
+const selectionBoxConfig = computed(() => {
+  const isWindow = selectionModeRef.value === 'window';
+  const fill = isWindow ? 'rgba(33, 150, 243, 0.15)' : 'rgba(76, 175, 80, 0.15)';
+  const stroke = isWindow ? '#2196f3' : '#4caf50';
+  return {
+    x: selectionBox.value.x,
+    y: selectionBox.value.y,
+    width: selectionBox.value.width,
+    height: selectionBox.value.height,
+    fill,
+    stroke,
+    strokeWidth: 1,
+    listening: false,
+  };
+});
 
 let endDrawingAnnotation: ((endX: number, endY: number) => AnnotationStyle | null) | undefined;
 
-/**
- * マウスダウンイベント
- */
+type SelectionMode = 'window' | 'cross';
+
+function getSelectionMode(startX: number, endX: number): SelectionMode {
+  return endX >= startX ? 'window' : 'cross';
+}
+
 function handleMouseDown(e: KonvaMouseEvent) {
-  // ポインターモードの場合は新規描画を許可しない
-  if (drawingType.value === 'pointer') return;
+  if (isDrawing.value || isSelecting.value) return;
 
-  // 編集モードが有効でない場合はスキップ
-  if (!isEditing.value) return;
+  const stage = e.target.getStage();
+  if (!stage) return;
 
-  // 既存の図形をクリックした場合はスキップ
-  if (e.target !== e.target.getStage()) {
+  // ポインタモード: ステージ上の窓選択（空白領域をドラッグ）と、
+  // 注釈をクリックしたままドラッグする単一操作（クリック→ドラッグ）にも対応します。
+  if (drawingType.value === 'pointer') {
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+
+    // 空白領域をクリックした場合 -> 選択矩形を開始します（ステージ座標で扱うため scale で割らない）
+    if (e.target === stage) {
+      isSelecting.value = true;
+      selectionStartPos.value = { x: pos.x, y: pos.y };
+      selectionBox.value = { visible: true, x: pos.x, y: pos.y, width: 0, height: 0 };
+      return;
+    }
+
+    // ノードをクリックした場合 -> 選択を更新し、そのままドラッグを開始します。
+    const clickedId = e.target.attrs?.id;
+    if (clickedId) {
+      const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
+      const isSelected = selectedAnnotIds.value.includes(clickedId);
+
+      if (!metaPressed && !isSelected) {
+        selectedAnnotIds.value = [clickedId];
+      } else if (metaPressed && isSelected) {
+        selectedAnnotIds.value = selectedAnnotIds.value.filter((id) => id !== clickedId);
+      } else if (metaPressed && !isSelected) {
+        selectedAnnotIds.value = [...selectedAnnotIds.value, clickedId];
+      }
+
+      // クリックした形状を即時にドラッグ開始し、1回の操作で押しながら移動できるようにします。
+      // Konva ノード API: startDrag はオプションでイベントを受け取れます
+      try {
+        e.target.startDrag(e.evt);
+      } catch {
+        // startDrag をサポートしないノードの場合は無視します
+      }
+    }
     return;
   }
 
-  const stage = e.target.getStage();
+  if (!isEditing.value || drawingType.value === 'hand') return;
+  if (e.target !== stage) return;
+
   const pos = stage.getPointerPosition();
   if (!pos) return;
 
-  // ズームレベルで座標を調整（スケール倍率を適用）
+  // 描画時はドキュメント座標に変換するため scale で割ります
   const adjustedPos = {
     x: pos.x / scale.value,
     y: pos.y / scale.value,
@@ -152,6 +218,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
 
   isDrawing.value = true;
   startPos.value = adjustedPos;
+  selectedAnnotIds.value = [];
   endDrawingAnnotation = startDrawingAnnotation(
     page.value,
     adjustedPos.x,
@@ -161,11 +228,35 @@ function handleMouseDown(e: KonvaMouseEvent) {
   updateDrawingPreview(adjustedPos.x, adjustedPos.y);
 }
 
-/**
- * マウス移動イベント
- */
 function handleMouseMove(e: KonvaMouseEvent) {
-  if (!isDrawing.value || !startPos.value) return;
+  if (isDrawing.value && startPos.value) {
+    const stage = e.target?.getStage();
+    if (!stage) return;
+
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+
+    const adjustedPos = {
+      x: pos.x / scale.value,
+      y: pos.y / scale.value,
+    };
+
+    updateDrawingPreview(adjustedPos.x, adjustedPos.y);
+    return;
+  }
+  // カーソル制御: 描画モード中でも編集可能な注釈上にホバーしていれば選択用カーソルに切り替えます
+  const overAnnot = e.target !== e.target.getStage() && Boolean(e.target.attrs?.id);
+  // アンカ（端点）上なら掴む系カーソルを表示
+  const isAnchor = e.target !== e.target.getStage() && e.target.attrs?.name === 'annotation-anchor';
+  if (isAnchor) {
+    cursor.value = 'grab';
+  } else if (isDrawingTool.value) {
+    cursor.value = overAnnot && isEditing.value ? 'default' : 'crosshair';
+  } else {
+    cursor.value = overAnnot ? 'default' : 'default';
+  }
+
+  if (!isSelecting.value || !selectionStartPos.value) return;
 
   const stage = e.target?.getStage();
   if (!stage) return;
@@ -173,20 +264,48 @@ function handleMouseMove(e: KonvaMouseEvent) {
   const pos = stage.getPointerPosition();
   if (!pos) return;
 
-  // ズームレベルで座標を調整
-  const adjustedPos = {
-    x: pos.x / scale.value,
-    y: pos.y / scale.value,
-  };
+  // ドラッグ方向に基づいて選択モード（窓 vs 交差）を判定します
+  const mode = getSelectionMode(selectionStartPos.value.x, pos.x);
+  selectionModeRef.value = mode;
 
-  updateDrawingPreview(adjustedPos.x, adjustedPos.y);
+  // 選択矩形はステージのピクセル座標で扱います（scale で割らない）
+  selectionBox.value = {
+    visible: true,
+    x: Math.min(selectionStartPos.value.x, pos.x),
+    y: Math.min(selectionStartPos.value.y, pos.y),
+    width: Math.abs(pos.x - selectionStartPos.value.x),
+    height: Math.abs(pos.y - selectionStartPos.value.y),
+  };
 }
 
-/**
- * マウスアップイベント
- */
 function handleMouseUp(e: KonvaMouseEvent) {
-  if (!isDrawing.value || !startPos.value) return;
+  if (isDrawing.value && startPos.value) {
+    const stage = e.target?.getStage();
+    if (!stage) return;
+
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+
+    const adjustedPos = {
+      x: pos.x / scale.value,
+      y: pos.y / scale.value,
+    };
+
+    isDrawing.value = false;
+    drawingPreview.value = null;
+
+    if (endDrawingAnnotation) {
+      const annotation = endDrawingAnnotation(adjustedPos.x, adjustedPos.y);
+      if (annotation) {
+        emit('addAnnotation', annotation);
+      }
+    }
+
+    startPos.value = null;
+    return;
+  }
+
+  if (!isSelecting.value || !selectionStartPos.value) return;
 
   const stage = e.target?.getStage();
   if (!stage) return;
@@ -194,63 +313,64 @@ function handleMouseUp(e: KonvaMouseEvent) {
   const pos = stage.getPointerPosition();
   if (!pos) return;
 
-  // ズームレベルで座標を調整
-  const adjustedPos = {
-    x: pos.x / scale.value,
-    y: pos.y / scale.value,
+  // 選択判定の比較にもステージのピクセル座標を使用します（scale で割らない）
+  const selectionMode = getSelectionMode(selectionStartPos.value.x, pos.x);
+  const selectionRect = {
+    x: Math.min(selectionStartPos.value.x, pos.x),
+    y: Math.min(selectionStartPos.value.y, pos.y),
+    width: Math.abs(pos.x - selectionStartPos.value.x),
+    height: Math.abs(pos.y - selectionStartPos.value.y),
   };
 
-  isDrawing.value = false;
-  drawingPreview.value = null;
+  if (selectionRect.width > 0 && selectionRect.height > 0) {
+    const refs = [...boxRefs.value, ...lineRefs.value, ...circleRefs.value];
+    const selectedIds = refs
+      .map((ref) => ref.getNode())
+      .filter((node): node is Konva.Node => Boolean(node))
+      .map((node) => {
+        // node.getClientRect はステージ座標での外接矩形を返す
+        const rect = node.getClientRect();
 
-  if (endDrawingAnnotation) {
-    const annotation = endDrawingAnnotation(adjustedPos.x, adjustedPos.y);
-    if (annotation) {
-      emit('addAnnotation', annotation);
+        // 窓選択（window）は矩形が完全に選択領域に含まれることを要求する
+        if (selectionMode === 'window') {
+          const epsilon = 0.5; // 浮動小数点誤差を吸収する許容値
+          const contained =
+            rect.x + epsilon >= selectionRect.x &&
+            rect.y + epsilon >= selectionRect.y &&
+            rect.x + rect.width <= selectionRect.x + selectionRect.width + epsilon &&
+            rect.y + rect.height <= selectionRect.y + selectionRect.height + epsilon;
+          return contained ? (node.attrs.id as string) : null;
+        }
+
+        // 交差選択（cross）は少しでも重なっていれば選択
+        const intersects = !(
+          rect.x + rect.width < selectionRect.x ||
+          rect.x > selectionRect.x + selectionRect.width ||
+          rect.y + rect.height < selectionRect.y ||
+          rect.y > selectionRect.y + selectionRect.height
+        );
+        return intersects ? (node.attrs.id as string) : null;
+      })
+      .filter(Boolean) as string[];
+
+    const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
+    if (!metaPressed) {
+      selectedAnnotIds.value = selectedIds;
+    } else {
+      selectedAnnotIds.value = [...new Set([...selectedAnnotIds.value, ...selectedIds])];
     }
+  } else {
+    // 単純なアノテーション以外の箇所のクリックの場合は選択を解除する
+    selectedAnnotIds.value = []
   }
 
-  startPos.value = null;
+  // 選択表示を隠してモードをリセットします
+  selectionBox.value = { visible: false, x: 0, y: 0, width: 0, height: 0 };
+  selectionStartPos.value = null;
+  selectionModeRef.value = null;
+  isSelecting.value = false;
 }
 
-/**
- * ステージクリック（背景クリック時の選択解除）
- */
-function handleStageClick(e: KonvaMouseEvent) {
-  // if click on empty area - remove all selections
-  if (drawingType.value === 'pointer' && e.target === e.target.getStage()) {
-    selectedAnnotIds.value = [];
-    return;
-  }
-
-  // do nothing if clicked NOT on our rectangles
-  if (!e.target.hasName('rect')) {
-    return;
-  }
-
-  const clickedId = e.target.attrs.id;
-
-  // do we pressed shift or ctrl?
-  const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
-  const isSelected = selectedAnnotIds.value.includes(clickedId);
-
-  if (!metaPressed && !isSelected) {
-    // if no key pressed and the node is not selected
-    // select just one
-    selectedAnnotIds.value = [clickedId];
-  } else if (metaPressed && isSelected) {
-    // if we pressed keys and node was selected
-    // we need to remove it from selection:
-    selectedAnnotIds.value = selectedAnnotIds.value.filter((id) => id !== clickedId);
-  } else if (metaPressed && !isSelected) {
-    // add the node into selection
-    selectedAnnotIds.value = [...selectedAnnotIds.value, clickedId];
-  }
-}
-
-/**
- * 描画プレビューを更新
- */
 function updateDrawingPreview(endX: number, endY: number) {
   if (!startPos.value) return;
 
@@ -295,35 +415,33 @@ function updateDrawingPreview(endX: number, endY: number) {
   }
 }
 
-/**
- * アノテーションを更新
- */
-function updateAnnotation(annotation: AnnotationStyle, targetIdx: number) {
-  emit('updateAnnotation', annotation, targetIdx);
+function updateAnnotation(annotation: AnnotationStyle, targetId: string) {
+  emit('updateAnnotation', annotation, targetId);
 }
 
-/**
- * アノテーションを削除
- */
-function deleteAnnotation(targetIdx: number) {
-  emit('deleteAnnotation', targetIdx);
+function deleteAnnotation(targetId: string) {
+  emit('deleteAnnotation', targetId);
 }
 
-watch(selectedAnnotIds, () => {
-  if (!transformerRef.value) return;
-  if (!boxRefs.value) return;
-  if (!lineRefs.value) return;
-  if (!circleRefs.value) return;
+function syncTransformerSelection() {
+  const transformer = transformerRef.value?.getNode();
+  if (!transformer) return;
 
   const refs = [...boxRefs.value, ...lineRefs.value, ...circleRefs.value];
   const nodes = selectedAnnotIds.value
-    .map((id) => {
-      return refs.find((ref) => ref.getNode().attrs.id === id)?.getNode();
-    })
-    .filter(Boolean);
+    .map((id) => refs.find((ref) => ref.getNode()?.attrs.id === id)?.getNode())
+    .filter((node): node is Konva.Node => Boolean(node));
 
-  transformerRef.value.getNode().nodes(nodes);
-});
+  transformer.nodes(nodes);
+}
+
+watch(
+  selectedAnnotIds,
+  () => {
+    void nextTick(syncTransformerSelection);
+  },
+  { flush: 'post', deep: true },
+);
 </script>
 
 <style scoped lang="scss">

@@ -1,9 +1,9 @@
 <template>
-  <v-rect :config="rectConfig" @dragmove="onDragMove" @transformend="onTransformEnd" />
+  <v-rect ref="rectRef" :config="rectConfig" @dragend="onDragEnd" @transformend="onTransformEnd" />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type Konva from 'konva';
 import dayjs from 'dayjs';
 import type { AnnotationStyle } from 'src/models/document/pdf';
@@ -13,6 +13,7 @@ type KonvaEvent = Konva.KonvaEventObject<Event>;
 interface Props {
   annotation: AnnotationStyle;
   isEditing: boolean;
+  isSelected?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -22,13 +23,13 @@ const emit = defineEmits<{
   delete: [id: string];
 }>();
 
-/**
- * ボックス矩形の設定を計算
- */
+const rectRef = ref<{ getNode: () => Konva.Rect | null } | null>(null);
+
 const rectConfig = computed(() => {
   if (props.annotation.type !== 'box') return;
   return {
     id: props.annotation.id,
+    name: 'annotation-shape',
     x: props.annotation.x,
     y: props.annotation.y,
     width: props.annotation.width ?? 0,
@@ -41,10 +42,13 @@ const rectConfig = computed(() => {
   };
 });
 
-/**
- * ドラッグ移動完了
- */
-function onDragMove(e: KonvaEvent) {
+function getNode() {
+  return rectRef.value?.getNode() ?? null;
+}
+
+defineExpose({ getNode });
+
+function onDragEnd(e: KonvaEvent) {
   const target = e.target as Konva.Rect;
   const updatedAnnotation = {
     ...props.annotation,
@@ -55,9 +59,6 @@ function onDragMove(e: KonvaEvent) {
   emit('update', updatedAnnotation);
 }
 
-/**
- * トランスフォーム（リサイズ）完了
- */
 function onTransformEnd(e: KonvaEvent) {
   const node = e.target as Konva.Rect;
   const updatedAnnotation = {
