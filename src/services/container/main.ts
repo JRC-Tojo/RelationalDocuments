@@ -25,17 +25,17 @@ import { getBase64FileSize } from 'src/utils/binary/base64';
  */
 async function switchContainerProcess<T>(
   cType: ContainerType,
-  boxProcess: Promise<T>,
-  localProcess: Promise<T>,
-  cacheProcess: Promise<T>,
+  boxProcess: () => Promise<T>,
+  localProcess: () => Promise<T>,
+  cacheProcess: () => Promise<T>,
 ): Promise<T> {
   switch (cType) {
     case 'box':
-      return await boxProcess;
+      return await boxProcess();
     case 'cache':
-      return await cacheProcess;
+      return await cacheProcess();
     case 'local':
-      return await localProcess;
+      return await localProcess();
   }
 }
 
@@ -99,9 +99,9 @@ export async function loadContainer(id: ContainerID): Promise<Result<Container>>
   // コンテナ要素情報の読み取り
   const loadedContainer = await switchContainerProcess(
     c.value.type,
-    box.loadContainerElements(c.value),
-    local.loadContainerElements(c.value),
-    cache.loadContainerElements(c.value),
+    () => box.loadContainerElements(c.value),
+    () => local.loadContainerElements(c.value),
+    () => cache.loadContainerElements(c.value),
   );
   if (!loadedContainer.ok) return loadedContainer;
 
@@ -126,12 +126,12 @@ export async function createContainer(
     containerPath: path,
   };
 
-  // コンテナオブジェクトの生成
+  // コンテナオブジェクトの生成（実データとして`.rd`フォルダを作成する）
   const savedRes = await switchContainerProcess(
     type,
-    box.saveContainer(newContainer),
-    local.saveContainer(newContainer),
-    cache.saveContainer(newContainer),
+    () => box.saveContainer(newContainer),
+    () => local.saveContainer(newContainer),
+    () => cache.saveContainer(newContainer),
   );
   if (!savedRes.ok) return savedRes;
 
@@ -140,7 +140,12 @@ export async function createContainer(
 
   // 読み込み対象一覧に追加
   const settingsRes = await settings.addLoadedContainer(newContainer);
-  if (!settingsRes.ok) return settingsRes;
+  if (!settingsRes.ok) {
+    // コンテナオブジェクトの削除（ロールバック）
+    // 設定ファイルへの書きこみで失敗するため，戻り値は無視する
+    await unloadContainer(newContainer.id, true);
+    return settingsRes;
+  };
 
   // コンテナ内部のElementsの読み取り
   return Success(newContainer);
@@ -149,7 +154,21 @@ export async function createContainer(
 /**
  * コンテナの読み込みを中止する
  */
-export async function unloadContainer(cId: ContainerID): Promise<Result<void>> {
+export async function unloadContainer(cId: ContainerID, deleteContainer: boolean = false): Promise<Result<void>> {
+  const c = getContainer(cId);
+  if (!c.ok) return c;
+
+  if (deleteContainer) {
+    // コンテナオブジェクトを削除（実データとして`.rd`フォルダを削除する）
+    const res = await switchContainerProcess(
+      c.value.type,
+      () => box.deleteContainer(c.value),
+      () => local.deleteContainer(c.value),
+      () => cache.deleteContainer(c.value),
+    );
+    if (!res.ok) return res;
+  }
+
   // 読み込み対象一覧から除外
   const settingsRes = await settings.removeLoadedContainer(cId);
   if (!settingsRes.ok) return settingsRes;
@@ -158,28 +177,6 @@ export async function unloadContainer(cId: ContainerID): Promise<Result<void>> {
   delete cachedContainers[cId];
 
   return Success();
-}
-
-/**
- * コンテナを削除する
- */
-export async function deleteContainer(id: ContainerID): Promise<Result<void>> {
-  const c = getContainer(id);
-  if (!c.ok) return c;
-
-  const res = await switchContainerProcess(
-    c.value.type,
-    box.deleteContainer(c.value.id),
-    local.deleteContainer(c.value.id),
-    cache.deleteContainer(c.value.id),
-  );
-
-  if (res.ok) {
-    // キャッシュから削除
-    delete cachedContainers[c.value.id];
-  }
-
-  return res;
 }
 
 /**
@@ -202,18 +199,21 @@ async function addContainerElement(
   }
   parsedContainer.data.elements[newElement.path] = newElement;
 
-  // キャッシュの更新
-  cachedContainers[newElement.containerID] = parsedContainer.data;
-
   // 実態データの更新
   // TODO: システム外でファイル操作されたときに、コンフリクトを起こす可能性あり
   // （そもそもシステム外でファイル操作された場合、どのようにフロントエンドなどに反映するのか？）
-  return switchContainerProcess(
+  const createRes = await switchContainerProcess(
     parsedContainer.data.type,
-    box.createFile(parsedContainer.data, newElement.path, srcData),
-    local.createFile(parsedContainer.data, newElement.path, srcData),
-    cache.createFile(parsedContainer.data, newElement.path, srcData),
+    () => box.createFile(parsedContainer.data, newElement.path, srcData),
+    () => local.createFile(parsedContainer.data, newElement.path, srcData),
+    () => cache.createFile(parsedContainer.data, newElement.path, srcData),
   );
+  if (!createRes.ok) return createRes;
+
+  // キャッシュの更新
+  cachedContainers[newElement.containerID] = parsedContainer.data;
+
+  return Success();
 }
 
 /**
@@ -232,9 +232,9 @@ async function deleteContainerElement(
   // 実態データの更新
   return switchContainerProcess(
     c.type,
-    box.deleteFile(c, deleteElement),
-    local.deleteFile(c, deleteElement),
-    cache.deleteFile(c, deleteElement),
+    () => box.deleteFile(c, deleteElement),
+    () => local.deleteFile(c, deleteElement),
+    () => cache.deleteFile(c, deleteElement),
   );
 }
 
@@ -293,9 +293,9 @@ export async function loadFileAsDocumentSource(
 
   const srcData = await switchContainerProcess(
     c.value.type,
-    box.loadSrcData(file),
-    local.loadSrcData(file),
-    cache.loadSrcData(file),
+    () => box.loadSrcData(file),
+    () => local.loadSrcData(file),
+    () => cache.loadSrcData(file),
   );
   if (!srcData.ok) return srcData;
 

@@ -70,7 +70,7 @@ export interface ApiResponseFailure {
 
 export type ApiResponse<T = void> = ApiResponseSuccess<T> | ApiResponseFailure;
 
-type KVArgs = { [key: string]: string };
+type KVArgs = NonNullable<ApiErrorInfo['variables']>;
 
 export function toApiResponse<T>(res: Success<T>): ApiResponse<T>;
 export function toApiResponse<T>(

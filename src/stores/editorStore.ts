@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import type { ContainerElement, ContainerElementFile } from 'src/models/container';
 import type { DrawingAnnotationStyle, DrawingAnnotationType, IDocTool } from 'src/models/docPage';
@@ -101,6 +102,7 @@ export const useEditorStore = defineStore('editor', {
 
       // 開いているタブ一覧から除外
       this.tabs[layoutSide].splice(targetIdx, 1);
+      this.pinedTabPaths[layoutSide].delete(elem.path);
 
       // アクティブタブが削除された場合は直前のタブをアクティブに
       if (this.activeTabPaths[layoutSide] === elem.path) {

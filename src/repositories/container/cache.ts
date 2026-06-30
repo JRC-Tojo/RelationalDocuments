@@ -40,10 +40,19 @@ export async function getContainers(): Promise<Result<ContainerSkel[]>> {
 /**
  * コンテナを削除する
  */
-export async function deleteContainer(id: ContainerID): Promise<Result<void>> {
-  const elemRes = await db.deleteValue(ELEM_STORE_NAME, id);
+export async function deleteContainer(c: ContainerSkel): Promise<Result<void>> {
+  // コンテナ内のファイルを事前に削除しておく
+  const fullContainer = await loadContainerElements(c);
+  if (fullContainer.ok) {
+    for (const element of Object.values(fullContainer.value.elements)) {
+      void deleteFile(fullContainer.value, element);
+    }
+  };
+
+  // コンテナの要素情報とコンテナ情報を削除する
+  const elemRes = await db.deleteValue(ELEM_STORE_NAME, c.id);
   if (!elemRes.ok) return elemRes;
-  return db.deleteValue(SKEL_STORE_NAME, id);
+  return db.deleteValue(SKEL_STORE_NAME, c.id);
 }
 
 /**

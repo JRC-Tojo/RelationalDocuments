@@ -3,19 +3,13 @@
   <!-- 現行実装のfileはコンテナ導入後は削除 -->
   <!-- <ExpContainer v-for="container in containers" :container="container" :key="container.path" /> -->
 
-  <template v-for="file in files" :key="file.path">
+  <template v-for="file in elems" :key="file.path">
     <ExpFile v-if="file.type === 'File'" :file="file" />
     <ExpFolder v-if="file.type === 'Folder'" :folder="file" />
   </template>
 
-  <q-btn
-    v-show="files.length === 0"
-    outline
-    :label="$t('explorer.demo')"
-    color="primary"
-    class="full-width q-my-sm"
-    @click="onCreateDemo"
-  />
+  <q-btn v-show="elems.length === 0" outline :label="$t('explorer.demo')" color="primary" class="full-width q-my-sm"
+    @click="onCreateDemo" />
 </template>
 
 <script setup lang="ts">
@@ -29,13 +23,13 @@ import ExpFolder from './Explorer/ExpFolder.vue';
 
 const api = useBackendApi();
 
-const files = ref<ContainerElement[]>([]);
+const elems = ref<ContainerElement[]>([]);
 // const containers = ref();
 
 async function loadDocs() {
-  const apiRes = await api.getAllDocuments();
+  const apiRes = await api.getAllElements();
   if (apiRes.ok) {
-    files.value = apiRes.data;
+    elems.value = apiRes.data;
   }
 }
 

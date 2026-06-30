@@ -14,7 +14,7 @@ const SETTINGS_STORE_NAME = 'settings';
  * 設定の初期化
  */
 export async function initializeSettings(): Promise<Result<AppSettings>> {
-  const def = AppSettings.parse({});
+  const def = AppSettings.parse({ initialized: true });
   def.tools.annotations = defaultAnnotationTools;
 
   const res = await Promise.all(
@@ -23,7 +23,7 @@ export async function initializeSettings(): Promise<Result<AppSettings>> {
   const errRes = res.find((r) => !r.ok);
 
   if (errRes === void 0) {
-    return Success();
+    return Success(def);
   } else {
     return errRes;
   }
@@ -32,14 +32,14 @@ export async function initializeSettings(): Promise<Result<AppSettings>> {
 /**
  * ユーザー設定を取得する
  */
-export async function getSettings(): Promise<Result<AppSettings>> {
+export function getSettings(): Promise<Result<AppSettings>> {
   return db.getValue(SETTINGS_STORE_NAME, AppSettings);
 }
 
 /**
  * ユーザー設定を保存する
  */
-export async function saveSettings<K extends keyof AppSettings>(
+export function saveSettings<K extends keyof AppSettings>(
   key: K,
   value: AppSettings[K],
 ): Promise<Result<void>> {

@@ -146,6 +146,7 @@ function onMouseLeave() {
 }
 
 function onDragEnd() {
+  const groupNode = groupRef.value?.getNode();
   const lineNode = lineRef.value?.getNode();
   if (!lineNode) return;
 
@@ -154,6 +155,8 @@ function onDragEnd() {
   emit('update', {
     ...props.annotation,
     points: points,
+    x: groupNode?.x() ?? props.annotation.x,
+    y: groupNode?.y() ?? props.annotation.y,
     updatedAt: dayjs().toISOString(),
   });
 }

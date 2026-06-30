@@ -72,9 +72,9 @@ class BackendApi {
   // ============ 文書操作 ============
 
   /**
-   * 全文書を取得
+   * 全コンテナ要素を取得
    */
-  async getAllDocuments(): Promise<ApiResponse<ContainerElement[]>> {
+  async getAllElements(): Promise<ApiResponse<ContainerElement[]>> {
     // 保存済みのコンテナ情報を取得
     const allContainers = await containerService.getAllContainers();
     if (!allContainers.ok) return toApiResponse(allContainers, 'CONTAINER_LOAD_FAILED');

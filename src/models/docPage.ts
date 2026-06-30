@@ -56,6 +56,7 @@ export const AnnotationTextStyle = z.object({
   type: z.literal('text'),
   textColor: z.string(),
   fontWeight: z.number(),
+  strokeColor: z.string(),
   strokeWidth: z.number(),
   strokeType: z.enum(['solid', 'dashed', 'dotted', 'dash-dot', 'double']),
   strokeOpacity: z.number(),

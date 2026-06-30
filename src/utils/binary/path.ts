@@ -3,7 +3,9 @@ const SEP = '/';
 
 function replaceSep(pathstr: string) {
   // すべてのバックスラッシュをスラッシュに統一し、重複するスラッシュを1つにまとめ、末尾のスラッシュを削除
-  return pathstr.replace(/[\\/]+/g, SEP).replace(/\/$/, '');
+  const normalized = pathstr.replace(/[\\/]+/g, SEP);
+  if (normalized === SEP) return SEP;
+  return normalized.replace(/\/$/, '');
 }
 
 // Node.js の path.normalize / path.join / path.resolve の簡易ブラウザ版実装

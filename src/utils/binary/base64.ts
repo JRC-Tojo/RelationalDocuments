@@ -17,14 +17,18 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
 }
 
 /** ヘルパー：ArrayBuffer -> base64 */
-export function arrayBufferToBase64(buffer: ArrayBuffer) {
-  return new Promise((resolve, reject) => {
+export function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
     const blob = new Blob([buffer]);
     const reader = new FileReader();
     reader.onloadend = () => {
       // data:application/octet-stream;base64,XXXXX... のプレフィックスを削除
       if (typeof reader.result === 'string') {
         const base64String = reader.result.split(',')[1];
+        if (!base64String) {
+          reject(new Error('Failed to extract base64 string'));
+          return;
+        }
         resolve(base64String);
       } else {
         reject(new Error('This is not a valid buffer'));

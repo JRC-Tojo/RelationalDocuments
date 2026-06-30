@@ -18,17 +18,16 @@ import type { AnnotationStyle } from 'src/models/document/pdf';
 import { base64ToUint8Array, uint8ArrayToBase64 } from 'src/utils/binary/base64';
 
 function toError(e: unknown): Error {
-  return e instanceof Error ? e : new Error(String(e));
+  if (e instanceof Error) return e;
+  if (typeof e === 'string') return new Error(e);
+  return new Error(JSON.stringify(e) ?? String(e));
 }
 
 /** PDF をロードして PDFDocumentProxy を返す（Result でラップ） */
 export async function loadPdfFromSrc64(src64: DocumentSource): Promise<Result<PDFDocumentProxy>> {
   try {
-    const data = base64ToUint8Array(src64 as unknown as string);
-    const loadingTask = getDocument({ data });
-    // some pdfjs builds type the loadingTask.promise differently; cast to any to await reliably
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdf: PDFDocumentProxy = await (loadingTask.promise as any);
+    const data = base64ToUint8Array(src64);
+    const pdf = await getDocument({ data }).promise;
     return Success(pdf);
   } catch (e) {
     return Failure(toError(e));
@@ -102,12 +101,7 @@ export async function renderPageToCanvas(
     const ctx = canvas.getContext('2d');
     if (!ctx) return Failure(new Error('Canvas 2D context is not available'));
 
-    // pdfjs render task may expose a promise property in many builds
-    // keep a minimal local shape for type-safety
-    type PdfRenderTask = { promise?: Promise<unknown> };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const renderTask = (page as any).render({ canvasContext: ctx, viewport }) as PdfRenderTask;
-    if (renderTask?.promise) await renderTask.promise;
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
     return Success(canvas);
   } catch (e) {
     return Failure(toError(e));
@@ -163,7 +157,7 @@ export async function addBlankPageToPdf(
   height = 842,
 ): Promise<Result<DocumentSource>> {
   try {
-    const bytes = base64ToUint8Array(src64 as unknown as string);
+    const bytes = base64ToUint8Array(src64);
     const pdfDoc = await PDFDocument.load(bytes);
     pdfDoc.addPage([width, height]);
     const out = await pdfDoc.save();
@@ -179,7 +173,7 @@ export async function removePageFromPdf(
   pageIndexZeroBased: number,
 ): Promise<Result<DocumentSource>> {
   try {
-    const bytes = base64ToUint8Array(src64 as unknown as string);
+    const bytes = base64ToUint8Array(src64);
     const pdfDoc = await PDFDocument.load(bytes);
     const pageCount = pdfDoc.getPageCount();
     if (pageIndexZeroBased < 0 || pageIndexZeroBased >= pageCount)
@@ -220,6 +214,8 @@ export async function extractAnnotationsFromPdf(
       const page = await pdf.getPage(i);
       const pageHeight = page.getViewport({ scale: 1 }).height;
 
+      // TODO: AnnotationIDの保持方法と戻す方法を検討する
+      // AnnotationIDが付与されていない新規Annotationの時は新規にIDを付与する
       const anns = await page.getAnnotations();
 
       for (const a of anns) {
@@ -255,7 +251,7 @@ export async function extractAnnotationsFromPdf(
             y,
             width,
             height,
-          } as unknown as AnnotationStyle);
+          } as AnnotationStyle);
           continue;
         }
 
@@ -350,9 +346,9 @@ export async function embedAnnotationsIntoPdf(
       const bigint = parseInt(
         h.length === 3
           ? h
-              .split('')
-              .map((c) => c + c)
-              .join('')
+            .split('')
+            .map((c) => c + c)
+            .join('')
           : h,
         16,
       );
@@ -372,12 +368,7 @@ export async function embedAnnotationsIntoPdf(
       const strokeWidth = a.strokeWidth ?? 2;
 
       if (a.type === 'box') {
-        const { x, y, width, height } = a as unknown as {
-          x: number;
-          y: number;
-          width: number;
-          height: number;
-        };
+        const { x, y, width, height } = a
         const pageHeight = page.getSize().height;
         page.drawRectangle({
           x,
@@ -389,16 +380,17 @@ export async function embedAnnotationsIntoPdf(
           opacity,
         });
       } else if (a.type === 'line') {
-        const { x, y, x2, y2 } = a as unknown as { x: number; y: number; x2: number; y2: number };
+        const { x, y, points: [, , width, height] } = a
+        if (typeof width !== 'number' || typeof height !== 'number') continue;
         const pageHeight = page.getSize().height;
         page.drawLine({
           start: { x, y: pageHeight - y },
-          end: { x: x2, y: pageHeight - y2 },
+          end: { x: x + width, y: pageHeight - (y + height) },
           thickness: strokeWidth,
           color: rgb(color.r, color.g, color.b),
         });
       } else if (a.type === 'circle') {
-        const { x, y, radius } = a as unknown as { x: number; y: number; radius: number };
+        const { x, y, radius } = a
         const pageHeight = page.getSize().height;
         page.drawEllipse({
           x,

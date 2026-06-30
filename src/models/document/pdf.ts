@@ -5,6 +5,9 @@ import { ImageURI } from '../common';
 export const AnnotationID = z.uuidv4().brand('AnnotationID');
 export type AnnotationID = z.infer<typeof AnnotationID>;
 
+export const ColorCode = z.string().regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/).brand('ColorCode');
+export type ColorCode = z.infer<typeof ColorCode>;
+
 /**
  * アノテーションスキーマ
  */
@@ -13,7 +16,7 @@ const AnnotationBase = z.object({
   pageNumber: z.number().int().positive(),
   x: z.number(),
   y: z.number(),
-  color: z.string(), // 16進カラーコード
+  color: ColorCode, // 16進カラーコード
   strokeWidth: z.number().optional().default(2),
   opacity: z.number().min(0).max(1).optional(),
   content: z.string().optional(),

@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import dayjs from 'dayjs';
-import { AnnotationID, type AnnotationStyle } from 'src/models/document/pdf';
+import { AnnotationID, ColorCode, type AnnotationStyle } from 'src/models/document/pdf';
 import type { DrawingAnnotationStyle } from 'src/models/docPage';
 
 /**
@@ -56,11 +56,14 @@ function createAnnotation(
     comment: {},
   };
 
+  const strokeColor = ColorCode.safeParse(annotationStyle.strokeColor);
+  if (!strokeColor.success) return null
+
   if (annotationStyle.type === 'box') {
     return {
       ...baseAnnotation,
       type: annotationStyle.type,
-      color: annotationStyle.strokeColor,
+      color: strokeColor.data,
       strokeWidth: annotationStyle.strokeWidth,
       width: Math.abs(deltaX),
       height: Math.abs(deltaY),
@@ -71,7 +74,7 @@ function createAnnotation(
     return {
       ...baseAnnotation,
       type: annotationStyle.type,
-      color: annotationStyle.strokeColor,
+      color: strokeColor.data,
       strokeWidth: annotationStyle.strokeWidth,
       x: startX + deltaX / 2,
       y: startY + deltaY / 2,
@@ -81,7 +84,7 @@ function createAnnotation(
     return {
       ...baseAnnotation,
       type: annotationStyle.type,
-      color: annotationStyle.strokeColor,
+      color: strokeColor.data,
       strokeWidth: annotationStyle.strokeWidth,
       x: startX,
       y: startY,

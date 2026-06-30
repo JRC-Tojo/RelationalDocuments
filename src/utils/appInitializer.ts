@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { useBackendApi } from '../apis/backendApi';
 import { DocumentSource } from 'src/models/document/common';
-import { AnnotationID, type AnnotationStyle } from 'src/models/document/pdf';
+import { AnnotationID, ColorCode, type AnnotationStyle } from 'src/models/document/pdf';
 import { arrayBufferToBase64 } from './binary/base64';
 
 /**
@@ -11,7 +11,13 @@ export async function initializeApp() {
   const api = useBackendApi();
 
   // アプリの初期化
-  await api.initialize();
+  const initRes = await api.initialize();
+  if (!initRes.ok) {
+    // TODO: 本当は適切なエラーハンドリングをユーザーに返すべき（今後の実装）
+    console.error('Failed to initialize app');
+    console.log(initRes);
+    return;
+  }
 }
 
 /**
@@ -73,13 +79,14 @@ export async function createDemoData() {
  */
 function generateRandomAnnots(): AnnotationStyle[] {
   const annotationCount = 3;
-  const colors: string[] = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8'];
+  const colors: ColorCode[] = [ColorCode.parse('#FFD700'), ColorCode.parse('#FF6B6B'), ColorCode.parse('#4ECDC4'), ColorCode.parse('#45B7D1'), ColorCode.parse('#FFA07A'), ColorCode.parse('#98D8C8')];
 
   const annots: AnnotationStyle[] = [];
   for (let i = 0; i < annotationCount; i++) {
     const colorIdx = Math.floor(Math.random() * colors.length);
-    const color: string = colors[colorIdx] || '#FFD700';
+    const color: ColorCode = colors[colorIdx] || ColorCode.parse('#FFD700');
 
+    const now = new Date().toISOString();
     annots.push({
       id: AnnotationID.parse(uuidv4()),
       pageNumber: 1,
@@ -88,9 +95,9 @@ function generateRandomAnnots(): AnnotationStyle[] {
       width: 150,
       height: 80,
       color: color,
-      strokeWidth: 0,
-      createdAt: new Date().toString(),
-      updatedAt: new Date().toString(),
+      strokeWidth: 3,
+      createdAt: now,
+      updatedAt: now,
       comment: {},
       type: 'box',
     });

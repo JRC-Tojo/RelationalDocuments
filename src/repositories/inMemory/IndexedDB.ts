@@ -20,13 +20,13 @@ const isInitialized = ref(false);
 /**
  * IndexedDB の初期化
  */
-async function initialize(storeName: string): Promise<void> {
-  return new Promise((resolve, reject) => {
+async function initialize(storeName: string): Promise<Result<void>> {
+  return new Promise<Result<void>>((resolve) => {
     const request = indexedDB.open(dbName, currentVersion < 1 ? undefined : currentVersion);
 
     request.onerror = () => {
       console.error('IndexedDB initialization failed');
-      reject(new Error(request.error?.message || 'IndexedDB initialization failed'));
+      resolve(Failure(new Error(request.error?.message || 'IndexedDB initialization failed')));
     };
 
     request.onupgradeneeded = (event) => {
@@ -38,12 +38,18 @@ async function initialize(storeName: string): Promise<void> {
       }
     };
 
-    request.onsuccess = () => {
+    request.onsuccess = async () => {
       db = request.result;
-      // バージョン番号を登録
       currentVersion = db.version;
+
+      // 初回起動時に既存のDBがあった場合，onupgradeneededが呼ばれないため，再初期化の必要性を確認する
+      if (isNeedInitialize(storeName)) {
+        const initRes = await initialize(storeName);
+        if (!initRes.ok) resolve(initRes);
+      }
+
       isInitialized.value = true;
-      resolve();
+      resolve(Success());
     };
 
     request.onblocked = () => {
@@ -92,7 +98,10 @@ export async function getValue<T extends z.ZodType>(
   targetZodType: T,
   key?: string,
 ): Promise<Result<z.infer<T>>> {
-  if (isNeedInitialize(storeName)) await initialize(storeName);
+  if (isNeedInitialize(storeName)) {
+    const initRes = await initialize(storeName);
+    if (!initRes.ok) return initRes;
+  };
 
   const transaction = db!.transaction([storeName], 'readonly');
   const store = transaction.objectStore(storeName);
@@ -121,7 +130,11 @@ export async function getValue<T extends z.ZodType>(
  * ストアに値を登録する
  */
 export async function setValue<T>(storeName: string, key: string, value: T): Promise<Result<void>> {
-  if (isNeedInitialize(storeName)) await initialize(storeName);
+  if (isNeedInitialize(storeName)) {
+    const initRes = await initialize(storeName);
+    if (!initRes.ok) return initRes;
+  };
+
   return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
@@ -143,7 +156,11 @@ export async function setValue<T>(storeName: string, key: string, value: T): Pro
  * 登録済みの値を削除する
  */
 export async function deleteValue(storeName: string, key: string): Promise<Result<void>> {
-  if (isNeedInitialize(storeName)) await initialize(storeName);
+  if (isNeedInitialize(storeName)) {
+    const initRes = await initialize(storeName);
+    if (!initRes.ok) return initRes;
+  };
+
   return new Promise((resolve) => {
     const transaction = db!.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
