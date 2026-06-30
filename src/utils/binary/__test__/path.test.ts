@@ -32,4 +32,18 @@ describe('Path', () => {
     expect(new Path('foo/bar').parent().path).toBe(new Path('foo').path);
     expect(new Path('foo/bar').parent(2).path).toBe(new Path('').path);
   });
+
+  test('file path', () => {
+    const workPath = new Path('');
+    const testdir = workPath.child('pathChecks');
+    const file1 = testdir.child('file1.txt');
+
+    // ファイル名
+    expect(file1.basename()).toBe('file1.txt');
+    expect(file1.stemname()).toBe('file1');
+    expect(file1.extname()).toBe('.txt');
+
+    // 相対パス
+    expect(file1.relativeto(testdir).path).toBe('..');
+  });
 });
