@@ -55,7 +55,11 @@
         />
         <v-rect v-if="selectionBox.visible" :config="selectionBoxConfig" />
 
-        <v-transformer ref="transformerRef" :config="transformerConfig" />
+        <v-transformer
+          ref="transformerRef"
+          v-if="isEditingMode && selectedTransformableIds.length > 0"
+          :config="transformerConfig"
+        />
       </v-layer>
     </v-stage>
   </div>
@@ -78,7 +82,7 @@ interface Props {
   annotations: AnnotationStyle[];
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const editorStore = useEditorStore();
 
 const page = defineModel<number>('page', { required: true });
@@ -97,6 +101,7 @@ const boxRefs = ref<AnnotationNodeHandle[]>([]);
 const lineRefs = ref<AnnotationNodeHandle[]>([]);
 const circleRefs = ref<AnnotationNodeHandle[]>([]);
 const selectedAnnotIds = ref<string[]>([]);
+const pendingPointerTarget = ref<{ id: string; wasSelected: boolean } | null>(null);
 
 const isDrawing = ref(false);
 const isSelecting = ref(false);
@@ -135,6 +140,12 @@ const transformerConfig = computed(() => ({
   ],
   rotationSnapTolerance: 30,
 }));
+const selectedTransformableIds = computed(() =>
+  props.annotations
+    .filter((annotation) => selectedAnnotIds.value.includes(annotation.id))
+    .map((annotation) => annotation.id),
+);
+
 const selectionBoxConfig = computed(() => {
   const isWindow = selectionModeRef.value === 'window';
   const fill = isWindow ? 'rgba(33, 150, 243, 0.15)' : 'rgba(76, 175, 80, 0.15)';
@@ -173,17 +184,22 @@ function handleMouseDown(e: KonvaMouseEvent) {
 
     // 空白領域をクリックした場合 -> 選択矩形を開始します（ステージ座標で扱うため scale で割らない）
     if (e.target === stage) {
+      pendingPointerTarget.value = null;
       isSelecting.value = true;
       selectionStartPos.value = { x: pos.x, y: pos.y };
       selectionBox.value = { visible: true, x: pos.x, y: pos.y, width: 0, height: 0 };
       return;
     }
 
-    // ノードをクリックした場合 -> 選択を更新し、そのままドラッグを開始します。
-    const clickedId = e.target.attrs?.id;
+    // アンカーをクリックした場合は元の注釈 ID を参照します。
+    const clickedId =
+      e.target.attrs?.name === 'annotation-anchor'
+        ? e.target.attrs?.annotationId
+        : e.target.attrs?.id;
     if (clickedId) {
       const metaPressed = e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey;
       const isSelected = selectedAnnotIds.value.includes(clickedId);
+      pendingPointerTarget.value = { id: clickedId, wasSelected: isSelected };
 
       if (!metaPressed && !isSelected) {
         selectedAnnotIds.value = [clickedId];
@@ -194,12 +210,7 @@ function handleMouseDown(e: KonvaMouseEvent) {
       }
 
       // クリックした形状を即時にドラッグ開始し、1回の操作で押しながら移動できるようにします。
-      // Konva ノード API: startDrag はオプションでイベントを受け取れます
-      try {
-        e.target.startDrag(e.evt);
-      } catch {
-        // startDrag をサポートしないノードの場合は無視します
-      }
+      // e.target.startDrag(e.evt);
     }
     return;
   }
@@ -302,10 +313,14 @@ function handleMouseUp(e: KonvaMouseEvent) {
     }
 
     startPos.value = null;
+    pendingPointerTarget.value = null;
     return;
   }
 
-  if (!isSelecting.value || !selectionStartPos.value) return;
+  if (!isSelecting.value || !selectionStartPos.value) {
+    pendingPointerTarget.value = null;
+    return;
+  }
 
   const stage = e.target?.getStage();
   if (!stage) return;
@@ -361,7 +376,7 @@ function handleMouseUp(e: KonvaMouseEvent) {
     }
   } else {
     // 単純なアノテーション以外の箇所のクリックの場合は選択を解除する
-    selectedAnnotIds.value = []
+    selectedAnnotIds.value = [];
   }
 
   // 選択表示を隠してモードをリセットします
@@ -369,6 +384,7 @@ function handleMouseUp(e: KonvaMouseEvent) {
   selectionStartPos.value = null;
   selectionModeRef.value = null;
   isSelecting.value = false;
+  pendingPointerTarget.value = null;
 }
 
 function updateDrawingPreview(endX: number, endY: number) {
@@ -427,8 +443,8 @@ function syncTransformerSelection() {
   const transformer = transformerRef.value?.getNode();
   if (!transformer) return;
 
-  const refs = [...boxRefs.value, ...lineRefs.value, ...circleRefs.value];
-  const nodes = selectedAnnotIds.value
+  const refs = [...boxRefs.value, ...circleRefs.value];
+  const nodes = selectedTransformableIds.value
     .map((id) => refs.find((ref) => ref.getNode()?.attrs.id === id)?.getNode())
     .filter((node): node is Konva.Node => Boolean(node));
 

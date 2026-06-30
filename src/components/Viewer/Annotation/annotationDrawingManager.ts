@@ -85,8 +85,6 @@ function createAnnotation(
       strokeWidth: annotationStyle.strokeWidth,
       x: startX,
       y: startY,
-      x2: endX,
-      y2: endY,
       points: [0, 0, deltaX, deltaY],
     };
   }

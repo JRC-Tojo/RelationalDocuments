@@ -34,8 +34,6 @@ export const BoxAnnotationStyle = AnnotationBase.extend({
 export type BoxAnnotationStyle = z.infer<typeof BoxAnnotationStyle>;
 export const LineAnnotationStyle = AnnotationBase.extend({
   type: z.literal('line'),
-  x2: z.number(),
-  y2: z.number(),
   points: z.array(z.number()).length(4),
 });
 export type LineAnnotationStyle = z.infer<typeof LineAnnotationStyle>;
