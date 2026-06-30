@@ -19,11 +19,9 @@
 import { computed, onMounted, ref, useTemplateRef, watch } from 'vue';
 import AnnotationLayer from './Annotation/AnnotationLayer.vue';
 import { debounce, useQuasar } from 'quasar';
-import type { ContainerElementFile } from 'src/models/container.js';
 import type { AnnotationStyle } from 'src/models/document/pdf.js';
 
 interface Props {
-  file: ContainerElementFile;
   onRender: (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 }
 const props = defineProps<Props>();

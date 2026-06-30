@@ -9,7 +9,6 @@
       <!-- 単一ページまたは見開き表示 -->
       <div v-if="viewMode === 'single'" class="pages-container">
         <PdfPage
-          :file="file"
           v-model:page="currentPage"
           v-model:annotations="annotations"
           v-model:scale="scale"
@@ -29,7 +28,6 @@
             "
           >
             <PdfPage
-              :file="file"
               :page="page"
               v-model:annotations="annotations"
               v-model:scale="scale"
@@ -46,12 +44,10 @@
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
 import PdfPage from 'src/components/Viewer/PdfPage.vue';
 import type { ViewMode } from 'src/models/docPage';
-import type { ContainerElementFile } from 'src/models/container';
 import type { AnnotationStyle } from 'src/models/document/pdf';
 
 type RenderFunc = (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 interface Prop {
-  file: ContainerElementFile;
   pageCount: number;
   viewMode: ViewMode;
   onRender: RenderFunc;
