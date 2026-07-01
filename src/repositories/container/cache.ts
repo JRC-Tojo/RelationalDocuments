@@ -44,9 +44,11 @@ export async function deleteContainer(c: ContainerSkel): Promise<Result<void>> {
   // コンテナ内のファイルを事前に削除しておく
   const fullContainer = await loadContainerElements(c);
   if (fullContainer.ok) {
-    for (const element of Object.values(fullContainer.value.elements)) {
-      void deleteFile(fullContainer.value, element);
-    }
+    await Promise.all(
+      Object.values(fullContainer.value.elements).map((element) =>
+        deleteFile(fullContainer.value, element),
+      ),
+    );
   }
 
   // コンテナの要素情報とコンテナ情報を削除する

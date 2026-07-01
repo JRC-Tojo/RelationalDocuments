@@ -17,10 +17,16 @@ import { Success, Failure } from '../../models/error/result';
 import type { AnnotationStyle } from 'src/models/document/pdf';
 import { base64ToUint8Array, uint8ArrayToBase64 } from 'src/utils/binary/base64';
 
+/** unknown の例外値を Error に正規化する。 */
 function toError(e: unknown): Error {
   if (e instanceof Error) return e;
   if (typeof e === 'string') return new Error(e);
-  return new Error(JSON.stringify(e) ?? String(e));
+  if (e === null || typeof e !== 'object') return new Error(String(e));
+  try {
+    return new Error(JSON.stringify(e) ?? Object.prototype.toString.call(e));
+  } catch {
+    return new Error(Object.prototype.toString.call(e));
+  }
 }
 
 /** PDF をロードして PDFDocumentProxy を返す（Result でラップ） */
@@ -380,11 +386,9 @@ export async function embedAnnotationsIntoPdf(
           opacity,
         });
       } else if (a.type === 'line') {
-        const {
-          x,
-          y,
-          points: [, , width, height],
-        } = a;
+        const { x, y, points } = a;
+        if (!Array.isArray(points) || points.length < 4) continue;
+        const [, , width, height] = points;
         if (typeof width !== 'number' || typeof height !== 'number') continue;
         const pageHeight = page.getSize().height;
         page.drawLine({

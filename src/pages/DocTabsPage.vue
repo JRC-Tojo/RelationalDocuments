@@ -13,7 +13,7 @@
         <!-- タブを並べる -->
         <div
           v-for="tab in tabs"
-          :key="tab.containerID"
+          :key="`${tab.containerID}/${tab.path}`"
           :class="[
             'tab-item',
             { active: tab.path === activeTabFile?.path && activeLayout === layoutSide },
