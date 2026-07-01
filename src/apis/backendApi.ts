@@ -1,6 +1,19 @@
-import { settingsService } from 'src/services/settingsService';
-import type { DocumentMetadata, Annotation, AppSettings, ApiResponse } from '../models/schemas';
-import { documentService, annotationService } from '../services/documentService';
+import { getSettings, initializeSettings, saveSettings } from 'src/settings/main';
+import { toApiResponse, type ApiResponse } from 'src/models/error/api';
+import { Failure, Success } from 'src/models/error/result';
+import * as containerService from 'src/services/container/main';
+import * as pdfRepo from 'src/repositories/document/pdf';
+import type {
+  Container,
+  ContainerElement,
+  ContainerElementFile,
+  ContainerID,
+  ContainerSkel,
+  ContainerType,
+} from 'src/models/container';
+import type { AppSettings } from 'src/models/settings';
+import type { DocumentSource } from 'src/models/document/common';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 /**
  * バックエンド統合 API層
@@ -12,143 +25,108 @@ class BackendApi {
    * 初期化
    */
   async initialize(): Promise<ApiResponse<void>> {
-    try {
-      const settings = await settingsService.getSettings();
-      if (!settings?.initialized) {
-        await settingsService.initializeDefaultSettings();
-      }
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Initialization failed',
-        timestamp: new Date(),
-      };
+    const settings = await getSettings();
+    if (!settings.ok) {
+      return toApiResponse(settings, 'INIT_PROCESS_ERROR');
     }
+
+    if (!settings.value.initialized) {
+      const initRes = await initializeSettings();
+      if (!initRes.ok) return toApiResponse(initRes, 'INIT_PROCESS_ERROR');
+    }
+
+    return toApiResponse(Success());
+  }
+
+  // ============ コンテナ操作 ============
+
+  /**
+   * コンテナ一覧を取得する
+   */
+  async getAllContainers(): Promise<ApiResponse<ContainerSkel[]>> {
+    // 保存済みのコンテナ情報を取得
+    const allContainers = await containerService.getAllContainers();
+    return toApiResponse(allContainers, 'CONTAINERS_GET_FAILED');
+  }
+
+  /**
+   * コンテナを作成する
+   */
+  async createContainer(
+    type: ContainerType,
+    name: string,
+    path: string,
+  ): Promise<ApiResponse<ContainerSkel>> {
+    const createdContainer = await containerService.createContainer(type, name, path);
+    return toApiResponse(createdContainer, 'CONTAINER_CREATE_FAILED');
+  }
+
+  /**
+   * コンテナの中身（ファイル群）を読み取る
+   */
+  async loadContainer(id: ContainerID): Promise<ApiResponse<Container>> {
+    const loadedContainers = await containerService.loadContainer(id);
+    return toApiResponse(loadedContainers, 'CONTAINER_LOAD_FAILED');
   }
 
   // ============ 文書操作 ============
 
   /**
-   * 全文書を取得
+   * 全コンテナ要素を取得
    */
-  async getAllDocuments(): Promise<ApiResponse<DocumentMetadata[]>> {
-    try {
-      const documents = await documentService.getAllDocuments();
-      return {
-        success: true,
-        data: documents,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get documents',
-        timestamp: new Date(),
-      };
-    }
+  async getAllElements(): Promise<ApiResponse<ContainerElement[]>> {
+    // 保存済みのコンテナ情報を取得
+    const allContainers = await containerService.getAllContainers();
+    if (!allContainers.ok) return toApiResponse(allContainers, 'CONTAINER_LOAD_FAILED');
+
+    // TODO: 将来的には「コンテナ取得」と「コンテナ読み込み」は分離するが、現状はフロントエンドに媚びた実装
+    // コンテナの要素をすべて読み込む
+    const allContainersWithElements = await Promise.all(
+      allContainers.value.map((c) => containerService.loadContainer(c.id)),
+    );
+    const errContainer = allContainersWithElements.find((res) => !res.ok);
+    if (errContainer !== void 0) return toApiResponse(errContainer, 'DOC_LIST_FAILED');
+
+    // Resultをunwrapしてファイル要素を抽出
+    const containers = allContainersWithElements.filter((res) => res.ok).map((res) => res.value);
+    const elements = containers
+      .flatMap((c) => Object.values(c.elements ?? {}))
+      .filter((e) => e !== void 0);
+
+    return toApiResponse(Success(elements));
   }
 
   /**
    * 文書を取得
    */
-  async getDocument(id: string): Promise<ApiResponse<DocumentMetadata | null>> {
-    try {
-      const doc = await documentService.getDocument(id);
-      return {
-        success: true,
-        data: doc,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get document',
-        timestamp: new Date(),
-      };
-    }
+  async getDocumentSource(file: ContainerElement): Promise<ApiResponse<DocumentSource>> {
+    if (file.type !== 'File')
+      return toApiResponse(
+        Failure(new Error('Container element is not a file')),
+        'INVALID_DOCUMENT',
+      );
+    const docSrc = await containerService.loadFileAsDocumentSource(file);
+    return toApiResponse(docSrc, 'INVALID_DOCUMENT');
   }
 
   /**
    * 文書を新規登録
    */
-  async createDocument(
-    title: string,
+  async saveFile(
+    cId: ContainerID,
     filePath: string,
-    fileName: string,
-    pageCount: number,
-    fileSize: number,
-    description?: string,
-    genre?: string,
-  ): Promise<ApiResponse<DocumentMetadata>> {
-    try {
-      const doc = await documentService.createDocument(
-        title,
-        filePath,
-        fileName,
-        pageCount,
-        fileSize,
-        description,
-        genre,
-      );
-      return {
-        success: true,
-        data: doc,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to create document',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * 文書を更新
-   */
-  async updateDocument(
-    id: string,
-    updates: Partial<DocumentMetadata>,
-  ): Promise<ApiResponse<DocumentMetadata | null>> {
-    try {
-      const doc = await documentService.updateDocument(id, updates);
-      return {
-        success: true,
-        data: doc,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to update document',
-        timestamp: new Date(),
-      };
-    }
+    srcData: DocumentSource,
+  ): Promise<ApiResponse<ContainerElementFile>> {
+    const file = await containerService.createFile(cId, filePath, srcData);
+    return toApiResponse(file, 'DOC_SAVE_FAILED');
   }
 
   /**
    * 文書を削除
    */
-  async deleteDocument(id: string): Promise<ApiResponse<boolean>> {
-    try {
-      const result = await documentService.deleteDocument(id);
-      return {
-        success: true,
-        data: result,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to delete document',
-        timestamp: new Date(),
-      };
-    }
+  async deleteFile(cId: ContainerID, file: ContainerElementFile): Promise<ApiResponse<void>> {
+    const deleteRes = await containerService.deleteFile(cId, file);
+    return toApiResponse(deleteRes, 'DOC_DELETE_FAILED');
   }
 
   // ============ アノテーション操作 ============
@@ -156,62 +134,20 @@ class BackendApi {
   /**
    * 文書別アノテーションを取得
    */
-  async getAnnotationsByDocument(documentId: string): Promise<ApiResponse<Annotation[]>> {
-    try {
-      const annotations = await annotationService.getAnnotationByDocument(documentId);
-      return {
-        success: true,
-        data: annotations,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get annotations',
-        timestamp: new Date(),
-      };
-    }
+  async getAnnotationsBySource(docSrc: DocumentSource): Promise<ApiResponse<AnnotationStyle[]>> {
+    const annots = await pdfRepo.extractAnnotationsFromPdf(docSrc);
+    return toApiResponse(annots, 'DOC_ANNOT_LOAD_FAILED');
   }
 
   /**
    * 文書別アノテーションを保存
    */
-  async saveAnnotationsByDocument(
-    documentId: string,
-    annotations: Annotation[],
-  ): Promise<ApiResponse<void>> {
-    try {
-      await annotationService.saveAnnotationsByDocument(documentId, annotations);
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save annotations',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  /**
-   * アノテーション同士をリンク
-   */
-  async linkAnnotations(sourceId: string, targetId: string): Promise<ApiResponse<void>> {
-    try {
-      await annotationService.linkAnnotations(sourceId, targetId);
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to link annotations',
-        timestamp: new Date(),
-      };
-    }
+  async packAnnotationsInSource(
+    docSrc: DocumentSource,
+    annotations: AnnotationStyle[],
+  ): Promise<ApiResponse<DocumentSource>> {
+    const packedSrc = await pdfRepo.embedAnnotationsIntoPdf(docSrc, annotations);
+    return toApiResponse(packedSrc, 'DOC_ANNOT_EMBED_FAILED');
   }
 
   // ============ 設定操作 ============
@@ -220,39 +156,19 @@ class BackendApi {
    * 設定を取得
    */
   async getSettings(): Promise<ApiResponse<AppSettings>> {
-    try {
-      const settings = await settingsService.getSettings();
-      return {
-        success: true,
-        data: settings,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get settings',
-        timestamp: new Date(),
-      };
-    }
+    const settings = await getSettings();
+    return toApiResponse(settings, 'FAILED_LOAD_SETTINGS');
   }
 
   /**
    * 設定を保存
    */
-  async saveSettings(settings: AppSettings): Promise<ApiResponse<void>> {
-    try {
-      await settingsService.saveSettings(settings);
-      return {
-        success: true,
-        timestamp: new Date(),
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to save settings',
-        timestamp: new Date(),
-      };
-    }
+  async saveSettings<K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K],
+  ): Promise<ApiResponse<void>> {
+    const saveRes = await saveSettings(key, value);
+    return toApiResponse(saveRes, 'FAILED_SAVE_SETTINGS');
   }
 }
 

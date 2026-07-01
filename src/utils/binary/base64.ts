@@ -1,0 +1,56 @@
+/** ヘルパー: base64 -> Uint8Array */
+export function base64ToUint8Array(base64: string): Uint8Array {
+  const cleaned = base64.replace(/^data:.*;base64,/, '');
+  const binaryString = atob(cleaned);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+  return bytes;
+}
+
+/** ヘルパー: Uint8Array -> base64 (純粋な base64 を返す) */
+export function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) binary += String.fromCharCode(bytes[i]!);
+  return btoa(binary);
+}
+
+/** ヘルパー：ArrayBuffer -> base64 */
+export function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const blob = new Blob([buffer]);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // data:application/octet-stream;base64,XXXXX... のプレフィックスを削除
+      if (typeof reader.result === 'string') {
+        const base64String = reader.result.split(',')[1];
+        if (!base64String) {
+          reject(new Error('Failed to extract base64 string'));
+          return;
+        }
+        resolve(base64String);
+      } else {
+        reject(new Error('This is not a valid buffer'));
+      }
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** ファイルサイズ(bytes単位)を取得する */
+export function getBase64FileSize(base64String: string): number {
+  // データURIスキーム（data:image/png;base64, など）が含まれている場合は除去する
+  const base64 = base64String.split(',')[1] || base64String;
+
+  // パディングの数をカウント（末尾の '=' をチェック）
+  let padding = 0;
+  if (base64.endsWith('==')) {
+    padding = 2;
+  } else if (base64.endsWith('=')) {
+    padding = 1;
+  }
+
+  // 計算式: (文字列の長さ * 0.75) - パディング数
+  return base64.length * 0.75 - padding;
+}

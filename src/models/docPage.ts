@@ -1,4 +1,3 @@
-import type { DocumentId } from './schemas';
 import z from 'zod';
 
 /**
@@ -11,15 +10,6 @@ export interface IDocTool {
   isActive: () => boolean;
   isDisable?: () => boolean;
   onClicked: () => void;
-}
-
-/**
- * ドキュメントタブ
- */
-export interface DocumentTab {
-  documentId: DocumentId;
-  title: string;
-  isPinned: boolean;
 }
 
 /**
@@ -66,6 +56,7 @@ export const AnnotationTextStyle = z.object({
   type: z.literal('text'),
   textColor: z.string(),
   fontWeight: z.number(),
+  strokeColor: z.string(),
   strokeWidth: z.number(),
   strokeType: z.enum(['solid', 'dashed', 'dotted', 'dash-dot', 'double']),
   strokeOpacity: z.number(),
@@ -73,14 +64,14 @@ export const AnnotationTextStyle = z.object({
   fillPattern: z.enum(['none', 'hatch', 'solid']),
   fillOpacity: z.number(),
 });
-export const AnnotationStyle = z.discriminatedUnion('type', [
+export const DrawingAnnotationStyle = z.discriminatedUnion('type', [
   AnnotationLineStyle,
   AnnotationBoxStyle,
   AnnotationCircleStyle,
   AnnotationTextStyle,
 ]);
-export type AnnotationStyle = z.infer<typeof AnnotationStyle>;
-export type AnnotationType = AnnotationStyle['type'];
+export type DrawingAnnotationStyle = z.infer<typeof DrawingAnnotationStyle>;
+export type DrawingAnnotationType = DrawingAnnotationStyle['type'];
 
 /**
  * アノテーションプリセット
@@ -88,7 +79,7 @@ export type AnnotationType = AnnotationStyle['type'];
 export const AnnotationTool = z.object({
   id: z.string(),
   name: z.string(),
-  style: AnnotationStyle,
+  style: DrawingAnnotationStyle,
 });
 export type AnnotationTool = z.infer<typeof AnnotationTool>;
 

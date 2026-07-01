@@ -81,12 +81,14 @@ import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useQuasar } from 'quasar';
 import { useBackendApi } from 'src/apis/backendApi';
-import type { AppSettings } from 'src/models/schemas';
+import type { AppSettings } from 'src/models/settings';
+import { toEntries } from 'src/utils/obj/obj';
 
 const { locale, t: $t } = useI18n();
 const $q = useQuasar();
 const api = useBackendApi();
 
+let beforeChangedSettings: { [key: string]: unknown } = {};
 const settings = ref<AppSettings>();
 
 const currentLocale = ref('en-US');
@@ -113,7 +115,7 @@ const languages = [
 
 onMounted(async () => {
   const response = await api.getSettings();
-  if (response.success && response.data) {
+  if (response.ok) {
     settings.value = response.data;
   }
   currentLocale.value = locale.value;
@@ -131,13 +133,33 @@ async function updateSettings() {
  */
 async function saveAllSettings() {
   if (settings.value === undefined) return;
-  const response = await api.saveSettings(settings.value);
-  if (response.success) {
-    $q.notify({
-      type: 'positive',
-      message: $t('message.success'),
-    });
+
+  // 変更があった設定のみをAPIに保存
+  const savePromises = toEntries(settings.value)
+    .filter(([k, afterValue]) => {
+      const beforeValue = beforeChangedSettings[k] ?? '';
+      // TODO: 比較方法は要検討（オブジェクトのハッシュ取得関数を作成？）
+      // 並び順などで問題ある場合は以下のようなライブラリの活用を検討
+      // https://www.npmjs.com/package/object-hash
+      return JSON.stringify(beforeValue) !== JSON.stringify(afterValue);
+    })
+    .map(([k, afterValue]) => api.saveSettings(k, afterValue));
+
+  // すべてのPromiseを待機
+  const res = await Promise.all(savePromises);
+  const errRes = res.find((r) => !r.ok);
+  if (res.length > 0 && errRes !== void 0) {
+    $q.notify({ type: 'negative', message: $t('message.error') });
+    return;
   }
+
+  // 更新後、beforeChangedSettingsを現在の設定で上書き
+  beforeChangedSettings = { ...settings.value };
+
+  $q.notify({
+    type: 'positive',
+    message: $t('message.success'),
+  });
 }
 
 /**
@@ -179,8 +201,9 @@ function clearAllData() {
 
 onMounted(async () => {
   const apiRes = await api.getSettings();
-  if (apiRes.success) {
+  if (apiRes.ok) {
     settings.value = apiRes.data;
+    beforeChangedSettings = { ...apiRes.data };
   }
 });
 </script>

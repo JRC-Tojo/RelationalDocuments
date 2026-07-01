@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 import { defineStore, acceptHMRUpdate } from 'pinia';
-import type { AnnotationStyle, AnnotationType, DocumentTab, IDocTool } from 'src/models/docPage';
-import type { DocumentId } from 'src/models/schemas';
+import type { ContainerElement, ContainerElementFile } from 'src/models/container';
+import type { DrawingAnnotationStyle, DrawingAnnotationType, IDocTool } from 'src/models/docPage';
 
-export type PointerType = AnnotationType | 'hand' | 'pointer';
+export type PointerType = DrawingAnnotationType | 'hand' | 'pointer';
 export type Layouts<T> = { ul: T; ur: T; ll: T; lr: T };
 export type LayoutSide = keyof Layouts<never>;
 export type TileMode = 'single' | 'dubble' | 'grid';
@@ -10,7 +11,7 @@ export type TileMode = 'single' | 'dubble' | 'grid';
 /**
  * デフォルトのアノテーションスタイル
  */
-const DEFAULT_ANNOTATION_STYLE: AnnotationStyle = {
+const DEFAULT_ANNOTATION_STYLE: DrawingAnnotationStyle = {
   type: 'line',
   strokeColor: '#000000',
   strokeWidth: 2,
@@ -23,12 +24,18 @@ export const useEditorStore = defineStore('editor', {
     mainTools: [] as IDocTool[],
     subTools: [] as IDocTool[],
     currentTools: 'hand' as PointerType,
-    currentAnnotationStyle: DEFAULT_ANNOTATION_STYLE as AnnotationStyle,
+    currentAnnotationStyle: DEFAULT_ANNOTATION_STYLE as DrawingAnnotationStyle,
     isStoreInitialized: false,
 
     // ドキュメントレイアウトの状態
-    tabs: { ul: [], ur: [], ll: [], lr: [] } as Layouts<DocumentTab[]>,
-    activeTabs: { ul: null, ur: null, ll: null, lr: null } as Layouts<DocumentId | null>,
+    tabs: { ul: [], ur: [], ll: [], lr: [] } as Layouts<ContainerElementFile[]>,
+    pinedTabPaths: {
+      ul: new Set<string>(),
+      ur: new Set<string>(),
+      ll: new Set<string>(),
+      lr: new Set<string>(),
+    } as Layouts<Set<string>>,
+    activeTabPaths: { ul: null, ur: null, ll: null, lr: null } as Layouts<string | null>,
     activeSide: 'ul' as LayoutSide,
 
     // アノテーションの表示状態
@@ -59,63 +66,63 @@ export const useEditorStore = defineStore('editor', {
     /**
      * アクティブなタブを取得
      */
-    getActiveTab(side: LayoutSide): DocumentTab | null {
-      if (!this.activeTabs[side]) return null;
-      return this.tabs[side].find((tab) => tab.documentId === this.activeTabs[side]) ?? null;
+    getActiveTab(side: LayoutSide): ContainerElementFile | null {
+      if (!this.activeTabPaths[side]) return null;
+      return this.tabs[side].find((tab) => tab.path === this.activeTabPaths[side]) ?? null;
     },
 
     /**
      * 選択された文書のタブを開く
      */
-    openTab(docId: DocumentId, docTitle: string): void {
-      if (!this.tabs[this.activeSide].find((tab) => tab.documentId === docId)) {
-        this.tabs[this.activeSide].push({
-          documentId: docId,
-          title: docTitle,
-          isPinned: false,
-        });
+    openTab(elem: ContainerElement): void {
+      if (elem.type !== 'File') return;
+
+      const isAlreadyOpened = this.tabs[this.activeSide].some((tab) => tab.path === elem.path);
+      if (!isAlreadyOpened) {
+        this.tabs[this.activeSide].push(elem);
       }
-      this.selectTab(docId, this.activeSide, true);
+      this.selectTab(elem, this.activeSide, true);
     },
 
     /**
      * タブを選択する
      * @param isFocus: Trueの時にactiveSideを更新する
      */
-    selectTab(docId: DocumentId, layoutSide: LayoutSide, isFocus: boolean): void {
-      this.activeTabs[layoutSide] = docId;
+    selectTab(elem: ContainerElement, layoutSide: LayoutSide, isFocus: boolean): void {
+      this.activeTabPaths[layoutSide] = elem.path;
       if (isFocus) this.activeSide = layoutSide;
     },
 
     /**
      * タブを閉じる
      */
-    closeTab(docId: DocumentId, layoutSide: LayoutSide): void {
-      const index = this.tabs[layoutSide].findIndex((tab) => tab.documentId === docId);
+    closeTab(elem: ContainerElement, layoutSide: LayoutSide): void {
+      const targetIdx = this.tabs[layoutSide].findIndex((tab) => tab.path === elem.path);
+      if (targetIdx === -1) return;
 
-      if (index !== -1) {
-        this.tabs[layoutSide].splice(index, 1);
+      // 開いているタブ一覧から除外
+      this.tabs[layoutSide].splice(targetIdx, 1);
+      this.pinedTabPaths[layoutSide].delete(elem.path);
 
-        // アクティブなタブが削除された場合は直前のタブをアクティブに
-        if (this.activeTabs[layoutSide] === docId) {
-          const nextTabIdx = Math.max(0, index - 1);
-          this.activeTabs[layoutSide] = this.tabs[layoutSide][nextTabIdx]
-            ? this.tabs[layoutSide][nextTabIdx].documentId
-            : null;
-        }
+      // アクティブタブが削除された場合は直前のタブをアクティブに
+      if (this.activeTabPaths[layoutSide] === elem.path) {
+        const nextIdx = Math.max(0, targetIdx - 1);
+        this.activeTabPaths[layoutSide] = this.tabs[layoutSide][nextIdx]?.path ?? null;
       }
     },
 
     /**
      * タブをピンする
      */
-    pinTab(docId: DocumentId): void {
-      Object.values(this.tabs).forEach((tabs) => {
-        const foundTab = tabs.find((tab) => tab.documentId === docId);
-        if (foundTab) {
-          foundTab.isPinned = !foundTab.isPinned;
-        }
-      });
+    pinTab(elem: ContainerElement, layoutSide: LayoutSide): void {
+      this.pinedTabPaths[layoutSide].add(elem.path);
+    },
+
+    /**
+     * タブのピンを解除する
+     */
+    unPinTab(elem: ContainerElement, layoutSide: LayoutSide): void {
+      this.pinedTabPaths[layoutSide].delete(elem.path);
     },
   },
 });

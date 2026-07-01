@@ -9,7 +9,6 @@
       <!-- 単一ページまたは見開き表示 -->
       <div v-if="viewMode === 'single'" class="pages-container">
         <PdfPage
-          :document-id="documentId"
           v-model:page="currentPage"
           v-model:annotations="annotations"
           v-model:scale="scale"
@@ -29,7 +28,6 @@
             "
           >
             <PdfPage
-              :document-id="documentId"
               :page="page"
               v-model:annotations="annotations"
               v-model:scale="scale"
@@ -44,13 +42,12 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue';
-import type { Annotation, DocumentId } from 'src/models/schemas';
 import PdfPage from 'src/components/Viewer/PdfPage.vue';
 import type { ViewMode } from 'src/models/docPage';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 type RenderFunc = (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 interface Prop {
-  documentId: DocumentId;
   pageCount: number;
   viewMode: ViewMode;
   onRender: RenderFunc;
@@ -60,7 +57,7 @@ interface Prop {
 }
 const prop = defineProps<Prop>();
 
-const annotations = defineModel<Annotation[]>('annotations', { required: true });
+const annotations = defineModel<AnnotationStyle[]>('annotations', { required: true });
 const currentPage = defineModel<number>('currentPage', { required: true });
 const zoomLevel = defineModel<number>('zoomLevel', { required: true });
 
@@ -102,6 +99,8 @@ watch(
 </script>
 
 <style scoped lang="scss">
+@use 'sass:color';
+
 .pdf-editor-page {
   height: 100%;
   width: 100%;
@@ -109,7 +108,7 @@ watch(
 }
 
 .body--dark .pdf-editor-page {
-  background: darken($dark, 5%);
+  background: color.adjust($dark, $lightness: -5%);
 }
 
 .pdf-viewer-container {
@@ -152,7 +151,7 @@ watch(
 }
 
 .body--dark .pdf-viewer-container {
-  background: darken($dark, 5%);
+  background: color.adjust($dark, $lightness: -5%);
 
   &::-webkit-scrollbar-track {
     background: $grey-8;

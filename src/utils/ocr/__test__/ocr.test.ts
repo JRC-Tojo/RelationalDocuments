@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Image2Text } from '../ocrRepository';
+import { Image2Text } from '../main';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { JSDOM } from 'jsdom';

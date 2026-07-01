@@ -1,10 +1,10 @@
 <template>
   <v-circle
+    ref="circleRef"
     :config="circleConfig"
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
-    @mousedown="onMouseDown"
-    @dragmove="onDragMove"
+    @dragend="onDragEnd"
     @transformend="onTransformEnd"
   />
 </template>
@@ -12,34 +12,32 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type Konva from 'konva';
-import type { Annotation } from 'src/models/schemas';
 import dayjs from 'dayjs';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 type KonvaEvent = Konva.KonvaEventObject<Event>;
 
 interface Props {
-  annotation: Annotation;
-  isSelected: boolean;
+  annotation: AnnotationStyle;
   isEditing: boolean;
+  isSelected?: boolean;
 }
 
 const props = defineProps<Props>();
 
 const emit = defineEmits<{
-  select: [id: string];
-  update: [annotation: Annotation];
+  update: [annotation: AnnotationStyle];
   delete: [id: string];
 }>();
 
+const circleRef = ref<{ getNode: () => Konva.Circle | null } | null>(null);
 const isHovered = ref(false);
 
-/**
- * 円の設定を計算
- */
 const circleConfig = computed(() => {
   if (props.annotation.type !== 'circle') return;
   return {
-    id: props.annotation.id, // ← IDを追加
+    id: props.annotation.id,
+    name: 'annotation-shape',
     x: props.annotation.x,
     y: props.annotation.y,
     radius: props.annotation.radius || 20,
@@ -51,9 +49,12 @@ const circleConfig = computed(() => {
   };
 });
 
-/**
- * マウスホバー時の処理
- */
+function getNode() {
+  return circleRef.value?.getNode() ?? null;
+}
+
+defineExpose({ getNode });
+
 function onMouseEnter() {
   isHovered.value = true;
 }
@@ -62,17 +63,7 @@ function onMouseLeave() {
   isHovered.value = false;
 }
 
-/**
- * マウスダウン時の選択
- */
-function onMouseDown() {
-  emit('select', props.annotation.id);
-}
-
-/**
- * ドラッグ移動完了
- */
-function onDragMove(e: KonvaEvent) {
+function onDragEnd(e: KonvaEvent) {
   const target = e.target as Konva.Circle;
   const updatedAnnotation = {
     ...props.annotation,
@@ -83,9 +74,6 @@ function onDragMove(e: KonvaEvent) {
   emit('update', updatedAnnotation);
 }
 
-/**
- * トランスフォーム（リサイズ）完了
- */
 function onTransformEnd(e: KonvaEvent) {
   const node = e.target as Konva.Circle;
   const updatedAnnotation = {

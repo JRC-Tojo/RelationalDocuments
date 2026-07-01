@@ -16,7 +16,7 @@
       <div ref="viewer" class="document-viewer-wrapper">
         <DocumentViewer
           v-if="!loading && onRender"
-          :document-id="documentId"
+          :file="file"
           :page-count="pageCount"
           :view-mode="viewMode"
           @render="onRender"
@@ -68,20 +68,22 @@ import DocumentFooter from 'src/components/DocLayout/DocumentFooter.vue';
 import { nextTick, onMounted, ref, useTemplateRef } from 'vue';
 import { useBackendApi } from 'src/apis/backendApi';
 import { generateThumbnail, loadPdf, renderPage } from '../Viewer/pdfManager';
-import type { Annotation, DocumentId } from 'src/models/schemas';
 import type { ViewMode } from 'src/models/docPage';
 import { useEditorStore } from 'src/stores/editorStore';
 import { callEditorTools } from 'src/stores/editorTools';
 import { useI18n } from 'vue-i18n';
+import type { ContainerElementFile } from 'src/models/container';
+import type { AnnotationStyle } from 'src/models/document/pdf';
 
 interface Prop {
-  documentId: DocumentId;
+  file: ContainerElementFile;
 }
 const prop = defineProps<Prop>();
 const viewer = useTemplateRef('viewer');
 
 const editorStore = useEditorStore();
 
+// TODO: PDFの読み込みに失敗した場合、Loading画面を抜けてエラーが起きた旨を通知する仕様に修正
 const loading = ref<boolean>(true);
 
 // for drawers
@@ -90,8 +92,8 @@ const thumbnails = ref<string[]>([]);
 // for document
 type RenderFunc = (pageNumber: number, canvas: HTMLCanvasElement, scale: number) => Promise<void>;
 const onRender = ref<RenderFunc>();
-const annotations = ref<Annotation[]>([]);
-const selectedAnnotations = ref<Annotation[]>([]);
+const annotations = ref<AnnotationStyle[]>([]);
+const selectedAnnotations = ref<AnnotationStyle[]>([]);
 const currentPage = ref(1);
 const pageCount = ref(0);
 
@@ -101,18 +103,18 @@ const viewMode = ref<ViewMode>('single');
 
 // ================================
 
-async function loadDocument(docId: string) {
+async function loadDocument() {
   loading.value = true;
 
   const api = useBackendApi();
-  const doc = await api.getDocument(docId);
-  if (!doc.success || !doc.data) {
+  const docSrc = await api.getDocumentSource(prop.file);
+  if (!docSrc.ok) {
     loading.value = false;
     return;
   }
 
   // PDFファイルを読み込む
-  const loadDocument = await loadPdf(doc.data.filePath);
+  const loadDocument = await loadPdf(docSrc.data);
   pageCount.value = loadDocument.numPages;
 
   // レンダリング関数を設定
@@ -132,8 +134,8 @@ async function loadDocument(docId: string) {
   );
 
   // PDFマネージャーからアノテーションを読み込む
-  const annotationRes = await api.getAnnotationsByDocument(prop.documentId);
-  if (annotationRes.success) annotations.value = annotationRes.data || [];
+  const annotationRes = await api.getAnnotationsBySource(docSrc.data);
+  if (annotationRes.ok) annotations.value = annotationRes.data || [];
 
   loading.value = false;
 }
@@ -222,11 +224,13 @@ async function scrollToCurrentPage(viewerContainerHeight: number) {
 onMounted(async () => {
   const { t } = useI18n();
   editorStore.initStore(await callEditorTools(t));
-  await loadDocument(prop.documentId);
+  await loadDocument();
 });
 </script>
 
 <style scoped lang="scss">
+@use 'sass:color';
+
 .document-layout {
   height: 100%;
   width: 100%;
@@ -247,7 +251,7 @@ onMounted(async () => {
 }
 
 .body--dark .document-main-content {
-  background: darken($dark, 5%);
+  background: color.adjust($dark, $lightness: -5%);
 }
 
 .document-viewer-wrapper {
@@ -258,7 +262,7 @@ onMounted(async () => {
 }
 
 .body--dark .document-viewer-wrapper {
-  background: darken($dark, 5%);
+  background: color.adjust($dark, $lightness: -5%);
 }
 
 .loading-state {
@@ -271,6 +275,6 @@ onMounted(async () => {
 }
 
 .body--dark .loading-state {
-  background: darken($dark, 5%);
+  background: color.adjust($dark, $lightness: -5%);
 }
 </style>
