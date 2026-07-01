@@ -2,6 +2,7 @@ import z from 'zod';
 import { RelationalID } from './relational';
 import { ImageURI } from '../common';
 
+// TODO: 将来的にはAnnotationIDは一般要素として分離し、PDFAnnotationとして各ファイル別のアノテーション定義を出す
 export const AnnotationID = z.uuidv4().brand('AnnotationID');
 export type AnnotationID = z.infer<typeof AnnotationID>;
 

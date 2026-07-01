@@ -22,6 +22,7 @@ export type ApiErrorKey =
   | 'CONTAINERS_GET_FAILED'
   | 'CONTAINER_LOAD_FAILED'
   | 'CONTAINER_CREATE_FAILED'
+  | 'PATH_RENAME_FAILED'
   // =========== ドキュメント関係 ===========
   | 'DOC_LIST_FAILED'
   | 'INVALID_DOCUMENT'
@@ -31,6 +32,8 @@ export type ApiErrorKey =
   // | 'DOC_PARSE_ERROR'
   | 'DOC_ANNOT_LOAD_FAILED'
   | 'DOC_ANNOT_EMBED_FAILED'
+  | 'RELATIONAL_LOAD_FAILED'
+  | 'RELATIONAL_CHECK_FAILED'
   // =========== ストレージ関係 ===========
   // | 'STORAGE_READ_ERROR'
   // | 'STORAGE_WRITE_ERROR'

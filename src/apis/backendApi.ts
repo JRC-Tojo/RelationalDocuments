@@ -2,6 +2,7 @@ import { getSettings, initializeSettings, saveSettings } from 'src/settings/main
 import { toApiResponse, type ApiResponse } from 'src/models/error/api';
 import { Failure, Success } from 'src/models/error/result';
 import * as containerService from 'src/services/container/main';
+import * as relationalService from 'src/services/relational/main';
 import * as pdfRepo from 'src/repositories/document/pdf';
 import type {
   Container,
@@ -13,7 +14,9 @@ import type {
 } from 'src/models/container';
 import type { AppSettings } from 'src/models/settings';
 import type { DocumentSource } from 'src/models/document/common';
-import type { AnnotationStyle } from 'src/models/document/pdf';
+import type { AnnotationID, AnnotationStyle } from 'src/models/document/pdf';
+import type { Relational } from 'src/models/relational/common';
+import { type RelationalResponce, type RelationalRule } from 'src/models/relational/common';
 
 /**
  * バックエンド統合 API層
@@ -129,6 +132,22 @@ class BackendApi {
     return toApiResponse(deleteRes, 'DOC_DELETE_FAILED');
   }
 
+  /**
+   * パスのリネーム
+   */
+  async renamePath(
+    elem: ContainerElement,
+    newPath: string,
+  ): Promise<ApiResponse<ContainerElement>> {
+    // 新規パスに更新したElementを返す
+    // TODO: 実データのファイルパスの更新と関係性データに記載のパス情報を両方更新する
+    const renameRes = await containerService.renamePath(elem, newPath);
+    if (!renameRes.ok) return toApiResponse(renameRes, 'PATH_RENAME_FAILED');
+    const relRes = await relationalService.renamePath(elem, newPath);
+    if (!relRes.ok) return toApiResponse(relRes, 'PATH_RENAME_FAILED');
+    return toApiResponse(renameRes, 'PATH_RENAME_FAILED');
+  }
+
   // ============ アノテーション操作 ============
 
   /**
@@ -149,6 +168,41 @@ class BackendApi {
     const packedSrc = await pdfRepo.embedAnnotationsIntoPdf(docSrc, annotations);
     return toApiResponse(packedSrc, 'DOC_ANNOT_EMBED_FAILED');
   }
+
+  // ============ 関係性操作 ============
+
+  /**
+   * 指定したアノテーションに紐づく関係性を取得する
+   */
+  async loadRelational(annotID: AnnotationID): Promise<ApiResponse<Relational[]>> {
+    const res = await relationalService.loadRelationals(annotID)
+    return toApiResponse(res, 'RELATIONAL_LOAD_FAILED')
+  }
+
+  /**
+   * 指定した関係性を検証する
+   */
+  async checkRelationals(relational: Relational): Promise<ApiResponse<RelationalResponce>> {
+    const res = await relationalService.checkRelational(relational);
+    return toApiResponse(res, 'RELATIONAL_CHECK_FAILED');
+  }
+
+  /**
+   * 関係性を登録する
+   *
+   * - 新規登録の場合
+   * - 既存の登録内容を更新する場合
+   */
+  async registRelationals(
+    sourceAnnotID: AnnotationID,
+    targetAnnotIDs: AnnotationID[],
+    rules: RelationalRule[],
+  ): Promise<ApiResponse<RelationalResponce>> {}
+
+  /**
+   * 関係性を削除する
+   */
+  async removeRelationals(sourceAnnotID: AnnotationID): Promise<ApiResponse<void>> {}
 
   // ============ 設定操作 ============
 
