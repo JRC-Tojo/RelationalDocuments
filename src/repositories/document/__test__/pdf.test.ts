@@ -967,12 +967,14 @@ function setupCanvasDom(): void {
   global.window = dom.window as unknown as Window & typeof globalThis;
   global.document = dom.window.document;
   global.HTMLCanvasElement = dom.window.HTMLCanvasElement;
-  global.document.createElement = (tagName: string) => {
+  // Electronの型定義がグローバルのDocument.createElementへ'webview'タグ用オーバーロードを
+  // 追加するため、モック関数はcreateElement全体の型として明示的にキャストする
+  global.document.createElement = ((tagName: string) => {
     if (tagName === 'canvas') {
       return createCanvas(100, 100) as unknown as HTMLCanvasElement;
     }
     return dom.window.document.createElement(tagName);
-  };
+  }) as typeof document.createElement;
 }
 
 describe('renderPageToCanvasFromDoc / renderPageToCanvas / extractImageFromRegion / extractAnnotationContextPreview（Canvas依存）', () => {
@@ -994,12 +996,12 @@ describe('renderPageToCanvasFromDoc / renderPageToCanvas / extractImageFromRegio
 
   it('renderPageToCanvasFromDoc: Canvas 2Dコンテキストが取得できない場合はFailureを返す', async () => {
     const originalCreateElement = document.createElement.bind(document);
-    document.createElement = (tagName: string) => {
+    document.createElement = ((tagName: string) => {
       if (tagName === 'canvas') {
         return { width: 0, height: 0, getContext: () => null } as unknown as HTMLCanvasElement;
       }
       return originalCreateElement(tagName);
-    };
+    }) as typeof document.createElement;
 
     try {
       const fakeDoc = buildFakeDoc([buildFakePage({ viewport: { width: 10, height: 10 } })]);

@@ -7,6 +7,9 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig((ctx) => {
   const ghPagesBase = '/kumihimo/';
+  // Electronはfile://でindex.htmlを読み込むため、サーバのフォールバックを前提とする
+  // historyモードや絶対パスのpublicPathが使えない。ビルド対象で分岐する
+  const isElectron = ctx.modeName === 'electron';
   return {
     // https://v2.quasar.dev/quasar-cli-vite/prefetch-feature
     // preFetch: true,
@@ -46,14 +49,14 @@ export default defineConfig((ctx) => {
         // extendTsConfig (tsConfig) {}
       },
 
-      vueRouterMode: 'history', // available values: 'hash', 'history'
-      vueRouterBase: ghPagesBase,
+      vueRouterMode: isElectron ? 'hash' : 'history', // available values: 'hash', 'history'
+      vueRouterBase: isElectron ? '' : ghPagesBase,
       // vueDevtools,
       // vueOptionsAPI: false,
 
       // rebuildCache: true, // rebuilds Vite/linter/etc cache on startup
 
-      publicPath: process.env.NODE_ENV === 'production' ? ghPagesBase : '/',
+      publicPath: isElectron ? '' : process.env.NODE_ENV === 'production' ? ghPagesBase : '/',
       // analyze: true,
       // env: {},
       // rawDefine: {}
@@ -170,8 +173,8 @@ export default defineConfig((ctx) => {
       pwaRegisterServiceWorker: 'src-pwa/registerServiceWorker',
       pwaServiceWorker: 'src-pwa/customServiceWorker',
       // pwaManifestFile: 'src-pwa/manifest.json',
-      // electronMain: 'src-electron/electron-main',
-      // electronPreload: 'src-electron/electron-preload'
+      electronMain: 'src-electron/electronMain',
+      // プリロードスクリプトの指定はsourceFilesではなくelectron.preloadScriptsで行う
       // bexManifestFile: 'src-bex/manifest.json
     },
 
@@ -230,28 +233,26 @@ export default defineConfig((ctx) => {
       // extendPackageJson (json) {},
 
       // Electron preload scripts (if any) from /src-electron, WITHOUT file extension
-      preloadScripts: ['electron-preload'],
+      preloadScripts: ['electronPreload'],
 
       // specify the debugging port to use for the Electron app when running in development mode
       inspectPort: 5858,
 
-      bundler: 'packager', // 'packager' or 'builder'
-
-      packager: {
-        // https://github.com/electron-userland/electron-packager/blob/master/docs/api.md#options
-        // OS X / Mac App Store
-        // appBundleId: '',
-        // appCategoryType: '',
-        // osxSign: '',
-        // protocol: 'myapp://path',
-        // Windows only
-        // win32metadata: { ... }
-      },
+      // 将来のファイル関連付け(fileAssociations)・カスタムURIプロトコル登録(protocols)には
+      // electron-builderのインストーラー設定が必要なため、electron-packagerではなくこちらを採用する
+      bundler: 'builder', // 'packager' or 'builder'
 
       builder: {
         // https://www.electron.build/configuration
-
         appId: 'kumihimo',
+        productName: 'Kumihimo',
+        win: {
+          target: ['nsis'],
+        },
+        nsis: {
+          oneClick: false,
+          allowToChangeInstallationDirectory: true,
+        },
       },
     },
 

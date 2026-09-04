@@ -14,6 +14,8 @@
     "test:e2e": "playwright test",
     "dev": "quasar dev -m pwa",
     "build": "quasar build -m pwa",
+    "dev:electron": "quasar dev -m electron",
+    "build:electron": "quasar build -m electron",
     "postinstall": "quasar prepare",
     "generate:plugin-sdk": "bun run scripts/generatePluginSdk.ts"
   },
@@ -53,6 +55,8 @@
     "@vue/eslint-config-typescript": "^14.7.0",
     "autoprefixer": "^10.4.27",
     "canvas": "^3.2.3",
+    "electron": "^44.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9.39.4",
     "eslint-plugin-vue": "^10.8.0",
     "globals": "^17.4.0",
