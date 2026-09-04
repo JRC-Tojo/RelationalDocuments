@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import { registerAnnotation, seedCacheContainerWithFixturePdf } from '../support/seed';
 import { docPointToPagePosition, stageCanvas, waitForCanvasReady } from '../support/canvasCoords';
 

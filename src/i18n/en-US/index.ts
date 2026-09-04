@@ -114,6 +114,15 @@ export default {
       display: 'Display',
       data: 'Data',
     },
+    workspace: {
+      title: 'Workspace',
+      importExport: 'Export / Import recent containers',
+      importExportDesc:
+        'The browser version and the desktop app version use separate storage, so settings cannot be shared. Export the "recently used containers" list to a JSON file and import it in the other environment to carry it over (annotations and relational data are saved alongside the documents themselves, so reopening the same folder brings them back automatically — only the folder access permission needs to be granted again per environment).',
+      export: 'Export',
+      import: 'Import',
+      importSuccess: 'Imported the recent containers list.',
+    },
     annotationTools: {
       title: 'Annotation Tools',
       recentColorsLimit: 'Recent colors to keep',
@@ -482,12 +491,15 @@ export default {
     openContainerSettings: 'Open Container Settings',
     permissionNeeded: 'Access permission is required for this folder',
     reconnect: 'Reconnect',
+    recentContainerNeedsRelink: 'No connection info for this folder. Please select it again.',
     changesDetected: 'Changes detected. Click to refresh',
     changesConflict:
       'File(s) changed externally ({names}) have unsaved changes. Save your work, then click refresh',
     unsavedChanges: 'You have unsaved changes',
     emptyContainer: 'No files',
     unsupportedFile: 'This file cannot be displayed',
+    openWithDefaultApp: 'Open with default app',
+    openWithDefaultAppFailed: 'Failed to open with the default app',
     localFolder: 'Local Folder',
     localFolderDesc: 'Select a real folder on your PC to add it as a container.',
     selectFolder: 'Select Folder',

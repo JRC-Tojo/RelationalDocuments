@@ -113,6 +113,15 @@ export default {
       display: '表示',
       data: 'データ',
     },
+    workspace: {
+      title: 'ワークスペース',
+      importExport: '最近使用したコンテナのエクスポート・インポート',
+      importExportDesc:
+        'ブラウザ版とデスクトップアプリ版は保存領域が異なるため設定を共有できません。「最近使用したコンテナ」一覧をJSONファイルとして書き出し、もう一方の環境で読み込むことで引き継げます（アノテーション・関係性の実データは文書と同じ場所に保存されているため、同じフォルダを開き直せば自動的に引き継がれます。フォルダへのアクセス許可のみ、環境ごとに選び直す必要があります）。',
+      export: 'エクスポート',
+      import: 'インポート',
+      importSuccess: '「最近使用したコンテナ」一覧をインポートしました。',
+    },
     annotationTools: {
       title: 'アノテーションツール',
       recentColorsLimit: '直近使用色の保持数',
@@ -481,12 +490,16 @@ export default {
     openContainerSettings: 'コンテナ設定を開く',
     permissionNeeded: 'このフォルダへのアクセス許可が必要です',
     reconnect: '再接続',
+    recentContainerNeedsRelink:
+      'このフォルダへの接続情報がありません。開き直すフォルダを選択してください。',
     changesDetected: '変更が検出されました。クリックして更新',
     changesConflict:
       '外部で更新されたファイル（{names}）に未保存の変更があります。保存してから更新ボタンを押してください',
     unsavedChanges: '未保存の変更があります',
     emptyContainer: 'ファイルがありません',
     unsupportedFile: 'このファイルは表示できません',
+    openWithDefaultApp: '標準アプリで起動する',
+    openWithDefaultAppFailed: '標準アプリでの起動に失敗しました',
     localFolder: 'ローカルフォルダ',
     localFolderDesc: 'PC上の実フォルダを選択してコンテナとして追加します。',
     selectFolder: 'フォルダを選択',

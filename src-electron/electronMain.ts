@@ -6,7 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 
-const { app, BrowserWindow } = electron;
+const { app, BrowserWindow, ipcMain, shell } = electron;
 
 // Linuxではprocess.platformが取得できない場合があるためフォールバックする
 const platform = process.platform || os.platform();
@@ -59,6 +59,12 @@ async function createWindow() {
     mainWindow = undefined;
   });
 }
+
+// 「標準アプリで起動する」機能（プリロード側のkumihimoElectron.openPath）の実処理。
+// shell.openPathは失敗時に例外を投げず、エラーメッセージ文字列をresolve値として返す
+ipcMain.handle('shell:open-path', async (_event, targetPath: string) => {
+  return await shell.openPath(targetPath);
+});
 
 void app.whenReady().then(createWindow);
 

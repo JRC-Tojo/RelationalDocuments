@@ -240,6 +240,45 @@
           </SettingsItemRow>
         </section>
 
+        <!-- ワークスペース（最近使用したコンテナ一覧の引き継ぎ） -->
+        <section
+          v-if="visibleSections.some((s) => s.id === 'workspace')"
+          id="workspace"
+          class="settings-section"
+        >
+          <h6 class="settings-section-title">{{ $t('settings.workspace.title') }}</h6>
+
+          <SettingsItemRow
+            v-show="isVisible('workspaceImportExport')"
+            :title="$t('settings.workspace.importExport')"
+            :description="$t('settings.workspace.importExportDesc')"
+          >
+            <div class="row q-gutter-sm">
+              <q-btn
+                dense
+                outline
+                icon="file_download"
+                :label="$t('settings.workspace.export')"
+                @click="onExportWorkspace"
+              />
+              <q-btn
+                dense
+                outline
+                icon="file_upload"
+                :label="$t('settings.workspace.import')"
+                @click="onImportWorkspaceClick"
+              />
+              <input
+                ref="workspaceImportInput"
+                type="file"
+                accept="application/json"
+                class="hidden-file-input"
+                @change="onImportWorkspaceSelected"
+              />
+            </div>
+          </SettingsItemRow>
+        </section>
+
         <!-- 関係性検証スタイル -->
         <section
           v-if="visibleSections.some((s) => s.id === 'relational')"
@@ -304,6 +343,10 @@ import {
   regenerateImportedPresetIds,
   applyImportedPresets,
 } from 'src/components/DocLayout/composables/useAnnotationPresetsImport';
+import {
+  parseImportedWorkspace,
+  applyImportedWorkspace,
+} from 'src/components/DocLayout/composables/useWorkspaceImportExport';
 
 const { t: $t } = useI18n();
 const $q = useQuasar();
@@ -312,6 +355,7 @@ const settingsStore = useSettingsStore();
 
 const settings = ref<AppSettings>();
 const importFileInput = ref<HTMLInputElement>();
+const workspaceImportInput = ref<HTMLInputElement>();
 
 const viewModes = computed(() => [
   { label: $t('viewMode.rich'), value: 'rich' },
@@ -453,6 +497,12 @@ const itemMetas = computed<SettingsItemMeta[]>(() => [
     description: $t('settings.relationalVerification.ngDesc'),
   },
   {
+    id: 'workspaceImportExport',
+    sectionId: 'workspace',
+    title: $t('settings.workspace.importExport'),
+    description: $t('settings.workspace.importExportDesc'),
+  },
+  {
     id: 'sampleData',
     sectionId: 'data',
     title: $t('settings.sampleData.create'),
@@ -471,6 +521,7 @@ const sectionDefs = computed(() => [
   { id: 'github', title: $t('settings.sections.github') },
   { id: 'display', title: $t('settings.sections.display') },
   { id: 'annotationTools', title: $t('settings.annotationTools.title') },
+  { id: 'workspace', title: $t('settings.workspace.title') },
   { id: 'relational', title: $t('settings.relationalVerification.title') },
   { id: 'data', title: $t('settings.sections.data') },
 ]);
@@ -588,6 +639,63 @@ async function onImportPresetsSelected(e: Event) {
   const latest = await api.getSettings();
   if (latest.ok) settings.value = latest.data;
   $q.notify({ type: 'positive', message: $t('settings.annotationTools.importSuccess') });
+}
+
+/**
+ * 「最近使用したコンテナ」一覧をJSONファイルとしてダウンロードする
+ *
+ * ブラウザ版とデスクトップアプリ版はIndexedDBのオリジンが異なり設定を共有できないため、
+ * この一覧をエクスポートし、もう一方の環境でインポートすることで引き継げるようにする
+ * （フォルダへの実アクセス権自体は引き継げないため、インポート後は再接続が必要）
+ */
+function onExportWorkspace() {
+  const recentContainers = settings.value?.recentContainers ?? [];
+  const workspaceExport = { exportedAt: new Date(), recentContainers };
+  const json = JSON.stringify(workspaceExport, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kumihimo-workspace-${dayjs().format('YYYYMMDD-HHmmss')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function onImportWorkspaceClick() {
+  workspaceImportInput.value?.click();
+}
+
+/**
+ * インポートしたJSONファイルを検証したうえで、「最近使用したコンテナ」一覧へ追加する。
+ * 実際のパース・保存処理はuseWorkspaceImportExportコンポーザブルに委ね、ここではUIイベントの
+ * 処理・通知表示のみを行う
+ */
+async function onImportWorkspaceSelected(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  // 同じファイルを続けて選択してもchangeイベントが発火するようリセットしておく
+  input.value = '';
+  if (!file) return;
+
+  const parsed = parseImportedWorkspace(await file.text());
+  if (!parsed.success) {
+    const messageKey =
+      parsed.reason === 'parse'
+        ? 'settings.annotationTools.importParseError'
+        : 'settings.annotationTools.importValidationError';
+    $q.notify({ type: 'negative', message: $t(messageKey) });
+    return;
+  }
+
+  const ok = await applyImportedWorkspace(parsed.recentContainers);
+  if (!ok) {
+    $q.notify({ type: 'negative', message: $t('settings.annotationTools.importSaveError') });
+    return;
+  }
+
+  const latest = await api.getSettings();
+  if (latest.ok) settings.value = latest.data;
+  $q.notify({ type: 'positive', message: $t('settings.workspace.importSuccess') });
 }
 </script>
 

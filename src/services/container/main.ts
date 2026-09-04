@@ -16,6 +16,7 @@ import { Failure, Success, type Result } from 'src/models/error/result';
 import * as cache from 'src/repositories/container/cache';
 import * as box from 'src/repositories/container/box';
 import * as local from 'src/repositories/container/local';
+import * as platformElectron from 'src/repositories/platform/electron';
 import * as settings from 'src/settings/main';
 import { fromEntries } from 'src/utils/obj/obj';
 import { DocumentSource } from 'src/models/document/common';
@@ -313,6 +314,44 @@ async function reopenContainerImpl(entry: ContainerSkel): Promise<Result<Contain
 }
 
 /**
+ * 「最近使用したコンテナ」一覧にのみ存在する（fsHandleDBに実体を持たない）ローカルコンテナの
+ * 記録に対し、新たに選択したフォルダを同じコンテナIDのまま結び付ける
+ *
+ * 他環境（例: ブラウザ版）からインポートした「最近使用したコンテナ」一覧は、フォルダへの
+ * アクセス権（`FileSystemDirectoryHandle`）を持たないため、通常の`reopenContainer`では
+ * 開けない。IDを維持したまま結び付けることで、`.kumihimo/relational.json`が他コンテナから
+ * 保持している参照（containerID）を引き続き解決できるようにする
+ * （`pickLocalDirectory()`でフォルダを選択した直後に呼ぶこと）
+ */
+export function relinkLocalContainer(entry: ContainerSkel): Promise<Result<Container>> {
+  return withSerializedContainerCache(() => relinkLocalContainerImpl(entry));
+}
+
+/** `relinkLocalContainer`の実処理。`withSerializedContainerCache`で直列化された状態で呼ばれる */
+async function relinkLocalContainerImpl(entry: ContainerSkel): Promise<Result<Container>> {
+  if (entry.type !== 'local') {
+    return Failure(new Error('この機能はローカルコンテナでのみ利用できます'));
+  }
+
+  const savedRes = await local.saveContainer(entry);
+  if (!savedRes.ok) return savedRes;
+
+  cachedContainers[entry.id] = entry;
+
+  const settingsRes = await settings.addLoadedContainer(entry);
+  if (!settingsRes.ok) {
+    // キャッシュへの登録をロールバック
+    delete cachedContainers[entry.id];
+    return settingsRes;
+  }
+
+  await settings.addRecentContainer(entry);
+
+  // 直列化キュー内から呼ぶため、ラップ済みの`loadContainer`ではなく`Impl`を直接呼ぶ
+  return loadContainerImpl(entry.id, true);
+}
+
+/**
  * コンテナ要素を追加する
  */
 async function addContainerElement(
@@ -425,6 +464,28 @@ async function deleteFileImpl(cId: ContainerID, file: ContainerElementFile): Pro
 
   // コンテナキャッシュの更新 & 実態データの更新
   return deleteContainerElement(parsedContainer.data, file);
+}
+
+/**
+ * 指定したファイルをOSの標準アプリで開く（Electronデスクトップアプリ版限定機能）
+ *
+ * box/cacheコンテナは実ファイルパスを持たない（cloudストレージ・インメモリキャッシュ）ため
+ * 非対応とし、localコンテナのみを対象とする
+ */
+export async function openFileWithDefaultApplication(
+  cId: ContainerID,
+  file: ContainerElementFile,
+): Promise<Result<void>> {
+  const c = getContainer(cId);
+  if (!c.ok) return c;
+  if (c.value.type !== 'local') {
+    return Failure(new Error('この機能はローカルコンテナでのみ利用できます'));
+  }
+
+  const fileRes = await local.getFile(cId, file.path);
+  if (!fileRes.ok) return fileRes;
+
+  return await platformElectron.openFileWithDefaultApp(fileRes.value);
 }
 
 /**

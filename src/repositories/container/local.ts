@@ -302,6 +302,29 @@ export async function loadSrcData(cId: ContainerID, path: string): Promise<Resul
 }
 
 /**
+ * ローカルのファイル実体（File System Access APIのFileオブジェクト）を取得する
+ *
+ * `loadSrcData`と異なりbase64（DocumentSource）へは変換せず、Fileオブジェクトそのものを返す。
+ * Electron環境での「標準アプリで開く」機能（`src/repositories/platform/electron.ts`）のように、
+ * Fileの実体そのものが必要な用途向け
+ */
+export async function getFile(cId: ContainerID, path: string): Promise<Result<File>> {
+  const handleRes = await fsHandleDB.getHandle(cId);
+  if (!handleRes.ok) return handleRes;
+
+  const parentRes = await getParentDirectoryHandle(handleRes.value.handle, path, false);
+  if (!parentRes.ok) return parentRes;
+
+  try {
+    const fileHandle = await parentRes.value.dir.getFileHandle(parentRes.value.name);
+    const file = await fileHandle.getFile();
+    return Success(file);
+  } catch (e) {
+    return Failure(toFsError(e));
+  }
+}
+
+/**
  * ローカルにフォルダの実態を追加する
  */
 export async function createFolder(c: Container, folderPath: string): Promise<Result<void>> {

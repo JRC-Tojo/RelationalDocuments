@@ -63,6 +63,7 @@ export type ApiErrorKey =
   | 'BOOKMARK_EMBED_FAILED'
   | 'DOC_SEARCH_FAILED'
   | 'CONTAINER_SEARCH_FAILED'
+  | 'DOC_OPEN_WITH_DEFAULT_APP_FAILED'
   // =========== プラグイン関係 ===========
   | 'PLUGIN_LIST_FAILED'
   | 'PLUGIN_MANIFEST_INVALID'

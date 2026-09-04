@@ -1,6 +1,7 @@
 import {
   getSettings,
   getRecentContainers,
+  addRecentContainer,
   initializeSettings,
   saveSettings,
   saveAnnotationPresets,
@@ -169,10 +170,37 @@ class BackendApi {
   }
 
   /**
+   * 他環境（ブラウザ版等）からエクスポートされた「最近使用したコンテナ」一覧を、現在の環境の
+   * 一覧へまとめて取り込む。フォルダへの実アクセス権は引き継げないため一覧への追加のみを行う
+   */
+  async importRecentContainers(entries: RecentContainerEntry[]): Promise<ApiResponse<void>> {
+    for (const entry of entries) {
+      const res = await addRecentContainer(entry);
+      if (!res.ok) return toApiResponse(res, 'FAILED_SAVE_SETTINGS');
+    }
+    return toApiResponse(Success());
+  }
+
+  /**
    * 一度閉じたコンテナ（「最近読み込んだコンテナ一覧」等）を、再び読み込み対象に加える
    */
   async reopenContainer(entry: ContainerSkel): Promise<ApiResponse<Container>> {
     const res = await containerService.reopenContainer(entry);
+    if (res.ok) {
+      const initRelation = await relationalService.loadRelationals(entry.id);
+      if (!initRelation.ok) return toApiResponse(initRelation, 'CONTAINER_LOAD_FAILED');
+    }
+    return toApiResponse(res, 'CONTAINER_LOAD_FAILED');
+  }
+
+  /**
+   * 「最近使用したコンテナ」一覧にのみ存在する（フォルダへの実アクセス権を持たない）
+   * ローカルコンテナの記録に、新たに選択したフォルダを同じIDのまま結び付ける
+   *
+   * 他環境からインポートした記録の再接続に使う（`pickLocalDirectory()`の直後に呼ぶこと）
+   */
+  async relinkLocalContainer(entry: ContainerSkel): Promise<ApiResponse<Container>> {
+    const res = await containerService.relinkLocalContainer(entry);
     if (res.ok) {
       const initRelation = await relationalService.loadRelationals(entry.id);
       if (!initRelation.ok) return toApiResponse(initRelation, 'CONTAINER_LOAD_FAILED');
@@ -332,6 +360,17 @@ class BackendApi {
     await documentService.deleteConfigForFile(file);
 
     return toApiResponse(deleteRes, 'DOC_DELETE_FAILED');
+  }
+
+  /**
+   * 指定した文書をOSの標準アプリで開く（Electronデスクトップアプリ版限定機能）
+   */
+  async openFileWithDefaultApp(
+    cId: ContainerID,
+    file: ContainerElementFile,
+  ): Promise<ApiResponse<void>> {
+    const res = await containerService.openFileWithDefaultApplication(cId, file);
+    return toApiResponse(res, 'DOC_OPEN_WITH_DEFAULT_APP_FAILED');
   }
 
   /**

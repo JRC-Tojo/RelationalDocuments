@@ -152,11 +152,39 @@ async function onCreateDemo() {
   }
 }
 
+/**
+ * 「最近使用したコンテナ」一覧のエントリを再び読み込み対象に加える
+ *
+ * 他環境（ブラウザ版等）からインポートした一覧のように、フォルダへの実アクセス権
+ * （FileSystemDirectoryHandle）を持たないローカルコンテナの場合は`reopenContainer`が失敗する
+ * ため、フォルダを選び直して同じコンテナIDのまま結び付け直す（`relinkLocalContainer`）
+ */
 async function onReloadRecent(entry: RecentContainerEntry) {
   if (entry.type === 'box') return;
   isBusy.value = true;
   try {
-    await api.reopenContainer(entry);
+    const reopenedRes = await api.reopenContainer(entry);
+    if (reopenedRes.ok) {
+      emit('created');
+      showModel.value = false;
+      return;
+    }
+
+    if (entry.type !== 'local') {
+      Notify.create({ type: 'negative', message: $t('error.failedToLoadDocument') });
+      return;
+    }
+
+    Notify.create({ type: 'info', message: $t('explorer.recentContainerNeedsRelink') });
+    const pickedRes = await api.pickLocalDirectory();
+    if (!pickedRes.ok) return;
+
+    const relinkedRes = await api.relinkLocalContainer(entry);
+    if (!relinkedRes.ok) {
+      Notify.create({ type: 'negative', message: $t('error.failedToLoadDocument') });
+      return;
+    }
+
     emit('created');
     showModel.value = false;
   } finally {

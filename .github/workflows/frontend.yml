@@ -121,12 +121,21 @@ jobs:
         run: bunx vue-tsc --noEmit
 
   e2e:
-    name: E2E (Playwright)
+    name: E2E (Playwright, ${{ matrix.project }})
     runs-on: ubuntu-latest
     needs: lint
     timeout-minutes: 15
     permissions:
       contents: read
+    # chromium（PWA相当）・electron（デスクトップアプリ相当）を別ジョブ（別VM＝別開発サーバー）
+    # として並列実行する。同一プロセス内でworkers>1にすると、共有する開発サーバーへ複数の
+    # ブラウザ/Electron contextが同時にIndexedDBアクセスし資源競合エラーが発生することを
+    # 実測で確認したため（`playwright.config.ts`のworkers設定コメント参照）、並列化はプロセス/
+    # ジョブ単位で行う
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, electron]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -145,20 +154,33 @@ jobs:
         run: bun install && bun run quasar prepare
 
       - name: Install Playwright browser
+        # electronプロジェクトでもPlaywright自身のChromiumは使わないが、`--with-deps`が
+        # インストールするOS共有ライブラリ（libnss等）はElectron（Chromiumベース）の実行にも
+        # 必要なため、両プロジェクト共通でこのステップを実行する
         run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests
+      - name: Install Xvfb (electron project)
+        if: matrix.project == 'electron'
+        # LinuxでElectronの実ウィンドウを開くには仮想フレームバッファが必要
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Run E2E tests (chromium)
+        if: matrix.project == 'chromium'
         # PlaywrightのブラウザプロセスはOSのパイプ機構に依存し、Bunランタイム経由で起動すると
         # Windows環境では既知の不具合でハングする（chromium.launch()がタイムアウトする。
         # oven-sh/bun#27977等）。Linux CIでは再現しないが、切り離すためnpxで実行するNode.jsを
         # 使う（このジョブではactions/setup-nodeで導入済み）
-        run: npx playwright test
+        run: npx playwright test --project=chromium
+
+      - name: Run E2E tests (electron)
+        if: matrix.project == 'electron'
+        run: xvfb-run -a npx playwright test --project=electron
 
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: playwright-report/
           retention-days: 14
           if-no-files-found: error

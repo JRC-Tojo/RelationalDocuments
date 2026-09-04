@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import { seedCacheContainerWithFixturePdf } from '../support/seed';
 import { stageCanvas, waitForCanvasReady } from '../support/canvasCoords';
 import { hasVisibleContent } from '../support/pixelAssertions';
