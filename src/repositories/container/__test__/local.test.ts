@@ -98,7 +98,10 @@ describe('loadContainerElements', () => {
         delayMs: 10,
       })),
     });
-    currentRootHandle = buildFakeRoot([makeDir('a'), makeDir('b'), makeDir('c'), makeDir('d')], state);
+    currentRootHandle = buildFakeRoot(
+      [makeDir('a'), makeDir('b'), makeDir('c'), makeDir('d')],
+      state,
+    );
 
     const res = await loadContainerElements(buildSkel());
 
