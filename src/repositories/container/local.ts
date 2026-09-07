@@ -9,19 +9,32 @@ import * as fsHandleDB from 'src/repositories/inMemory/fsHandleDB';
 import { arrayBufferToBase64, base64ToUint8Array } from 'src/utils/binary/base64';
 import { Path } from 'src/utils/binary/path';
 import { fromEntries } from 'src/utils/obj/obj';
-import { runConcurrently } from 'src/utils/promise/concurrent';
+import { createConcurrencyLimiter } from 'src/utils/promise/concurrent';
 
 /** コンテナルートに配置する本システムの管理フォルダ名（一覧には含めない） */
 const CONTAINER_CONFIG_FOLDER = '.kumihimo';
 
 /**
- * 同一ディレクトリ内でのファイルメタ情報取得（`getFile()`）を同時に実行する上限数
+ * ファイルメタ情報取得（`getFile()`）を同時に実行する上限数
  *
  * Box Drive等、実体がクラウド側にありローカルには仮想化されただけのファイルシステムでは、
  * `getFile()`1回ごとにネットワーク往復が発生し得る。無制限に並列実行すると大量ファイルの
  * フォルダでかえって輻輳し得るため、上限を設けたうえで並列化する（issue #91）
  */
 const FILE_STAT_CONCURRENCY = 8;
+
+/**
+ * `walkDirectory`の再帰呼び出し全体・かつ複数コンテナの同時読み込み全体で共有するリミッター
+ *
+ * ディレクトリ呼び出しごとに新しいリミッターを作ると、サブディレクトリ側の再帰（無制限に
+ * 並列展開される）1つ1つが自分専用の`FILE_STAT_CONCURRENCY`件枠を持ってしまい、
+ * フォルダ数が多いコンテナでは実質的に上限が効かなくなる（例: 100フォルダ×8＝800同時実行）。
+ * モジュールスコープの単一インスタンスとして持つことで、1コンテナ内の深い階層は勿論、
+ * 複数のローカルコンテナを同時に読み込む場合（起動直後に登録済みの全コンテナが一斉に
+ * バックグラウンド読み込みを始める等）でも、システム全体でのgetFile()同時実行数を
+ * 一定数までに保つ（コンテナ横断検索の`CONTAINER_SEARCH_CONCURRENCY`と同じ考え方）
+ */
+const fileStatLimiter = createConcurrencyLimiter(FILE_STAT_CONCURRENCY);
 
 /**
  * `pickDirectory()`で選択された直後のハンドルを一時的に保持する
@@ -176,19 +189,23 @@ async function getParentDirectoryHandle(
 /**
  * 指定ディレクトリ配下を再帰的に辿り、要素一覧を返す（本体データは読まずメタ情報のみ取得する）
  *
- * サブディレクトリは並行して辿ることで、深い階層構造でも取得時間を抑える。同一ディレクトリ内の
- * ファイルのメタ情報取得（`getFile()`）も、サイズの大きいファイルが多いフォルダで逐次実行が
- * ボトルネックにならないよう`runConcurrently`で並列化する（issue #91: サブディレクトリ側は
- * 既に並列化されていたが、同一階層のファイル同士は1件ずつawaitしていたのが真因だった）
+ * サブディレクトリは並行して辿ることで、深い階層構造でも取得時間を抑える。ファイルのメタ情報
+ * 取得（`getFile()`）はモジュール共有の`fileStatLimiter`を介して実行するため、同一階層のファイル
+ * 同士だけでなく、別々のサブディレクトリで並行して見つかったファイル同士でも、システム全体で
+ * 見た同時実行数が一定数までに保たれる（issue #91）。
+ *
+ * `onElement`を渡すと、要素が判明するたび（フォルダは発見直後、ファイルはメタ情報取得完了時）に
+ * 随時呼ばれるため、呼び出し側は配下全体の走査完了を待たずツリーを段階的に表示できる
  */
 async function walkDirectory(
   dirHandle: FileSystemDirectoryHandle,
   cId: ContainerID,
   relativePath: string,
+  onElement?: (element: ContainerElement) => void,
 ): Promise<ContainerElement[]> {
   const folderElements: ContainerElement[] = [];
   const subDirWalks: Promise<ContainerElement[]>[] = [];
-  const fileStatTasks: (() => Promise<ContainerElement>)[] = [];
+  const fileStatTasks: Promise<ContainerElement>[] = [];
 
   for await (const [name, handle] of dirHandle.entries()) {
     // 本システムの管理フォルダはコンテナ要素一覧には含めない
@@ -199,42 +216,51 @@ async function walkDirectory(
     const entryPath = relativePath === '' ? name : new Path(relativePath).child(name).path;
 
     if (handle.kind === 'directory') {
-      folderElements.push({
+      // フォルダは配下のファイルを待たず、発見した時点で確定して通知できる
+      const folderElement: ContainerElement = {
         containerID: cId,
         type: 'Folder',
         path: entryPath,
         createdAt: new Date(),
-      });
-      subDirWalks.push(walkDirectory(handle, cId, entryPath));
+      };
+      folderElements.push(folderElement);
+      onElement?.(folderElement);
+      subDirWalks.push(walkDirectory(handle, cId, entryPath, onElement));
     } else {
-      // 1ファイル分のメタ情報取得タスク: サイズ・更新日時をgetFile()経由で取得する
-      fileStatTasks.push(async () => {
-        let fileSize: number | undefined;
-        let updatedAt = new Date();
-        try {
-          const file = await handle.getFile();
-          fileSize = file.size;
-          updatedAt = new Date(file.lastModified);
-        } catch {
-          // メタ情報の取得に失敗しても一覧表示自体は継続する
-        }
-        return {
-          containerID: cId,
-          type: 'File',
-          path: entryPath,
-          fileSize,
-          createdAt: updatedAt,
-          updatedAt,
-          description: '',
-          genre: '',
-          tags: [],
-        };
-      });
+      // 1ファイル分のメタ情報取得タスク: サイズ・更新日時をgetFile()経由で取得する。
+      // `fileStatLimiter`に渡した時点でキューへ積まれるため、この後の`await`を待たずに
+      // 全体で共有された同時実行数の枠を消費し始める
+      fileStatTasks.push(
+        fileStatLimiter(async () => {
+          let fileSize: number | undefined;
+          let updatedAt = new Date();
+          try {
+            const file = await handle.getFile();
+            fileSize = file.size;
+            updatedAt = new Date(file.lastModified);
+          } catch {
+            // メタ情報の取得に失敗しても一覧表示自体は継続する
+          }
+          const fileElement: ContainerElement = {
+            containerID: cId,
+            type: 'File',
+            path: entryPath,
+            fileSize,
+            createdAt: updatedAt,
+            updatedAt,
+            description: '',
+            genre: '',
+            tags: [],
+          };
+          onElement?.(fileElement);
+          return fileElement;
+        }),
+      );
     }
   }
 
   const [fileElements, subResults] = await Promise.all([
-    runConcurrently(fileStatTasks, FILE_STAT_CONCURRENCY),
+    Promise.all(fileStatTasks),
     Promise.all(subDirWalks),
   ]);
   return folderElements.concat(fileElements, subResults.flat());
@@ -242,13 +268,19 @@ async function walkDirectory(
 
 /**
  * ローカルに保存されたコンテナの要素情報を取得する
+ *
+ * `onElement`を渡した場合、要素が判明するたびに随時通知される（`loadContainer`経由でUI側の
+ * 段階的なツリー表示に使う。検索パネルの`onResult`と同じ考え方）
  */
-export async function loadContainerElements(c: ContainerSkel): Promise<Result<Container>> {
+export async function loadContainerElements(
+  c: ContainerSkel,
+  onElement?: (element: ContainerElement) => void,
+): Promise<Result<Container>> {
   const handleRes = await fsHandleDB.getHandle(c.id);
   if (!handleRes.ok) return handleRes;
 
   try {
-    const flatElements = await walkDirectory(handleRes.value.handle, c.id, '');
+    const flatElements = await walkDirectory(handleRes.value.handle, c.id, '', onElement);
     return Success({ ...c, elements: fromEntries(flatElements.map((e) => [e.path, e])) });
   } catch (e) {
     return Failure(toError(e));

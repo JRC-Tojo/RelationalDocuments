@@ -106,6 +106,7 @@ import {
   unsavedChangesDialog,
 } from 'src/components/Dialog/confirmDialog';
 import { saveDocument } from 'src/utils/document/saveDocument';
+import { createGenerationGuard } from 'src/utils/promise/generationGuard';
 
 interface Prop {
   container: ContainerSkel;
@@ -152,7 +153,17 @@ provide(ExplorerContextKey, {
   containerPath: new Path(prop.container.name).path,
 });
 
+/**
+ * 実行中の読み込みを識別する世代ガード
+ *
+ * `load()`は展開・リロード・アップロード後など複数の経路から重複して呼ばれ得るため、
+ * 先発の読み込みが完了・進捗通知した時点で、既に後発の読み込みが始まっていれば
+ * 状態更新を無視する（検索パネル・SearchView.vueと同じ考え方。`generationGuard.ts`参照）
+ */
+const loadGuard = createGenerationGuard();
+
 async function load(forceReload: boolean): Promise<void> {
+  const generation = loadGuard.start();
   isLoading.value = true;
   changesDetected.value = false;
   conflictDetected.value = false;
@@ -160,6 +171,7 @@ async function load(forceReload: boolean): Promise<void> {
 
   if (prop.container.type === 'local') {
     const permRes = await api.checkContainerPermission(prop.container.id);
+    if (!loadGuard.isCurrent(generation)) return;
     needsReconnect.value = permRes.ok && permRes.data !== 'granted';
     if (needsReconnect.value) {
       loadError.value = null;
@@ -168,7 +180,23 @@ async function load(forceReload: boolean): Promise<void> {
     }
   }
 
-  const res = await api.loadContainer(prop.container.id, forceReload);
+  // 初回読み込み時点で空のコンテナを用意しておき、走査で要素が判明するたび`onElement`で
+  // 随時追加することで、配下全体（特に重いファイルが多い・階層が深いコンテナ）の走査完了を
+  // 待たずにツリーを段階的に表示する（検索パネルの`onResult`と同じ考え方）。既に要素を
+  // 保持している場合（再読み込み）は、いきなり空にして描画をちらつかせないよう保持したままにし、
+  // 最終的な結果で丸ごと置き換える
+  if (loadedContainer.value === null) {
+    loadedContainer.value = { ...prop.container, elements: {} };
+  }
+
+  const res = await api.loadContainer(prop.container.id, forceReload, (element) => {
+    if (!loadGuard.isCurrent(generation)) return;
+    const container = loadedContainer.value;
+    if (container === null) return;
+    container.elements[element.path] = element;
+  });
+  if (!loadGuard.isCurrent(generation)) return;
+
   if (res.ok) {
     loadedContainer.value = res.data;
     loadError.value = null;
@@ -417,6 +445,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('focus', onFocus);
   if (pollTimer) clearInterval(pollTimer);
+  // アンマウント後に進行中の読み込みの進捗通知・完了処理が状態を更新しないようにする
+  loadGuard.start();
 });
 </script>
 

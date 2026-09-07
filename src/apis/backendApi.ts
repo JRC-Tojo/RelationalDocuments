@@ -152,12 +152,16 @@ class BackendApi {
    * コンテナの中身（ファイル群）を読み取る
    *
    * @param forceReload trueの場合、既に読み込み済みでも実データを読み直す（手動リロード用）
+   * @param onElement 実データ走査が発生する場合に限り、要素が判明するたび随時呼ばれる
+   *   （検索パネルの`onResult`と同じ考え方。呼び出し側はこれを使って全走査完了を待たず
+   *   ツリーを段階的に表示できる）
    */
   async loadContainer(
     id: ContainerID,
     forceReload: boolean = false,
+    onElement?: (element: ContainerElement) => void,
   ): Promise<ApiResponse<Container>> {
-    const loadedContainers = await containerService.loadContainer(id, forceReload);
+    const loadedContainers = await containerService.loadContainer(id, forceReload, onElement);
     if (loadedContainers.ok) {
       const initRelation = await relationalService.loadRelationals(id);
       if (!initRelation.ok) return toApiResponse(initRelation, 'CONTAINER_LOAD_FAILED');

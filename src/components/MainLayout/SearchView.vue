@@ -100,6 +100,7 @@ import { onMounted, ref } from 'vue';
 import { useBackendApi } from 'src/apis/backendApi';
 import { useEditorStore } from 'src/stores/editorStore';
 import { fileKey } from 'src/utils/document/fileKey';
+import { createGenerationGuard } from 'src/utils/promise/generationGuard';
 import SearchOptionToggles from 'src/components/Search/SearchOptionToggles.vue';
 import type { ContainerElementFile, ContainerID, ContainerSkel } from 'src/models/container';
 import type { ContainerTextSearchResult, TextSearchOptions } from 'src/models/document/search';
@@ -119,10 +120,11 @@ const hasSearched = ref(false);
 const searchFailed = ref(false);
 const containers = ref<ContainerSkel[]>([]);
 
-/** 実行中の検索を識別する世代カウンタ。重複実行時に古い検索の結果・ローディング状態が
- * 新しい検索を上書きしないよう、各`runSearch`呼び出しの中身は自分の世代と現在の世代を
- * 比較してから状態を更新する */
-let searchGeneration = 0;
+/** 実行中の検索を識別する世代ガード。重複実行時に古い検索の結果・ローディング状態が
+ * 新しい検索を上書きしないよう、各`runSearch`呼び出しの中身は自分の世代が現在も最新かを
+ * 確認してから状態を更新する（コンテナツリーの段階的読み込みと同じ考え方。
+ * `src/utils/promise/generationGuard.ts`参照） */
+const searchGuard = createGenerationGuard();
 
 /** SearchOptionTogglesからのオプション変更を反映し、現在のqueryで即座に再検索する */
 function onUpdateOptions(v: TextSearchOptions): void {
@@ -133,7 +135,7 @@ function onUpdateOptions(v: TextSearchOptions): void {
 /** キーストロークのたびの自動検索は行わない（全コンテナ×全文書の走査は重いため、Enter/オプション変更でのみ実行する） */
 async function runSearch(): Promise<void> {
   const trimmed = query.value.trim();
-  const generation = ++searchGeneration;
+  const generation = searchGuard.start();
 
   if (trimmed === '') {
     results.value = [];
@@ -145,7 +147,7 @@ async function runSearch(): Promise<void> {
   // 検索開始前にコンテナ一覧を取り直す。パネルを開いた後に作成・削除されたコンテナも
   // 検索対象・空状態表示の双方に正しく反映するため
   const containersRes = await api.getAllContainers();
-  if (generation !== searchGeneration) return;
+  if (!searchGuard.isCurrent(generation)) return;
   if (containersRes.ok) containers.value = containersRes.data;
 
   isSearching.value = true;
@@ -154,11 +156,11 @@ async function runSearch(): Promise<void> {
   results.value = [];
   try {
     const res = await api.searchAllContainersText(trimmed, { ...options.value }, (result) => {
-      if (generation === searchGeneration) results.value.push(result);
+      if (searchGuard.isCurrent(generation)) results.value.push(result);
     });
-    if (generation === searchGeneration) searchFailed.value = !res.ok;
+    if (searchGuard.isCurrent(generation)) searchFailed.value = !res.ok;
   } finally {
-    if (generation === searchGeneration) isSearching.value = false;
+    if (searchGuard.isCurrent(generation)) isSearching.value = false;
   }
 }
 
