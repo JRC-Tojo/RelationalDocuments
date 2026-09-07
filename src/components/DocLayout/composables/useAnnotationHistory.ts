@@ -93,7 +93,7 @@ export function useAnnotationHistory() {
     file: ContainerElementFile,
     style: AnnotationStyle,
   ): Promise<ApiResponse<AnnotationInfo>> {
-    markAnnotationWriteIntent(style.id, style.updatedAt);
+    markAnnotationWriteIntent(style);
     const res = await api.registerAnnotationStyle(file, style);
     if (!res.ok) cancelAnnotationWriteIntent(style.id, style.updatedAt);
     return res;
@@ -104,7 +104,7 @@ export function useAnnotationHistory() {
     file: ContainerElementFile,
     styles: AnnotationStyle[],
   ): Promise<ApiResponse<AnnotationInfo[]>> {
-    styles.forEach((s) => markAnnotationWriteIntent(s.id, s.updatedAt));
+    styles.forEach((s) => markAnnotationWriteIntent(s));
     const res = await api.registerAnnotationStyles(file, styles);
     if (!res.ok) styles.forEach((s) => cancelAnnotationWriteIntent(s.id, s.updatedAt));
     return res;
@@ -288,16 +288,24 @@ export function useAnnotationHistory() {
 
     const snapshots = affected.map((g) => ({ ...g, memberIds: [...g.memberIds] }));
     const dissolvedSnapshots: RelationalSnapshot[] = [];
+    const upsert: AnnotationGroup[] = [];
+    const removeIds: AnnotationGroupID[] = [];
 
     for (const g of affected) {
       const idsToRemove = g.memberIds.filter((id) => removedSet.has(id));
       const res = await api.removeGroupMembers(file, g.id, idsToRemove);
-      if (!res.ok) {
+      if (res.ok) {
+        upsert.push(res.data);
+      } else {
         dissolvedSnapshots.push(captureRelationalSnapshot([g.id]));
         await api.ungroupAnnotations(file, g.id);
+        removeIds.push(g.id);
       }
     }
-    await groupStore.refreshFile(file);
+    // `.kcfg`の再読込（groupStore.refreshFile、PDF本体のハッシュ再計算を伴う重い処理）を
+    // 待たず、各API呼び出しが返した結果を直接キャッシュへ反映する（Issue #109: 削除操作の
+    // 体感速度改善。グループを組んでいたアノテーションの削除がなかなか反映されない問題の対策）
+    groupStore.applyGroupChanges(file, { removeIds, upsert });
     return { groups: snapshots, snapshot: mergeRelationalSnapshots(...dissolvedSnapshots) };
   }
 
@@ -329,8 +337,9 @@ export function useAnnotationHistory() {
       historyStore.push(file, {
         undo: async () => {
           await registerStyleTracked(file, removed);
-          await Promise.all(affectedGroups.map((g) => api.restoreGroup(file, g)));
-          if (affectedGroups.length > 0) await groupStore.refreshFile(file);
+          const restored = await Promise.all(affectedGroups.map((g) => api.restoreGroup(file, g)));
+          const restoredGroups = restored.filter((r) => r.ok).map((r) => r.data);
+          if (restoredGroups.length > 0) groupStore.applyGroupChanges(file, { upsert: restoredGroups });
           await restoreRelationalSnapshot(
             file,
             mergeRelationalSnapshots(ownSnapshot, groupSnapshot),
@@ -380,8 +389,9 @@ export function useAnnotationHistory() {
     historyStore.push(file, {
       undo: async () => {
         await registerStylesTracked(file, removedList);
-        await Promise.all(affectedGroups.map((g) => api.restoreGroup(file, g)));
-        if (affectedGroups.length > 0) await groupStore.refreshFile(file);
+        const restored = await Promise.all(affectedGroups.map((g) => api.restoreGroup(file, g)));
+        const restoredGroups = restored.filter((r) => r.ok).map((r) => r.data);
+        if (restoredGroups.length > 0) groupStore.applyGroupChanges(file, { upsert: restoredGroups });
         await restoreRelationalSnapshot(file, mergeRelationalSnapshots(ownSnapshot, groupSnapshot));
       },
       redo: async () => {
@@ -468,13 +478,13 @@ export function useAnnotationHistory() {
           file,
           created.map((a) => a.id),
         );
-        if (createdGroup) await groupStore.refreshFile(file);
+        if (createdGroup) groupStore.applyGroupChanges(file, { removeIds: [createdGroup.id] });
       },
       redo: async () => {
         await registerStylesTracked(file, created);
         if (createdGroup) {
-          await api.restoreGroup(file, createdGroup);
-          await groupStore.refreshFile(file);
+          const res = await api.restoreGroup(file, createdGroup);
+          if (res.ok) groupStore.applyGroupChanges(file, { upsert: [res.data] });
         }
       },
     });
@@ -496,15 +506,21 @@ export function useAnnotationHistory() {
     historyStore.push(file, {
       undo: async () => {
         await api.ungroupAnnotations(file, newGroup.id);
-        await Promise.all(dissolvedGroups.map((g) => api.restoreGroup(file, g)));
-        await groupStore.refreshFile(file);
+        const restored = await Promise.all(dissolvedGroups.map((g) => api.restoreGroup(file, g)));
+        groupStore.applyGroupChanges(file, {
+          removeIds: [newGroup.id],
+          upsert: restored.filter((r) => r.ok).map((r) => r.data),
+        });
         await restoreRelationalSnapshot(file, dissolvedSnapshot);
       },
       redo: async () => {
         const redoneSnapshot = captureRelationalSnapshot(dissolvedGroups.map((g) => g.id));
         await Promise.all(dissolvedGroups.map((g) => api.ungroupAnnotations(file, g.id)));
-        await api.restoreGroup(file, newGroup);
-        await groupStore.refreshFile(file);
+        const res = await api.restoreGroup(file, newGroup);
+        groupStore.applyGroupChanges(file, {
+          removeIds: dissolvedGroups.map((g) => g.id),
+          upsert: res.ok ? [res.data] : [],
+        });
         await refreshRelationalSnapshotCaches(file, redoneSnapshot);
       },
     });
@@ -520,14 +536,14 @@ export function useAnnotationHistory() {
   ): void {
     historyStore.push(file, {
       undo: async () => {
-        await api.restoreGroup(file, removedGroup);
-        await groupStore.refreshFile(file);
+        const res = await api.restoreGroup(file, removedGroup);
+        if (res.ok) groupStore.applyGroupChanges(file, { upsert: [res.data] });
         await restoreRelationalSnapshot(file, snapshot);
       },
       redo: async () => {
         const redoneSnapshot = captureRelationalSnapshot([removedGroup.id]);
         await api.ungroupAnnotations(file, removedGroup.id);
-        await groupStore.refreshFile(file);
+        groupStore.applyGroupChanges(file, { removeIds: [removedGroup.id] });
         await refreshRelationalSnapshotCaches(file, redoneSnapshot);
       },
     });
@@ -544,12 +560,12 @@ export function useAnnotationHistory() {
   ): void {
     historyStore.push(file, {
       undo: async () => {
-        await api.updateGroupValueAggregation(file, groupId, previous);
-        await groupStore.refreshFile(file);
+        const res = await api.updateGroupValueAggregation(file, groupId, previous);
+        if (res.ok) groupStore.applyGroupChanges(file, { upsert: [res.data] });
       },
       redo: async () => {
-        await api.updateGroupValueAggregation(file, groupId, next);
-        await groupStore.refreshFile(file);
+        const res = await api.updateGroupValueAggregation(file, groupId, next);
+        if (res.ok) groupStore.applyGroupChanges(file, { upsert: [res.data] });
       },
     });
   }

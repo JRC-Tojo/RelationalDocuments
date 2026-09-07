@@ -130,6 +130,10 @@ import { fileKey } from 'src/utils/document/fileKey';
 import { confirmDialog } from 'src/components/Dialog/confirmDialog';
 import { useAnnotationActions } from './composables/useAnnotationActions';
 import { useAnnotationHistory } from './composables/useAnnotationHistory';
+import {
+  resolveSelectedAnnotations,
+  isSelectableAnnotationId,
+} from 'src/utils/document/resolveSelectedAnnotations';
 import { useZoomControl } from './composables/useZoomControl';
 import { ANNOTATION_GEOMETRY } from 'src/components/Viewer/Annotation/annotationGeometry';
 import {
@@ -253,10 +257,10 @@ let stopAnnotationObservation: (() => void) | undefined;
 // for annotations
 const annotations = ref<AnnotationStyle[]>([]);
 const selectedAnnotationIds = ref<AnnotationID[]>([]);
+// 選択中IDの実体解決は、DB購読（liveQuery）の反映を待たず、ローカルで最後に意図した書き込み内容が
+// あれば常にそちらを優先する（`resolveSelectedAnnotations`参照。Issue #109）
 const selectedAnnotations = computed(() =>
-  selectedAnnotationIds.value
-    .map((aId) => annotations.value.find((annot) => annot.id === aId))
-    .filter((annot) => annot !== void 0),
+  resolveSelectedAnnotations(selectedAnnotationIds.value, annotations.value),
 );
 // アノテーションに対するショートカット操作（削除・微調整・コピー・貼り付け・複製・重ね順変更）をまとめる。
 // キーボードハンドラにロジックを直書きせず、将来の右クリックコンテキストメニューからも
@@ -273,8 +277,10 @@ const observed = api.observedAnnotationStylesByFile(prop.file);
 if (observed.ok) {
   const subscription = observed.data.subscribe((value) => {
     annotations.value = value;
+    // まだDB購読側に反映されていなくても、ローカルで書き込みを意図した（＝いずれ必ず現れるはずの）
+    // 新規作成分は選択から取りこぼさない（isSelectableAnnotationId参照）
     selectedAnnotationIds.value = selectedAnnotationIds.value.filter((aId) =>
-      value.some((annot) => annot.id === aId),
+      isSelectableAnnotationId(aId, value),
     );
   });
   stopAnnotationObservation = () => subscription.unsubscribe();

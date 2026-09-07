@@ -15,6 +15,7 @@ import { useGroupStore } from 'src/stores/groupStore';
 import { useAnnotationHistory } from './useAnnotationHistory';
 import type { ContainerElementFile } from 'src/models/container';
 import type { AnnotationID, AnnotationStyle } from 'src/models/document/pdf';
+import { AnnotationGroupID as AnnotationGroupIDSchema } from 'src/models/document/group';
 import type {
   AnnotationGroup,
   AnnotationGroupID,
@@ -58,8 +59,11 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
     const targets = resolveSelected();
     if (targets.length === 0) return;
 
-    await history.removeManyWithHistory(deps.file, targets);
+    // 永続化（DB書き込み・巻き添えのグループ縮小/解散）の完了を待たず、選択解除は即座に行う
+    // （Issue #109: 削除操作の体感速度改善。削除自体は失敗してもここで選択を戻す情報を
+    // 保持していなかった従来挙動と変わらない）
     deps.selectedAnnotationIds.value = [];
+    await history.removeManyWithHistory(deps.file, targets);
   }
 
   /**
@@ -119,7 +123,11 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
       );
       if (aggRes.ok) group = aggRes.data;
     }
-    await groupStore.refreshFile(deps.file);
+    // `.kcfg`の再読込（groupStore.refreshFile）を待たず、既に判明している結果を直接反映する
+    groupStore.applyGroupChanges(deps.file, {
+      removeIds: groupRes.data.dissolvedGroups.map((g) => g.id),
+      upsert: [group],
+    });
     return group;
   }
 
@@ -222,7 +230,7 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
       // zIndex・updatedAtはサービス層側で計算されるため、呼び出し前には内容が分からず
       // 事前に目印を立てられない。解決直後に立てるため、書き込み確定からDB購読側の反映までの
       // ごく短い間はガード対象外になる（重ね順のみの変更で位置・形状は動かないため実害は小さい）
-      markAnnotationWriteIntent(id, res.data.style.updatedAt);
+      markAnnotationWriteIntent(res.data.style);
       pairs.push({ before, after: res.data.style });
     }
     history.recordChangedBatch(deps.file, pairs);
@@ -235,6 +243,12 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
    * 統合する（ネストは発生させない）。グループ化後は新しいグループの全メンバーを選択状態にする。
    * 解散される既存グループの関係性は、サーバー側での孤立除去（api.groupAnnotations内部）が
    * 起きる前でなければ捕捉できないため、groupStoreのキャッシュから予測して先にキャプチャしておく
+   *
+   * `.kcfg`への実際の書き込み（`api.groupAnnotations`）の完了を待たず、groupStoreのキャッシュから
+   * 予測できる内容で仮のグループを即座にローカル反映し、選択もそのメンバーへ広げる
+   * （Issue #109: グループ化ボタンを押してから実際にグループとして操作できるようになるまでの
+   * 待機時間の解消）。実際のサーバー側結果が判明した時点で、仮のグループを正式な結果へ置き換える。
+   * 失敗した場合は仮のグループ・解散予測を取り消し、選択も元へ戻す
    */
   async function groupSelected(): Promise<void> {
     const ids = deps.selectedAnnotationIds.value;
@@ -247,9 +261,31 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
       if (g) predicted.set(g.id, g);
     }
     const dissolvedSnapshot = history.captureRelationalSnapshot(Array.from(predicted.keys()));
+    const dissolvedIds = Array.from(predicted.keys());
+
+    const now = dayjs().toISOString();
+    const memberSet = new Set(ids);
+    predicted.forEach((g) => g.memberIds.forEach((id) => memberSet.add(id)));
+    const optimisticGroup: AnnotationGroup = {
+      id: AnnotationGroupIDSchema.parse(crypto.randomUUID()),
+      memberIds: Array.from(memberSet),
+      valueAggregation: undefined,
+      createdAt: now,
+      updatedAt: now,
+    };
+    groupStore.applyGroupChanges(deps.file, { removeIds: dissolvedIds, upsert: [optimisticGroup] });
+    deps.selectedAnnotationIds.value = optimisticGroup.memberIds;
 
     const res = await api.groupAnnotations(deps.file, ids);
-    if (!res.ok) return;
+    if (!res.ok) {
+      // 失敗時は仮のグループ・解散予測を取り消し、元の状態へ戻す
+      groupStore.applyGroupChanges(deps.file, {
+        removeIds: [optimisticGroup.id],
+        upsert: Array.from(predicted.values()),
+      });
+      deps.selectedAnnotationIds.value = ids;
+      return;
+    }
 
     history.recordGroupCreated(
       deps.file,
@@ -257,14 +293,20 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
       res.data.dissolvedGroups,
       dissolvedSnapshot,
     );
-    await groupStore.refreshFile(deps.file);
+    // 予測とサーバー側の実際の結果が食い違っていた場合に備え、仮のグループを正式な結果で置き換える
+    groupStore.applyGroupChanges(deps.file, {
+      removeIds: [optimisticGroup.id, ...res.data.dissolvedGroups.map((g) => g.id)],
+      upsert: [res.data.group],
+    });
     deps.selectedAnnotationIds.value = [...res.data.group.memberIds];
   }
 
   /**
    * 選択中のアノテーションのグループ化を解除する（右クリックメニュー「グループ化を解除」から使う）
    *
-   * 選択が既存グループの全メンバーとちょうど一致する場合のみ解除する（部分選択では何もしない）
+   * 選択が既存グループの全メンバーとちょうど一致する場合のみ解除する（部分選択では何もしない）。
+   * `.kcfg`への実際の書き込みの完了を待たず、グループ解除後の状態を即座にローカル反映する
+   * （Issue #109）。失敗した場合は元のグループを復元する
    */
   async function ungroupSelected(): Promise<void> {
     const group = groupStore.matchingGroup(fileKey(deps.file), deps.selectedAnnotationIds.value);
@@ -273,11 +315,15 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
     // api.ungroupAnnotationsはグループを関係性の端点として持っていた関係性も削除してしまうため、
     // 解除前に捕捉しておかないとundoでグループを復元してもその関係性が失われたままになる
     const snapshot = history.captureRelationalSnapshot([group.id]);
+    groupStore.applyGroupChanges(deps.file, { removeIds: [group.id] });
+
     const res = await api.ungroupAnnotations(deps.file, group.id);
-    if (!res.ok) return;
+    if (!res.ok) {
+      groupStore.applyGroupChanges(deps.file, { upsert: [group] });
+      return;
+    }
 
     history.recordGroupRemoved(deps.file, group, snapshot);
-    await groupStore.refreshFile(deps.file);
   }
 
   return {

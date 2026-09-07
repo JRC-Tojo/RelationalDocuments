@@ -752,6 +752,17 @@ function returnToPointerModeUnlessSticky(): void {
 }
 
 /**
+ * 登録失敗が判明した際、実在しない注釈を指したままの選択・テキスト編集状態を取り消す
+ *
+ * 選択・モード復帰を永続化のawaitより前に即座に行うようになったため（Issue #109）、
+ * 登録が失敗した場合はここで明示的に後始末する必要がある
+ */
+function rollbackFailedAnnotationSelection(id: AnnotationID): void {
+  if (editingTextId.value === id) editingTextId.value = null;
+  selectedAnnotIds.value = selectedAnnotIds.value.filter((existingId) => existingId !== id);
+}
+
+/**
  * クリック点描画バッファを確定し、新規アノテーションとして登録する
  */
 function finishClickPointsDrawing() {
@@ -766,20 +777,22 @@ function finishClickPointsDrawing() {
   const annotation = createAnnotationFromPoints(page.value, points, style);
   if (annotation) {
     const shouldStartTextEdit = ANNOTATION_REGISTRY[annotation.type].supportsInlineTextEdit;
+    // DB登録（永続化）の完了を待たず、選択・モード復帰は即座に反映する（Issue #109: 描画直後から
+    // 移動・変形・関係性ボタン等の通常操作をすぐ行えるようにするための対策）。描いたアノテーションは
+    // 直後のconfirmNewAnnotation呼び出しでpendingConfirmAnnotationsへ即座に加わり見た目にも
+    // 表示されるため、この時点で選択状態にしてもUI上の不整合は生じない。
+    // 描き終えたら選択モードへ自動的に戻る（テキストは直後にインライン編集へ入るため対象外。
+    // プリセットのダブルクリックでstickyDrawModeが有効な場合は戻さず連続して描き続けられるようにする）
+    returnToPointerModeUnlessSticky();
+    if (shouldStartTextEdit && annotation.type === 'text') {
+      startTextEdit(annotation);
+    } else {
+      selectedAnnotIds.value = expandToGroups([annotation.id]);
+    }
     void confirmNewAnnotation(annotation).then((registered) => {
       // 登録が失敗した注釈はprops.annotationsに存在しないため、選択状態・テキスト編集状態を
-      // 設定してしまうと実在しない注釈を指す無効な状態が残ってしまう
-      if (!registered) return;
-      // 描き終えたら選択モードへ自動的に戻る（テキストは直後にインライン編集へ入るため対象外。
-      // プリセットのダブルクリックでstickyDrawModeが有効な場合は戻さず連続して描き続けられるようにする）。
-      // 選択状態自体は連続描画モードかどうかに関わらず常に描いたアノテーションへ移す
-      // （関係性登録ボタンの表示・関係性の起点判定がこの選択に依存しているため）
-      returnToPointerModeUnlessSticky();
-      if (shouldStartTextEdit && annotation.type === 'text') {
-        startTextEdit(annotation);
-      } else {
-        selectedAnnotIds.value = expandToGroups([annotation.id]);
-      }
+      // 残したままにしてしまうと実在しない注釈を指す無効な状態が残ってしまう
+      if (!registered) rollbackFailedAnnotationSelection(annotation.id);
     });
   }
 }
@@ -1203,20 +1216,16 @@ function handleMouseUp(e: KonvaMouseEvent) {
       const annotation = endDrawingAnnotation(adjustedPos.x, adjustedPos.y);
       if (annotation) {
         const shouldStartTextEdit = ANNOTATION_REGISTRY[annotation.type].supportsInlineTextEdit;
+        // DB登録（永続化）の完了を待たず、選択・モード復帰は即座に反映する（Issue #109参照。
+        // finishClickPointsDrawing・rollbackFailedAnnotationSelectionと同じ方針）
+        returnToPointerModeUnlessSticky();
+        if (shouldStartTextEdit && annotation.type === 'text') {
+          startTextEdit(annotation);
+        } else {
+          selectedAnnotIds.value = expandToGroups([annotation.id]);
+        }
         void confirmNewAnnotation(annotation).then((registered) => {
-          // 登録が失敗した注釈はprops.annotationsに存在しないため、選択状態・テキスト編集状態を
-          // 設定してしまうと実在しない注釈を指す無効な状態が残ってしまう
-          if (!registered) return;
-          // 描き終えたら選択モードへ自動的に戻る（テキストは直後にインライン編集へ入るため対象外。
-          // プリセットのダブルクリックでstickyDrawModeが有効な場合は戻さず連続して描き続けられるようにする）。
-          // 選択状態自体は連続描画モードかどうかに関わらず常に描いたアノテーションへ移す
-          // （関係性登録ボタンの表示・関係性の起点判定がこの選択に依存しているため）
-          returnToPointerModeUnlessSticky();
-          if (shouldStartTextEdit && annotation.type === 'text') {
-            startTextEdit(annotation);
-          } else {
-            selectedAnnotIds.value = expandToGroups([annotation.id]);
-          }
+          if (!registered) rollbackFailedAnnotationSelection(annotation.id);
         });
       }
     }

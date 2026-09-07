@@ -17,12 +17,15 @@ function browserEnvSetup() {
   global.HTMLCanvasElement = dom.window.HTMLCanvasElement;
 
   // Canvas実装をNode.jsから持ってくる
-  global.document.createElement = (tagName: string) => {
+  // 環境によって`document.createElement`の型定義に`webview`タグ（WebviewTag）等の
+  // オーバーロードが混在することがあり、単純な`(tagName: string) => HTMLElement`型の関数を
+  // そのまま代入すると型が合わなくなるため、代入時にのみ型を合わせる（実装自体はテスト用スタブ）
+  global.document.createElement = ((tagName: string) => {
     if (tagName === 'canvas') {
       return createCanvas(100, 100) as unknown as HTMLCanvasElement;
     }
     return dom.window.document.createElement(tagName);
-  };
+  }) as unknown as Document['createElement'];
   global.Image = Image as unknown as { new (width?: number, height?: number): HTMLImageElement };
 }
 

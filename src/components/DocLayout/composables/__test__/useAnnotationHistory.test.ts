@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import { createPinia, setActivePinia } from 'pinia';
 import type { AnnotationID } from 'src/models/document/pdf';
-import type { AnnotationGroupID } from 'src/models/document/group';
+import type { AnnotationGroup, AnnotationGroupID } from 'src/models/document/group';
 import type { AnnotationStyle } from 'src/models/document/pdf';
 import type { ContainerElementFile, ContainerID } from 'src/models/container';
 import type { Relational, RelationalWithAddress } from 'src/models/relational/common';
@@ -30,9 +30,27 @@ function ok<T>(data: T): Promise<MockApiResult<T>> {
 const apiMock = {
   registerAnnotationStyle: mock((): Promise<MockApiResult> => ok(undefined)),
   removeAnnotation: mock((): Promise<MockApiResult> => ok(undefined)),
-  removeGroupMembers: mock((): Promise<MockApiResult> => ok(undefined)),
+  // 実サービス（removeGroupMembers/restoreGroup）は成功時に更新後・復元後のAnnotationGroupを
+  // そのまま返す。呼び出し元（useAnnotationHistory.ts）はDB再読込を待たずこの戻り値を直接
+  // groupStoreへ反映するようになったため（Issue #109）、モックも引数を反映した形で返す
+  removeGroupMembers: mock(
+    (
+      _file: ContainerElementFile,
+      groupIdArg: AnnotationGroupID,
+      idsToRemove: AnnotationID[],
+    ): Promise<MockApiResult<AnnotationGroup>> =>
+      ok({
+        id: groupIdArg,
+        memberIds: idsToRemove,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }),
+  ),
   ungroupAnnotations: mock((): Promise<MockApiResult> => ok(undefined)),
-  restoreGroup: mock((): Promise<MockApiResult> => ok(undefined)),
+  restoreGroup: mock(
+    (_file: ContainerElementFile, group: AnnotationGroup): Promise<MockApiResult<AnnotationGroup>> =>
+      ok(group),
+  ),
   registRelationals: mock((): Promise<MockApiResult> => ok(undefined)),
   removeRelationalEdge: mock((): Promise<MockApiResult> => ok(undefined)),
   updateGroupValueAggregation: mock((): Promise<MockApiResult> => ok(undefined)),

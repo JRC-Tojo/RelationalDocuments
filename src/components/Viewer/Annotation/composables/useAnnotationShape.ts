@@ -16,7 +16,10 @@ import { useRelationalStore } from 'src/stores/relationalStore';
 import { useSettingsStore } from 'src/stores/settingsStore';
 import { getRelationalStyleOverride } from '../relationalStyleOverride';
 import { useModifierKeys } from './useModifierKeys';
-import { resolveAnnotationEcho } from 'src/utils/document/annotationWritePending';
+import {
+  getPendingAnnotationStyle,
+  resolveAnnotationEcho,
+} from 'src/utils/document/annotationWritePending';
 import {
   lockToDominantAxis,
   applyCenteredResize,
@@ -61,19 +64,34 @@ export function useAnnotationShape<T extends AnnotationStyle>(props: {
   const isInteracting = ref(false);
   // 実際にkonvaノードへ渡すannotation。ジェスチャー中はpropsの更新を無視し、
   // 自動保存やOCR結果反映などによるDexie/liveQueryの再emitで座標が巻き戻る（ガタつく）のを防ぐ。
-  // ジェスチャー終了後も、resolveAnnotationEchoが「自分が最後にローカルで書き込もうとした
-  // 内容とちょうど一致するエコーか」を判定し、一致するまでは古い/中間状態のpropsの更新を
-  // 無視する。DBへの書き込み自体はファイル単位で発行順に確定するが、DB購読（liveQuery）側の
-  // 反映はその確定から幾らか遅れて非同期に届くため、「自分の書き込みのPromiseが解決した」
-  // だけで判定してしまうと、実際にはまだ古い内容のままのpropsを一度受け入れてしまい、
-  // 一度確定して見えた変更が古い状態へ巻き戻ってから再度追いつく（ちらつく）ことがある。
-  // 内容が一致するエコーそのものを待つことで、書き込みの完了タイミングに関わらず
-  // 中間状態を一切表示しないようにする（annotationWritePending.ts参照）
-  const displayAnnotation: Ref<T> = ref(props.annotation) as Ref<T>;
+  //
+  // ジェスチャー以外（スタイルパネルでの色変更等）の編集は、`annotationWritePending.ts`が
+  // 保持する「ローカルで最後に意図した書き込み内容」（`getPendingAnnotationStyle`）が
+  // 存在する間、それをDB確定・DB購読側の反映を一切待たずに最優先で表示する。これにより、
+  // 永続化のPromiseが解決する前に画面へ即座に反映できる（Issue #109: スタイル変更反映の遅延対策）。
+  // 目印が消えている（＝このIDへのローカル書き込みが無い、または既にDB購読側が追いついた）場合は、
+  // 従来通りresolveAnnotationEchoで「自分が最後にローカルで書き込もうとした内容とちょうど
+  // 一致するエコーか」を判定し、一致するまでは古い/中間状態のpropsの更新を無視する。
+  // DBへの書き込み自体はファイル単位で発行順に確定するが、DB購読（liveQuery）側の反映は
+  // その確定から幾らか遅れて非同期に届くため、「自分の書き込みのPromiseが解決した」だけで
+  // 判定してしまうと、実際にはまだ古い内容のままのpropsを一度受け入れてしまい、一度確定して
+  // 見えた変更が古い状態へ巻き戻ってから再度追いつく（ちらつく）ことがある。内容が一致する
+  // エコーそのものを待つことで、書き込みの完了タイミングに関わらず中間状態を一切表示しない
+  // ようにする（annotationWritePending.ts参照）
+  const pendingStyle = computed(
+    () => getPendingAnnotationStyle(props.annotation.id) as T | undefined,
+  );
+  const displayAnnotation: Ref<T> = ref(pendingStyle.value ?? props.annotation) as Ref<T>;
   watch(
-    () => props.annotation,
-    (next) => {
+    [() => props.annotation, pendingStyle],
+    ([next, pending]) => {
       if (isInteracting.value) return;
+      if (pending) {
+        // 一致していれば目印を消費しつつ、表示内容は常に「意図した最新の内容」を優先する
+        resolveAnnotationEcho(next);
+        displayAnnotation.value = pending;
+        return;
+      }
       if (!resolveAnnotationEcho(next)) return;
       displayAnnotation.value = next;
     },

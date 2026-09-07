@@ -399,7 +399,11 @@ async function duplicateAnnotationBatch(
         );
         if (aggRes.ok) createdGroup = aggRes.data;
       }
-      await groupStore.refreshFile(prop.file);
+      // `.kcfg`の再読込（groupStore.refreshFile）を待たず、既に判明している結果を直接反映する
+      groupStore.applyGroupChanges(prop.file, {
+        removeIds: groupRes.data.dissolvedGroups.map((g) => g.id),
+        upsert: [createdGroup],
+      });
     }
   }
 
