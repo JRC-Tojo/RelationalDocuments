@@ -1,6 +1,6 @@
 import type { ContainerElement, ContainerElementFile, RenamedEntry } from 'src/models/container';
 import type { DocumentSource } from 'src/models/document/common';
-import { CONFIG_FILE_EXTS } from 'src/models/document/common';
+import { CONFIG_FILE_EXTS, getSourceBaseNameFromConfigFileName } from 'src/models/document/common';
 import { Failure, NotFoundError, Success, type Result } from 'src/models/error/result';
 import type { DocumentConfigFile } from 'src/models/relational/fileSchema';
 import { BookmarkID as BookmarkIDSchema } from 'src/models/relational/fileSchema';
@@ -309,8 +309,9 @@ export async function acceptExternalConfig(
 /**
  * ファイルと同一階層に存在する、依存先のファイルが見つからない（＝浮いている）設定ファイルパス一覧
  *
- * 設定ファイルは対応する文書ファイルと同名で保存される仕様のため、
- * 対応する文書ファイルが見つからない設定ファイルのみを抽出する
+ * 設定ファイルは対応する文書ファイルと同名（拡張子込みのbasenameに`.kcfg`を付与した名前。
+ * 新形式は先頭にドットも付与する）で保存される仕様のため、対応する文書ファイルが
+ * 見つからない設定ファイルのみを抽出する
  */
 export function getFloatingConfigPaths(file: ContainerElementFile): Result<string[]> {
   const container = containerService.getContainer(file.containerID);
@@ -328,21 +329,20 @@ export function getFloatingConfigPaths(file: ContainerElementFile): Result<strin
     // スラッシュを含まない（= 同一階層）のファイルのみ
     return !relative.includes('/');
   });
+  // 対応するファイルの有無は拡張子込みのbasenameどうしで比較する必要があるため、
+  // stemname（拡張子除去）ではなくbasenameの集合を用意する
+  const siblingBasenames = new Set(siblingPaths.map((sp) => new Path(sp).basename()));
 
-  // 同一階層の設定ファイルについて、対応する文書ファイルが存在するか確認
+  // 同一階層の設定ファイル（新形式・旧形式いずれも対象）について、対応する文書ファイルが存在するか確認
   const floatingConfigPaths = siblingPaths
-    .filter((siblingPath) => {
-      const siblingPathObj = new Path(siblingPath);
-      return siblingPathObj.extname() === CONFIG_FILE_EXTS;
-    })
+    .filter((siblingPath) => new Path(siblingPath).extname() === CONFIG_FILE_EXTS)
     .filter((configPath) => {
-      // 設定ファイルと同名のファイル（拡張子なし）を探す
-      const configFileName = new Path(configPath).stemname();
-      const relatedFile = siblingPaths.find(
-        (sibling) => new Path(sibling).stemname() === configFileName && sibling !== configPath,
-      );
+      // 設定ファイル名から対応する文書ファイル名（拡張子込みのbasename）を復元し、
+      // 同一階層に同名の文書ファイルが実在するか確認する
+      const configFileName = new Path(configPath).basename();
+      const sourceBaseName = getSourceBaseNameFromConfigFileName(configFileName);
       // 対応するファイルが見つからないものを浮いていると判定
-      return !relatedFile;
+      return !siblingBasenames.has(sourceBaseName);
     });
 
   return Success(floatingConfigPaths);
@@ -468,16 +468,23 @@ export async function updateConfigForNewDoc(
 /**
  * ファイル削除時に、対応する`.kcfg`サイドカー設定ファイルが存在すれば削除する（ベストエフォート）
  *
- * サイドカーが存在しない場合の削除失敗も含め、本体ファイルの削除自体は成功として扱いたいため、
- * ここでのエラーは呼び出し元に伝播させずログのみに留める
+ * 新形式（先頭ドット付き）・旧形式（先頭ドット無し）のどちらで保存されているか呼び出し時点では
+ * 判別できないため、両方のパスに対して削除を試みる。片方（あるいは両方）が元々存在しない場合の
+ * 削除失敗は通常のケースであり警告を出さない。本体ファイルの削除自体は成功として扱いたいため、
+ * それ以外の削除失敗もここでは呼び出し元に伝播させずログのみに留める
  */
 export async function deleteConfigForFile(file: ContainerElementFile): Promise<void> {
-  const sidecarPath = containerConfigService.getConfigPath(file.path);
-  const sidecarElement: ContainerElementFile = { ...file, path: sidecarPath };
+  const sidecarPaths = [
+    containerConfigService.getConfigPath(file.path),
+    containerConfigService.getLegacyConfigPath(file.path),
+  ];
 
-  const deleteRes = await containerService.deleteFile(file.containerID, sidecarElement);
-  if (!deleteRes.ok) {
-    console.warn('Failed to delete sidecar config file (best-effort):', deleteRes.error);
+  for (const sidecarPath of sidecarPaths) {
+    const sidecarElement: ContainerElementFile = { ...file, path: sidecarPath };
+    const deleteRes = await containerService.deleteFile(file.containerID, sidecarElement);
+    if (!deleteRes.ok && !(deleteRes.error instanceof NotFoundError)) {
+      console.warn('Failed to delete sidecar config file (best-effort):', deleteRes.error);
+    }
   }
 }
 
@@ -508,10 +515,18 @@ export async function renamePath(
 
   const allRenamed = [...mainRenameRes.value];
 
-  // 2. リネームされた各Fileについて、対応する.kcfgサイドカーがあれば追従させる
+  // 2. リネームされた各Fileについて、対応する.kcfgサイドカー（新形式・旧形式いずれか）があれば
+  //    追従させる。移行を進めるため、リネーム後のサイドカーパスは常に新形式（先頭ドット付き）に揃える
   const renamedFiles = mainRenameRes.value.filter((r) => r.element.type === 'File');
   for (const renamedFile of renamedFiles) {
-    const oldSidecarPath = containerConfigService.getConfigPath(renamedFile.oldPath);
+    const newFormatOldSidecarPath = containerConfigService.getConfigPath(renamedFile.oldPath);
+    const legacyFormatOldSidecarPath = containerConfigService.getLegacyConfigPath(
+      renamedFile.oldPath,
+    );
+    const oldSidecarPath =
+      elementsBefore[newFormatOldSidecarPath] !== undefined
+        ? newFormatOldSidecarPath
+        : legacyFormatOldSidecarPath;
     const sidecarElem = elementsBefore[oldSidecarPath];
     if (sidecarElem === undefined) continue;
 

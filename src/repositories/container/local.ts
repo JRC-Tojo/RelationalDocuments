@@ -2,7 +2,7 @@
  * File System Access APIを利用して、PC上の実フォルダをコンテナとして扱う
  */
 import type { Container, ContainerElement, ContainerID, ContainerSkel } from 'src/models/container';
-import { CONFIG_FILE_EXTS, DocumentSource } from 'src/models/document/common';
+import { DocumentSource, isConfigFileName } from 'src/models/document/common';
 import type { Result } from 'src/models/error/result';
 import { Failure, NotFoundError, Success, toError } from 'src/models/error/result';
 import * as fsHandleDB from 'src/repositories/inMemory/fsHandleDB';
@@ -179,8 +179,8 @@ async function walkDirectory(
   for await (const [name, handle] of dirHandle.entries()) {
     // 本システムの管理フォルダはコンテナ要素一覧には含めない
     if (relativePath === '' && name === CONTAINER_CONFIG_FOLDER) continue;
-    // 文書管理ファイルはコンテナ要素一覧には含めない
-    if (name.endsWith(CONFIG_FILE_EXTS)) continue;
+    // 文書管理ファイルはコンテナ要素一覧には含めない（新形式・旧形式いずれの命名も対象）
+    if (isConfigFileName(name)) continue;
 
     const entryPath = relativePath === '' ? name : new Path(relativePath).child(name).path;
 

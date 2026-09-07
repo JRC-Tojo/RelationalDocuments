@@ -22,20 +22,36 @@ import {
 } from 'src/models/relational/containerSettings';
 import * as textRepository from 'src/repositories/document/text';
 import type { RelationalWithAddress } from 'src/models/relational/common';
-import { CONFIG_FILE_EXTS } from 'src/models/document/common';
+import { buildConfigFileName, buildLegacyConfigFileName } from 'src/models/document/common';
 import { fromEntries } from 'src/utils/obj/obj';
 import type { AnnotationGroup, AnnotationGroupID } from 'src/models/document/group';
 
 const CONTAINER_CONFIG_FOLDER = '.kumihimo';
 
 /**
- * 文書設定ファイルのパスを取得する
+ * 文書設定ファイルのパス（新形式・先頭ドット付き）を取得する
+ *
+ * 例: "folder/report.pdf" → "folder/.report.pdf.kcfg"
  */
 export function getConfigPath(filePath: string): string {
   const pathObj = new Path(filePath);
   const parentPath = pathObj.parent();
   const pathName = pathObj.basename();
-  const configPath = parentPath.child(pathName + CONFIG_FILE_EXTS);
+  const configPath = parentPath.child(buildConfigFileName(pathName));
+  return configPath.path;
+}
+
+/**
+ * 文書設定ファイルのパス（旧形式・先頭ドット無し）を取得する
+ *
+ * 新形式導入以前に作成された既存コンテナとの後方互換のためだけに使う
+ * （`getDocumentConfigFile`のフォールバック読み込み・`renamePath`のリネーム追従探索用）
+ */
+export function getLegacyConfigPath(filePath: string): string {
+  const pathObj = new Path(filePath);
+  const parentPath = pathObj.parent();
+  const pathName = pathObj.basename();
+  const configPath = parentPath.child(buildLegacyConfigFileName(pathName));
   return configPath.path;
 }
 
@@ -339,6 +355,11 @@ export async function saveContainerSettingsFile(
 
 /**
  * 文書設定ファイルを取得する
+ *
+ * `ContainerElementFile`を渡した場合のみ、新形式（先頭ドット付き）のパスをまず試し、
+ * 見つからない場合に限り旧形式（先頭ドット無し）へフォールバックする。
+ * 明示的なパス文字列（`getFloatingConfigPaths`等で既に実在確認済みのパス）を渡した場合は
+ * そのパスをそのまま読み込むだけで、フォールバックは行わない
  */
 export async function getDocumentConfigFile(
   cID: ContainerID,
@@ -353,12 +374,26 @@ export async function getDocumentConfigFile(
   filePath: ContainerElementFile | string,
 ): Promise<Result<DocumentConfigFile>> {
   const containerService = await import('./main');
-  const targetPath = typeof filePath === 'string' ? filePath : getConfigPath(filePath.path);
-  const configSrc = await containerService.loadFileAsDocumentSource(cID, targetPath);
-  if (!configSrc.ok) return configSrc;
 
-  const parsedConfig = textRepository.loadTextContents(configSrc.value, DocumentConfigFile);
-  return parsedConfig;
+  if (typeof filePath === 'string') {
+    const configSrc = await containerService.loadFileAsDocumentSource(cID, filePath);
+    if (!configSrc.ok) return configSrc;
+    return textRepository.loadTextContents(configSrc.value, DocumentConfigFile);
+  }
+
+  // 新形式を優先して読み込み、存在しない場合（NotFoundError）のみ旧形式を試す。
+  // 権限エラー等それ以外の失敗は既存データ喪失防止のためそのまま伝播させる
+  const newPath = getConfigPath(filePath.path);
+  const newSrc = await containerService.loadFileAsDocumentSource(cID, newPath);
+  if (newSrc.ok) {
+    return textRepository.loadTextContents(newSrc.value, DocumentConfigFile);
+  }
+  if (!(newSrc.error instanceof NotFoundError)) return newSrc;
+
+  const legacyPath = getLegacyConfigPath(filePath.path);
+  const legacySrc = await containerService.loadFileAsDocumentSource(cID, legacyPath);
+  if (!legacySrc.ok) return legacySrc;
+  return textRepository.loadTextContents(legacySrc.value, DocumentConfigFile);
 }
 
 /**
@@ -389,13 +424,45 @@ export async function saveDocumentConfigFile(
   const docConfSrc = textRepository.encodeTextContents(docConfStr);
   if (!docConfSrc.ok) return docConfSrc;
 
-  // ファイルにデータを保存
+  // ファイルにデータを保存（常に新形式のパスへ書き込む）
   const containerService = await import('./main');
   const configFilePath = getConfigPath(filePath);
   const createRes = await containerService.createFile(cID, configFilePath, docConfSrc.value);
   if (!createRes.ok) return createRes;
 
+  // 旧形式（先頭ドット無し）のサイドカーが残っていれば、新形式へ書き込み終えたこのタイミングで
+  // 削除し、新旧2つのファイルが併存し続けないよう一本化する（移行はベストエフォート。
+  // 読み込み側`getDocumentConfigFile`は旧形式も引き続きフォールバック対象とするため、
+  // ここでの削除に失敗しても不整合にはならず、次回保存時に再度削除を試みるだけでよい）
+  await deleteLegacyConfigFileIfExists(cID, filePath);
+
   return Success();
+}
+
+/**
+ * 旧形式（先頭ドット無し）の文書設定ファイルが存在すればベストエフォートで削除する
+ *
+ * `saveDocumentConfigFile`専用の移行処理。存在しない場合（NotFoundError）は通常の
+ * ケースであるため警告を出さず、それ以外の削除失敗（権限エラー等）のみ警告に留める
+ */
+async function deleteLegacyConfigFileIfExists(cID: ContainerID, filePath: string): Promise<void> {
+  const containerService = await import('./main');
+  const legacyPath = getLegacyConfigPath(filePath);
+  const legacyElement: ContainerElementFile = {
+    containerID: cID,
+    type: 'File',
+    path: legacyPath,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    description: '',
+    genre: '',
+    tags: [],
+  };
+
+  const deleteRes = await containerService.deleteFile(cID, legacyElement);
+  if (!deleteRes.ok && !(deleteRes.error instanceof NotFoundError)) {
+    console.warn('Failed to delete legacy sidecar config file (best-effort):', deleteRes.error);
+  }
 }
 
 /**
