@@ -182,8 +182,8 @@ describe('getFloatingConfigPaths（新形式・旧形式いずれのサイドカ
   });
 });
 
-describe('renamePath（.kcfgサイドカーの追従・新形式への移行）', () => {
-  it('旧形式で保存されていたサイドカーも見つけてリネームに追従させ、新形式のパスへ揃える', async () => {
+describe('renamePath（.kcfgサイドカーの追従）', () => {
+  it('旧形式で保存されていたサイドカーも見つけてリネームに追従させる（旧形式のまま維持）', async () => {
     const oldFile = buildFile('old.pdf');
     const legacySidecar = buildFile('old.pdf.kcfg');
     containerFixture = {
@@ -202,17 +202,19 @@ describe('renamePath（.kcfgサイドカーの追従・新形式への移行）'
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
 
-    // 1回目: 本体ファイルのリネーム、2回目: サイドカーのリネーム（新形式のパスへ）
+    // 1回目: 本体ファイルのリネーム、2回目: サイドカーのリネーム（旧形式のパスのまま）。
+    // 新形式への移行自体は保存時（`saveDocumentConfigFile`）に別途行われるため、
+    // リネーム時点では元の命名形式を維持する
     expect(renamePathMock).toHaveBeenCalledTimes(2);
     const sidecarCall = renamePathMock.mock.calls[1] as [ContainerID, ContainerElement, string];
     expect(sidecarCall[1].path).toBe('old.pdf.kcfg');
-    expect(sidecarCall[2]).toBe('.new.pdf.kcfg');
+    expect(sidecarCall[2]).toBe('new.pdf.kcfg');
 
     const renamedPaths = res.value.map((r) => r.oldPath);
     expect(renamedPaths).toContain('old.pdf.kcfg');
   });
 
-  it('新形式で保存されていたサイドカーもリネームに追従する', async () => {
+  it('新形式で保存されていたサイドカーもリネームに追従する（新形式のまま維持）', async () => {
     const oldFile = buildFile('old.pdf');
     const newFormatSidecar = buildFile('.old.pdf.kcfg');
     containerFixture = {
@@ -235,6 +237,47 @@ describe('renamePath（.kcfgサイドカーの追従・新形式への移行）'
     const sidecarCall = renamePathMock.mock.calls[1] as [ContainerID, ContainerElement, string];
     expect(sidecarCall[1].path).toBe('.old.pdf.kcfg');
     expect(sidecarCall[2]).toBe('.new.pdf.kcfg');
+  });
+
+  it('新旧両方のサイドカーが併存している場合、片方を孤児化させず両方リネームに追従させる', async () => {
+    // 旧形式削除のベストエフォート失敗や保存処理の中断等により、移行途中で新旧が
+    // 併存するケースを想定する。この場合に片方だけをリネームし、もう片方を旧パスに
+    // 取り残す（孤児化させる）ことがあってはならない
+    const oldFile = buildFile('old.pdf');
+    const newFormatSidecar = buildFile('.old.pdf.kcfg');
+    const legacySidecar = buildFile('old.pdf.kcfg');
+    containerFixture = {
+      id: containerID,
+      name: 'c',
+      type: 'local',
+      containerPath: '/root',
+      elements: {
+        'old.pdf': oldFile,
+        '.old.pdf.kcfg': newFormatSidecar,
+        'old.pdf.kcfg': legacySidecar,
+      },
+    };
+    renamePathMock.mockClear();
+
+    const res = await renamePath(oldFile, 'new.pdf');
+    expect(res.ok).toBeTrue();
+    if (!res.ok) return;
+
+    // 本体1回 + 新形式サイドカー1回 + 旧形式サイドカー1回 = 3回
+    expect(renamePathMock).toHaveBeenCalledTimes(3);
+
+    const newFormatCall = renamePathMock.mock.calls[1] as [ContainerID, ContainerElement, string];
+    expect(newFormatCall[1].path).toBe('.old.pdf.kcfg');
+    expect(newFormatCall[2]).toBe('.new.pdf.kcfg');
+
+    const legacyCall = renamePathMock.mock.calls[2] as [ContainerID, ContainerElement, string];
+    expect(legacyCall[1].path).toBe('old.pdf.kcfg');
+    expect(legacyCall[2]).toBe('new.pdf.kcfg');
+
+    // どちらも取り残されず、リネーム結果に両方の旧パスが含まれること
+    const renamedPaths = res.value.map((r) => r.oldPath);
+    expect(renamedPaths).toContain('.old.pdf.kcfg');
+    expect(renamedPaths).toContain('old.pdf.kcfg');
   });
 
   it('サイドカーが存在しない場合はリネームに追従させない（本体のみリネームされる）', async () => {

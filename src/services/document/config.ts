@@ -515,25 +515,28 @@ export async function renamePath(
 
   const allRenamed = [...mainRenameRes.value];
 
-  // 2. リネームされた各Fileについて、対応する.kcfgサイドカー（新形式・旧形式いずれか）があれば
-  //    追従させる。移行を進めるため、リネーム後のサイドカーパスは常に新形式（先頭ドット付き）に揃える
+  // 2. リネームされた各Fileについて、対応する.kcfgサイドカー（新形式・旧形式いずれか、あるいは
+  //    移行途中で両方）があれば追従させる。新旧どちらが実在するかは呼び出し時点では判別できず、
+  //    かつ理論上両方が併存し得る（例: 旧形式削除のベストエフォート失敗、保存処理の中断等）ため、
+  //    存在するものはすべて個別にリネームする（片方だけを選んで残りを孤児化させない）。
+  //    リネーム後も元と同じ命名形式を維持する（新形式へ寄せる移行自体は保存時に別途行われる）
   const renamedFiles = mainRenameRes.value.filter((r) => r.element.type === 'File');
   for (const renamedFile of renamedFiles) {
-    const newFormatOldSidecarPath = containerConfigService.getConfigPath(renamedFile.oldPath);
-    const legacyFormatOldSidecarPath = containerConfigService.getLegacyConfigPath(
-      renamedFile.oldPath,
-    );
-    const oldSidecarPath =
-      elementsBefore[newFormatOldSidecarPath] !== undefined
-        ? newFormatOldSidecarPath
-        : legacyFormatOldSidecarPath;
-    const sidecarElem = elementsBefore[oldSidecarPath];
-    if (sidecarElem === undefined) continue;
+    const sidecarPathBuilders = [
+      containerConfigService.getConfigPath,
+      containerConfigService.getLegacyConfigPath,
+    ];
 
-    const newSidecarPath = containerConfigService.getConfigPath(renamedFile.element.path);
-    const sidecarRenameRes = await containerService.renamePath(cID, sidecarElem, newSidecarPath);
-    if (!sidecarRenameRes.ok) return sidecarRenameRes;
-    allRenamed.push(...sidecarRenameRes.value);
+    for (const buildSidecarPath of sidecarPathBuilders) {
+      const oldSidecarPath = buildSidecarPath(renamedFile.oldPath);
+      const sidecarElem = elementsBefore[oldSidecarPath];
+      if (sidecarElem === undefined) continue;
+
+      const newSidecarPath = buildSidecarPath(renamedFile.element.path);
+      const sidecarRenameRes = await containerService.renamePath(cID, sidecarElem, newSidecarPath);
+      if (!sidecarRenameRes.ok) return sidecarRenameRes;
+      allRenamed.push(...sidecarRenameRes.value);
+    }
   }
 
   // 3. コンテナルートの関係性キャッシュ・読み込み中DBのファイルパス参照を更新する

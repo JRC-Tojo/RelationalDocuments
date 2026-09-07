@@ -276,7 +276,10 @@ export async function deleteFile(c: Container, element: ContainerElement): Promi
     await parentRes.value.dir.removeEntry(parentRes.value.name);
     return Success();
   } catch (e) {
-    return Failure(toError(e));
+    // 削除対象が元々存在しない場合（DOMExceptionのNotFoundError）を、呼び出し側が
+    // 本来のエラー（権限エラー等）と区別できるよう、専用のNotFoundErrorへ変換する
+    // （`.kcfg`移行処理のベストエフォート削除等が「未存在＝正常」を判定するために必要）
+    return Failure(toFsError(e));
   }
 }
 
