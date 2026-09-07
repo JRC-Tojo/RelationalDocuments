@@ -12,7 +12,7 @@
       flat
       no-caps
       size="sm"
-      :label="opt.label"
+      :label="opt.labelKey ? t(opt.labelKey) : opt.label"
       class="search-option-toggles__btn"
       :class="{ 'search-option-toggles__btn--active': options[opt.key] }"
       :title="t(opt.titleKey)"
@@ -36,14 +36,30 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
-/** ボタンのラベル・ツールチップ・対象オプションキーの定義（表示順） */
+/**
+ * ボタンのラベル・ツールチップ・対象オプションキーの定義（表示順）
+ *
+ * `Aa`（大文字小文字）・`.*`（正規表現）は言語に依存しない記号のためリテラル表示のままとし、
+ * `全角/半角`（distinguishWidth）のみ`labelKey`経由でロケールごとに翻訳する
+ */
 const OPTION_DEFS = [
-  { key: 'caseSensitive', label: 'Aa', titleKey: 'pdfEditor.search.matchCase' },
-  { key: 'distinguishWidth', label: '全角/半角', titleKey: 'pdfEditor.search.distinguishWidth' },
-  { key: 'useRegex', label: '.*', titleKey: 'pdfEditor.search.useRegex' },
+  {
+    key: 'caseSensitive',
+    label: 'Aa',
+    labelKey: undefined,
+    titleKey: 'pdfEditor.search.matchCase',
+  },
+  {
+    key: 'distinguishWidth',
+    label: '全角/半角',
+    labelKey: 'pdfEditor.search.distinguishWidthLabel',
+    titleKey: 'pdfEditor.search.distinguishWidth',
+  },
+  { key: 'useRegex', label: '.*', labelKey: undefined, titleKey: 'pdfEditor.search.useRegex' },
 ] as const satisfies ReadonlyArray<{
   key: keyof TextSearchOptions;
   label: string;
+  labelKey?: string | undefined;
   titleKey: string;
 }>;
 

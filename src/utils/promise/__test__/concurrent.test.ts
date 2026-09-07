@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 import { runConcurrently } from '../concurrent';
 
+/**
+ * 指定した値を指定時間後に返す非同期タスクを生成する（テスト用）
+ */
 function delayed<T>(value: T, ms: number): () => Promise<T> {
   return () => new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }

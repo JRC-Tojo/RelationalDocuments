@@ -368,6 +368,7 @@ export default {
       close: 'Close search',
       matchCase: 'Match case',
       distinguishWidth: 'Match full/half-width',
+      distinguishWidthLabel: 'Full/Half',
       useRegex: 'Use regular expression',
     },
     peek: {
@@ -531,6 +532,7 @@ export default {
     noResults: 'No matching results',
     pageLabel: 'Page {page}',
     searching: 'Searching...',
+    searchFailed: 'Search failed for some containers. The results shown may be incomplete',
   },
 
   plugins: {

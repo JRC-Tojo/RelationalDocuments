@@ -17,7 +17,7 @@ import * as pdfRepo from 'src/repositories/document/pdf';
 import * as localFontAccessRepo from 'src/repositories/document/localFontAccess';
 import * as textRepo from 'src/repositories/document/text';
 import * as documentService from 'src/services/document/config';
-import { runConcurrently } from 'src/utils/promise/concurrent';
+import { createConcurrencyLimiter } from 'src/utils/promise/concurrent';
 import type {
   Container,
   ContainerElement,
@@ -320,9 +320,11 @@ class BackendApi {
    * コンテナ横断のテキスト検索: コンテナ内の全PDF文書を対象にクエリを検索する
    * （PDF自体のテキストに加え、テキストボックスアノテーションの内容も検索対象に含める）
    *
-   * 文書ごとの読み込み・検索は`CONTAINER_SEARCH_CONCURRENCY`件まで並列化する（issue #91と
-   * 同根の「重いファイルが多いコンテナで遅い」問題への対応）。`onResult`を渡すと、各文書の
-   * 検索が完了するたび（＝全件揃うのを待たず）に随時呼ばれるため、呼び出し側はUIを
+   * 文書ごとの読み込み・検索は`limiter`（既定では`CONTAINER_SEARCH_CONCURRENCY`件までの
+   * 専用リミッター）を介して並列化する（issue #91と同根の「重いファイルが多いコンテナで遅い」
+   * 問題への対応）。`searchAllContainersText`から呼ばれる際は全コンテナで共有する`limiter`が
+   * 渡されるため、コンテナ数が増えても全体の同時文書検索数は一定に保たれる。`onResult`を渡すと、
+   * 各文書の検索が完了するたび（＝全件揃うのを待たず）に随時呼ばれるため、呼び出し側はUIを
    * ブロックせず結果が出た文書から順次表示できる。個別文書の読み込み・検索に失敗した場合は
    * その文書だけスキップし、コンテナ全体の検索は継続する
    */
@@ -331,6 +333,9 @@ class BackendApi {
     query: string,
     searchOptions?: Partial<TextSearchOptions>,
     onResult?: (result: ContainerTextSearchResult) => void,
+    limiter: <T>(task: () => Promise<T>) => Promise<T> = createConcurrencyLimiter(
+      CONTAINER_SEARCH_CONCURRENCY,
+    ),
   ): Promise<ApiResponse<ContainerTextSearchResult[]>> {
     const containerRes = await containerService.loadContainer(cId, false);
     if (!containerRes.ok) return toApiResponse(containerRes, 'CONTAINER_SEARCH_FAILED');
@@ -357,7 +362,7 @@ class BackendApi {
       },
     );
 
-    const settled = await runConcurrently(searchTasks, CONTAINER_SEARCH_CONCURRENCY);
+    const settled = await Promise.all(searchTasks.map((task) => limiter(task)));
     const results = settled.filter((r): r is ContainerTextSearchResult => r !== undefined);
     return toApiResponse(Success(results), 'CONTAINER_SEARCH_FAILED');
   }
@@ -366,10 +371,13 @@ class BackendApi {
    * 登録済みの全コンテナを横断したテキスト検索（サイドパネルの検索タブから使う想定。
    * VSCodeのワークスペース全体検索に相当）
    *
-   * コンテナ単位は逐次実行するが、各コンテナ内部の文書検索自体は`searchContainerText`が
-   * `CONTAINER_SEARCH_CONCURRENCY`件まで並列化するため、コンテナ数が増えてもこの上限を超えて
-   * 同時アクセス数が際限なく膨らむことはない。`onResult`は文書単位で（コンテナをまたいで）
-   * 随時呼ばれるため、呼び出し側は全コンテナの完了を待たず結果が出た文書から順次表示できる
+   * コンテナ単位も`CONTAINER_SEARCH_CONCURRENCY`件までの上限付きで並列実行する。各コンテナ内部の
+   * 文書検索も含め、全コンテナで1つの`limiter`を共有するため、コンテナ数が増えても全体の
+   * 同時文書検索数が際限なく膨らむことはない。`onResult`は文書単位で（コンテナをまたいで）
+   * 随時呼ばれるため、呼び出し側は全コンテナの完了を待たず結果が出た文書から順次表示できる。
+   * 一部のコンテナの検索に失敗した場合、既に取得できた結果は`onResult`経由で呼び出し側へ
+   * 通知済みとした上で、この関数自体は失敗として返す（不完全な結果を「成功」や「結果なし」として
+   * 扱わないようにするため）
    */
   async searchAllContainersText(
     query: string,
@@ -379,10 +387,20 @@ class BackendApi {
     const containersRes = await containerService.getAllContainers();
     if (!containersRes.ok) return toApiResponse(containersRes, 'CONTAINER_SEARCH_FAILED');
 
-    const allResults: ContainerTextSearchResult[] = [];
-    for (const container of containersRes.value) {
-      const res = await this.searchContainerText(container.id, query, searchOptions, onResult);
-      if (res.ok) allResults.push(...res.data);
+    const limiter = createConcurrencyLimiter(CONTAINER_SEARCH_CONCURRENCY);
+    const containerResults = await Promise.all(
+      containersRes.value.map((container) =>
+        this.searchContainerText(container.id, query, searchOptions, onResult, limiter),
+      ),
+    );
+
+    const failedCount = containerResults.filter((res) => !res.ok).length;
+    const allResults = containerResults.filter((res) => res.ok).flatMap((res) => res.data);
+    if (failedCount > 0) {
+      return toApiResponse(
+        Failure(new Error(`${failedCount}件のコンテナで検索に失敗しました`)),
+        'CONTAINER_SEARCH_FAILED',
+      );
     }
     return toApiResponse(Success(allResults), 'CONTAINER_SEARCH_FAILED');
   }

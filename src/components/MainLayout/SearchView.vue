@@ -35,55 +35,62 @@
       <div v-if="containers.length === 0" class="text-grey-6 text-caption q-pa-sm">
         {{ $t('searchPanel.noContainers') }}
       </div>
-      <div
-        v-else-if="hasSearched && !isSearching && results.length === 0"
-        class="text-grey-6 text-caption q-pa-sm"
-      >
-        {{ $t('searchPanel.noResults') }}
-      </div>
-      <!-- ファイルごとにq-expansion-itemで畳み、既定では開いた状態で表示する -->
-      <q-list v-else dense>
-        <q-expansion-item
-          v-for="result in results"
-          :key="fileKey(result.file)"
-          dense
-          default-opened
-          header-class="search-view-file-header"
+      <template v-else>
+        <!-- 一部コンテナの検索が失敗した場合も、`onResult`経由で既に届いている部分的な結果は
+             下の一覧にそのまま表示しつつ、不完全である旨をここで併記する -->
+        <div v-if="searchFailed" class="text-negative text-caption q-pa-sm">
+          {{ $t('searchPanel.searchFailed') }}
+        </div>
+        <div
+          v-if="!searchFailed && hasSearched && !isSearching && results.length === 0"
+          class="text-grey-6 text-caption q-pa-sm"
         >
-          <template #header>
-            <q-item-section>
-              {{ containerNameOf(result.file.containerID) }} › {{ result.file.path }}
-            </q-item-section>
-            <q-item-section side>
-              <q-badge outline color="primary">{{ result.matches.length }}</q-badge>
-            </q-item-section>
-          </template>
-
-          <q-item
-            v-for="(match, idx) in result.matches"
-            :key="`${fileKey(result.file)}-${idx}`"
-            clickable
+          {{ $t('searchPanel.noResults') }}
+        </div>
+        <!-- ファイルごとにq-expansion-itemで畳み、既定では開いた状態で表示する -->
+        <q-list v-if="results.length > 0" dense>
+          <q-expansion-item
+            v-for="result in results"
+            :key="fileKey(result.file)"
             dense
-            :title="$t('searchPanel.pageLabel', { page: match.pageNumber })"
-            @click="openResult(result.file, match.pageNumber)"
+            default-opened
+            header-class="search-view-file-header"
           >
-            <q-item-section>
-              <!-- ヒット文字とその前後（同一行のみ）をハイライト表示する。ファイル単位検索の
-                   PDF上ハイライトと同じ配色（$search-highlight）を使い、表示の一貫性を保つ -->
-              <q-item-label class="search-view-snippet"
-                ><span class="search-view-snippet__context">{{ match.contextBefore }}</span
-                ><mark class="search-view-snippet__hit">{{ match.text }}</mark
-                ><span class="search-view-snippet__context">{{
-                  match.contextAfter
-                }}</span></q-item-label
-              >
-            </q-item-section>
-            <q-item-section side>
-              <q-item-label caption>{{ match.pageNumber }}</q-item-label>
-            </q-item-section>
-          </q-item>
-        </q-expansion-item>
-      </q-list>
+            <template #header>
+              <q-item-section>
+                {{ containerNameOf(result.file.containerID) }} › {{ result.file.path }}
+              </q-item-section>
+              <q-item-section side>
+                <q-badge outline color="primary">{{ result.matches.length }}</q-badge>
+              </q-item-section>
+            </template>
+
+            <q-item
+              v-for="(match, idx) in result.matches"
+              :key="`${fileKey(result.file)}-${idx}`"
+              clickable
+              dense
+              :title="$t('searchPanel.pageLabel', { page: match.pageNumber })"
+              @click="openResult(result.file, match.pageNumber)"
+            >
+              <q-item-section>
+                <!-- ヒット文字とその前後（同一行のみ）をハイライト表示する。ファイル単位検索の
+                     PDF上ハイライトと同じ配色（$search-highlight）を使い、表示の一貫性を保つ -->
+                <q-item-label class="search-view-snippet"
+                  ><span class="search-view-snippet__context">{{ match.contextBefore }}</span
+                  ><mark class="search-view-snippet__hit">{{ match.text }}</mark
+                  ><span class="search-view-snippet__context">{{
+                    match.contextAfter
+                  }}</span></q-item-label
+                >
+              </q-item-section>
+              <q-item-section side>
+                <q-item-label caption>{{ match.pageNumber }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-expansion-item>
+        </q-list>
+      </template>
     </div>
   </div>
 </template>
@@ -109,7 +116,13 @@ const options = ref<TextSearchOptions>({
 const results = ref<ContainerTextSearchResult[]>([]);
 const isSearching = ref(false);
 const hasSearched = ref(false);
+const searchFailed = ref(false);
 const containers = ref<ContainerSkel[]>([]);
+
+/** 実行中の検索を識別する世代カウンタ。重複実行時に古い検索の結果・ローディング状態が
+ * 新しい検索を上書きしないよう、各`runSearch`呼び出しの中身は自分の世代と現在の世代を
+ * 比較してから状態を更新する */
+let searchGeneration = 0;
 
 /** SearchOptionTogglesからのオプション変更を反映し、現在のqueryで即座に再検索する */
 function onUpdateOptions(v: TextSearchOptions): void {
@@ -120,29 +133,32 @@ function onUpdateOptions(v: TextSearchOptions): void {
 /** キーストロークのたびの自動検索は行わない（全コンテナ×全文書の走査は重いため、Enter/オプション変更でのみ実行する） */
 async function runSearch(): Promise<void> {
   const trimmed = query.value.trim();
+  const generation = ++searchGeneration;
+
   if (trimmed === '') {
     results.value = [];
     hasSearched.value = false;
+    searchFailed.value = false;
     return;
   }
 
-  const searchStartQuery = trimmed;
-  const searchStartOptions = { ...options.value };
+  // 検索開始前にコンテナ一覧を取り直す。パネルを開いた後に作成・削除されたコンテナも
+  // 検索対象・空状態表示の双方に正しく反映するため
+  const containersRes = await api.getAllContainers();
+  if (generation !== searchGeneration) return;
+  if (containersRes.ok) containers.value = containersRes.data;
+
   isSearching.value = true;
   hasSearched.value = true;
+  searchFailed.value = false;
   results.value = [];
   try {
-    await api.searchAllContainersText(searchStartQuery, searchStartOptions, (result) => {
-      // 検索中にクエリ・オプションが変わっていた場合、この結果は既に古いため反映しない
-      if (
-        query.value.trim() === searchStartQuery &&
-        JSON.stringify(options.value) === JSON.stringify(searchStartOptions)
-      ) {
-        results.value.push(result);
-      }
+    const res = await api.searchAllContainersText(trimmed, { ...options.value }, (result) => {
+      if (generation === searchGeneration) results.value.push(result);
     });
+    if (generation === searchGeneration) searchFailed.value = !res.ok;
   } finally {
-    isSearching.value = false;
+    if (generation === searchGeneration) isSearching.value = false;
   }
 }
 

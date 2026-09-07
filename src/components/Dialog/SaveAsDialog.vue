@@ -166,6 +166,7 @@ onMounted(async () => {
     // 各コンテナの読み込み（内部で全要素を再帰的に辿る）を並列化する。ツリー構築自体は
     // containersRes.data の順序を保ったまま行うため、並列化するのは読み込みのみに留める
     const loadTasks = containersRes.data.map((skel) => async () => ({
+      // 1コンテナ分の読み込みタスク: 読み込み結果を、後段でツリー構築に使う元のskelと組にして返す
       skel,
       loadedRes: await api.loadContainer(skel.id),
     }));

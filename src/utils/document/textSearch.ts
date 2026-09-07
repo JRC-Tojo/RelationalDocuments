@@ -14,20 +14,26 @@ import type { AnnotationStyle, TextItemBox } from 'src/models/document/pdf';
 import type { TextSearchMatch, TextSearchOptions } from 'src/models/document/search';
 import type { BoundingBox } from 'src/models/common';
 
-/** 元テキストの1文字（UTF-16コード単位）ごとの正規化結果と、正規化後位置→元位置の対応表 */
+/** 元テキストの1書記素クラスタ（結合文字を含む見た目上の1文字）ごとの正規化結果と、
+ * 正規化後位置→元テキスト範囲の対応表 */
 interface NormalizedText {
   normalized: string;
-  /** `normalized`の各位置が、元テキストの何文字目に由来するかを示す対応表 */
-  originalIndexOf: number[];
+  /** `normalized`の各位置が、元テキストのどの範囲`[start, end)`に由来するかを示す対応表 */
+  originalRangeOf: Array<{ start: number; end: number }>;
 }
 
+/** 書記素クラスタ単位での文字列分割に使う（`distinguishWidth`が偽の場合の正規化で使用） */
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
 /**
- * オプションに従ってテキストを検索用に正規化し、正規化後位置→元位置の対応表とともに返す
+ * オプションに従ってテキストを検索用に正規化し、正規化後位置→元テキスト範囲の対応表とともに返す
  *
- * `distinguishWidth`が偽（既定）の場合、半角・全角の吸収（NFKC正規化）を1文字ずつ行う
- * （`String.prototype.normalize`を文字列全体に対して呼ぶと、結合文字等で長さが変わった際に
- * 元位置との対応が取れなくなるため）。`useRegex`時の大文字小文字は`RegExp`の`i`フラグ側に
- * 任せるため、ここでは折りたたまない
+ * `distinguishWidth`が偽（既定）の場合、半角・全角の吸収（NFKC正規化）を書記素クラスタ単位で行う。
+ * 半角濁点（例: "ｶﾞ" = "ｶ"+"ﾞ"の2コード単位）のようにUTF-16コード単位ごとに正規化すると
+ * 濁点が分離したまま残り、対応する全角文字（"ガ"）と一致しなくなるため、結合文字を1つの
+ * クラスタとしてまとめてから正規化する（`String.prototype.normalize`を文字列全体に対して
+ * 呼ばないのは、結合文字等で長さが変わった際に元位置との対応が取れなくなるため）。
+ * `useRegex`時の大文字小文字は`RegExp`の`i`フラグ側に任せるため、ここでは折りたたまない
  */
 function normalizeForSearch(text: string, options: Partial<TextSearchOptions>): NormalizedText {
   const foldCase = !options.caseSensitive && !options.useRegex;
@@ -35,19 +41,64 @@ function normalizeForSearch(text: string, options: Partial<TextSearchOptions>): 
   if (options.distinguishWidth) {
     // 半角全角を区別する場合は1文字=1文字の対応が保証されるため、単純な変換で済む
     const normalized = foldCase ? text.toLowerCase() : text;
-    const originalIndexOf = Array.from({ length: normalized.length }, (_, i) => i);
-    return { normalized, originalIndexOf };
+    const originalRangeOf = Array.from({ length: normalized.length }, (_, i) => ({
+      start: i,
+      end: i + 1,
+    }));
+    return { normalized, originalRangeOf };
   }
 
   let normalized = '';
-  const originalIndexOf: number[] = [];
-  for (let i = 0; i < text.length; i++) {
-    let part = text[i]!.normalize('NFKC');
+  const originalRangeOf: Array<{ start: number; end: number }> = [];
+  for (const { segment, index } of graphemeSegmenter.segment(text)) {
+    let part = segment.normalize('NFKC');
     if (foldCase) part = part.toLowerCase();
-    for (let j = 0; j < part.length; j++) originalIndexOf.push(i);
+    const range = { start: index, end: index + segment.length };
+    for (let j = 0; j < part.length; j++) originalRangeOf.push(range);
     normalized += part;
   }
-  return { normalized, originalIndexOf };
+  return { normalized, originalRangeOf };
+}
+
+/**
+ * 正規表現パターンが、破局的バックトラッキング（ReDoS）を起こしやすい典型的な入れ子量指定子
+ * （例: `(a+)+`, `(a*)*`）を含むかどうかを簡易判定する
+ *
+ * 全てのReDoSパターンを検出できる厳密な解析ではなく、「量指定子つきのグループの内部に、
+ * さらに量指定子（`*`/`+`/`{`）が存在する」という最も代表的かつ危険度の高い形だけを
+ * ヒューリスティックに検出する。該当する場合は不正な正規表現と同様にマッチ0件として扱い、
+ * 長い非一致テキストに対する同期的な`regex.exec`呼び出しがUIスレッドを長時間占有するのを防ぐ
+ */
+function isPotentiallyCatastrophicPattern(source: string): boolean {
+  const groupRanges: Array<{ start: number; end: number }> = [];
+  const openIndexes: number[] = [];
+  let inClass = false;
+
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '\\') {
+      i++; // エスケープされた次の1文字はメタ文字として扱わない
+      continue;
+    }
+    if (inClass) {
+      if (ch === ']') inClass = false;
+      continue;
+    }
+    if (ch === '[') inClass = true;
+    else if (ch === '(') openIndexes.push(i);
+    else if (ch === ')') {
+      const start = openIndexes.pop();
+      if (start !== undefined) groupRanges.push({ start, end: i });
+    }
+  }
+
+  return groupRanges.some(({ start, end }) => {
+    const followedByQuantifier =
+      source[end + 1] === '*' || source[end + 1] === '+' || source[end + 1] === '{';
+    if (!followedByQuantifier) return false;
+    const inner = source.slice(start + 1, end).replace(/\\./g, '');
+    return /[*+{]/.test(inner);
+  });
 }
 
 /**
@@ -55,7 +106,8 @@ function normalizeForSearch(text: string, options: Partial<TextSearchOptions>): 
  * 常に元テキスト（`haystack`）のインデックスで返す
  *
  * `options.useRegex`が真の場合は`query`を正規表現として解釈する。不正な正規表現
- * （入力途中の状態を含む）はマッチ0件として扱い、例外を投げない
+ * （入力途中の状態やReDoSを起こしやすい入れ子量指定子を含む場合）はマッチ0件として扱い、
+ * 例外を投げない
  */
 function findOccurrenceRanges(
   haystack: string,
@@ -63,15 +115,16 @@ function findOccurrenceRanges(
   options: Partial<TextSearchOptions>,
 ): Array<{ start: number; end: number }> {
   if (query === '') return [];
-  const { normalized, originalIndexOf } = normalizeForSearch(haystack, options);
+  const { normalized, originalRangeOf } = normalizeForSearch(haystack, options);
 
   const toOriginalRange = (normStart: number, normEnd: number): { start: number; end: number } => {
-    const start = originalIndexOf[normStart] ?? haystack.length;
-    const lastCharOriginal = originalIndexOf[normEnd - 1] ?? haystack.length - 1;
-    return { start, end: lastCharOriginal + 1 };
+    const start = originalRangeOf[normStart]?.start ?? haystack.length;
+    const end = originalRangeOf[normEnd - 1]?.end ?? haystack.length;
+    return { start, end };
   };
 
   if (options.useRegex) {
+    if (isPotentiallyCatastrophicPattern(query)) return [];
     let regex: RegExp;
     try {
       regex = new RegExp(query, `g${options.caseSensitive ? '' : 'i'}`);

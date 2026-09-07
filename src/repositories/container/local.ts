@@ -207,6 +207,7 @@ async function walkDirectory(
       });
       subDirWalks.push(walkDirectory(handle, cId, entryPath));
     } else {
+      // 1ファイル分のメタ情報取得タスク: サイズ・更新日時をgetFile()経由で取得する
       fileStatTasks.push(async () => {
         let fileSize: number | undefined;
         let updatedAt = new Date();

@@ -178,6 +178,20 @@ describe('findMatchesOnPage（distinguishWidth: 半角全角を区別する）',
     expect(matches).toHaveLength(1);
     expect(matches[0]?.text).toBe('123');
   });
+
+  it('半角濁点（"ｶ"+"ﾞ"の2コード単位）を含む検索でも、対応する全角文字と一致する', () => {
+    const items = [box('ｶﾞ01')]; // 半角カ行 + 半角濁点
+    const matches = findMatchesOnPage(items, 1, 'ガ01');
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.text).toBe('ｶﾞ01');
+  });
+
+  it('全角の濁点付き文字は、半角濁点表記のクエリでも一致する', () => {
+    const items = [box('ガ01')];
+    const matches = findMatchesOnPage(items, 1, 'ｶﾞ01');
+    expect(matches).toHaveLength(1);
+    expect(matches[0]?.text).toBe('ガ01');
+  });
 });
 
 describe('findMatchesOnPage（useRegex: 正規表現検索）', () => {
@@ -206,6 +220,14 @@ describe('findMatchesOnPage（useRegex: 正規表現検索）', () => {
     expect(findMatchesOnPage(items, 1, '[unterminated', { useRegex: true })).toHaveLength(0);
   });
 
+  it('破局的バックトラッキングを起こしうる入れ子量指定子（例: "(a+)+"）は、長い非一致テキストでも即座にマッチ0件になる', () => {
+    const items = [box('a'.repeat(28) + '!')];
+    const start = performance.now();
+    const matches = findMatchesOnPage(items, 1, '(a+)+$', { useRegex: true });
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(matches).toHaveLength(0);
+  });
+
   it('ゼロ幅マッチ（例: "a*"がクエリ非該当の位置でもマッチしうる）で無限ループしない', () => {
     const items = [box('bbb')];
     const matches = findMatchesOnPage(items, 1, 'a*', { useRegex: true });
@@ -215,6 +237,7 @@ describe('findMatchesOnPage（useRegex: 正規表現検索）', () => {
 });
 
 describe('annotationTextItemsByPage', () => {
+  /** テスト用のtextタイプアノテーションを生成する */
   function textAnnotation(
     text: string,
     pageNumber: number,

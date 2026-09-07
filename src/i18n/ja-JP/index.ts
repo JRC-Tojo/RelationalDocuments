@@ -367,6 +367,7 @@ export default {
       close: '検索を終了',
       matchCase: '大文字と小文字を区別',
       distinguishWidth: '半角・全角を区別',
+      distinguishWidthLabel: '全角/半角',
       useRegex: '正規表現を使用',
     },
     peek: {
@@ -530,6 +531,7 @@ export default {
     noResults: '一致する結果がありません',
     pageLabel: '{page}ページ',
     searching: '検索中...',
+    searchFailed: '一部のコンテナで検索に失敗しました。表示中の結果は不完全な可能性があります',
   },
 
   plugins: {
