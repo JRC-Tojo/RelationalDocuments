@@ -223,13 +223,21 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
    * サービス層（`reorderAnnotationStyle`）がファイル単位のロック内でDBから最新の注釈一覧を
    * 読み直してからzIndexを算出するため、選択内で複数件を連続処理しても前の処理結果が
    * 次のcomputeReorderedZIndexへ確実に反映される。undo履歴用の「変更前」は各注釈につき
-   * このバッチ開始時点の状態を保持しておけば十分（同一IDを複数回処理することはないため）
+   * このバッチ開始時点の状態を保持しておけば十分（同一IDを複数回処理することはないため）。
+   *
+   * `resolveSelected`と同じ理由（DB購読側`deps.annotations`にまだ反映されていない選択IDが
+   * 存在しうる。Issue #109レビュー指摘）により、対象解決は生の`deps.annotations`ではなく
+   * `resolveSelectedAnnotations`経由で行う。ここで解決できないと`before`が`undefined`のまま
+   * `pairs`に積まれず、`history.recordChangedBatch`が空配列でreturnして重ね順変更自体は
+   * DB上で成立するのにUndo履歴に記録されない不具合につながる
    */
   async function reorderSelected(action: LayerOrderAction): Promise<void> {
     const ids = deps.selectedAnnotationIds.value;
     if (ids.length === 0) return;
 
-    const beforeById = new Map(deps.annotations.value.map((a) => [a.id, a]));
+    const beforeById = new Map(
+      resolveSelectedAnnotations(ids, deps.annotations.value).map((a) => [a.id, a]),
+    );
     const pairs: { before: AnnotationStyle; after: AnnotationStyle }[] = [];
     for (const id of ids) {
       const before = beforeById.get(id);

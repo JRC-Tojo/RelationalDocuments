@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach, mock } from 'bun:test';
 import { createPinia, setActivePinia } from 'pinia';
 import { ref } from 'vue';
+import { useHistoryStore } from 'src/stores/historyStore';
 import type { AnnotationID } from 'src/models/document/pdf';
 import type { AnnotationGroup, AnnotationGroupID } from 'src/models/document/group';
 import type { AnnotationStyle } from 'src/models/document/pdf';
@@ -57,7 +58,10 @@ const apiMock = {
   registerAnnotationStyles: mock(
     (): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined }),
   ),
-  reorderAnnotation: mock((): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined })),
+  reorderAnnotation: mock(
+    (): Promise<MockApiResult<{ style: AnnotationStyle }>> =>
+      Promise.resolve({ ok: true, data: { style: buildStyle(idA) } }),
+  ),
   pasteAnnotations: mock((): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined })),
 };
 void mock.module('src/apis/backendApi', () => ({ useBackendApi: () => apiMock }));
@@ -217,5 +221,39 @@ describe('resolveSelected（レビュー指摘の是正確認: DB購読側にま
     await actions.deleteSelected();
 
     expect(apiMock.removeAnnotations).toHaveBeenCalledWith(file, [idC]);
+  });
+});
+
+describe('reorderSelected（コーディネーターからの再指摘: DB購読側に未反映の選択IDでも重ね順変更のUndo履歴が記録されること）', () => {
+  it('選択IDがdeps.annotationsにまだ存在せず、ローカルの書き込み意図（pending）にのみ存在する場合でもUndo履歴が記録される', async () => {
+    const historyStore = useHistoryStore();
+    // 新規描画直後、まだDB購読（liveQuery）側の一覧annotationsに反映されていない状態を模す
+    const pendingStyle = buildStyle(idC);
+    markAnnotationWriteIntent(pendingStyle);
+
+    const annotations = ref<AnnotationStyle[]>([]);
+    const selectedAnnotationIds = ref<AnnotationID[]>([idC]);
+    const actions = useAnnotationActions({
+      file,
+      annotations,
+      selectedAnnotationIds,
+      currentPage: ref(1),
+    });
+
+    apiMock.reorderAnnotation.mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: true,
+        data: { style: { ...pendingStyle, zIndex: 1, updatedAt: '2026-01-01T00:00:02.000Z' } },
+      }),
+    );
+
+    expect(historyStore.canUndo(file)).toBe(false);
+    await actions.reorderSelected('front');
+
+    // 修正前はbeforeById（生のdeps.annotationsのみから構築）がidCの「変更前」を見つけられず、
+    // pairsが空のままhistory.recordChangedBatchがreturnしてしまい、api.reorderAnnotation自体は
+    // 成立するのにUndo履歴に記録されなかった
+    expect(apiMock.reorderAnnotation).toHaveBeenCalledWith(file, idC, 'front');
+    expect(historyStore.canUndo(file)).toBe(true);
   });
 });

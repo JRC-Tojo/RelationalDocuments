@@ -330,6 +330,10 @@ export function useAnnotationHistory() {
     const ownSnapshot = captureRelationalSnapshot([removed.id]);
     const res = await api.removeAnnotation(removed.id);
     if (res.ok) {
+      // 削除が成立した以上、このIDへの書き込み意図（あれば）はDB確定エコーを二度と受け取れない
+      // ため、ここで明示的に取り消しておく（呼ばないとpendingWritesのエントリがこのIDについて
+      // 永久に残り続けてしまう。レビュー指摘）
+      cancelAnnotationWriteIntent(removed.id, removed.updatedAt);
       const { groups: affectedGroups, snapshot: groupSnapshot } = await applyGroupImpactForRemoval(
         file,
         [removed.id],
@@ -348,6 +352,8 @@ export function useAnnotationHistory() {
         redo: async () => {
           const redoneOwnSnapshot = captureRelationalSnapshot([removed.id]);
           await api.removeAnnotation(removed.id);
+          // undo側のregisterStyleTrackedで立てた意図を、再削除の成立と同時に取り消す
+          cancelAnnotationWriteIntent(removed.id, removed.updatedAt);
           const { snapshot: redoneGroupSnapshot } = await applyGroupImpactForRemoval(file, [
             removed.id,
           ]);
@@ -380,6 +386,10 @@ export function useAnnotationHistory() {
     const res = await api.removeAnnotations(file, ids);
     if (!res.ok) return;
 
+    // 削除が成立した以上、これらのIDへの書き込み意図（あれば）はDB確定エコーを二度と
+    // 受け取れないため、ここで明示的に取り消しておく（removeWithHistoryと同じ理由。レビュー指摘）
+    removedList.forEach((a) => cancelAnnotationWriteIntent(a.id, a.updatedAt));
+
     // 複数削除で2つ以上のグループを同時に縮小・解散させる場合も、影響適用はまとめて1回で行う
     const { groups: affectedGroups, snapshot: groupSnapshot } = await applyGroupImpactForRemoval(
       file,
@@ -397,6 +407,8 @@ export function useAnnotationHistory() {
       redo: async () => {
         const redoneOwnSnapshot = captureRelationalSnapshot(ids);
         await api.removeAnnotations(file, ids);
+        // undo側のregisterStylesTrackedで立てた意図を、再削除の成立と同時に取り消す
+        removedList.forEach((a) => cancelAnnotationWriteIntent(a.id, a.updatedAt));
         const { snapshot: redoneGroupSnapshot } = await applyGroupImpactForRemoval(file, ids);
         await refreshRelationalSnapshotCaches(
           file,

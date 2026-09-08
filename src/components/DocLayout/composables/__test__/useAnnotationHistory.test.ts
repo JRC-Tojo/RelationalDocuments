@@ -7,6 +7,11 @@ import type { ContainerElementFile, ContainerID } from 'src/models/container';
 import type { Relational, RelationalWithAddress } from 'src/models/relational/common';
 import type { RelationalEdge } from 'src/stores/relationalStore';
 import { fileKey } from 'src/utils/document/fileKey';
+import {
+  markAnnotationWriteIntent,
+  getPendingAnnotationStyle,
+  resolveAnnotationEcho,
+} from 'src/utils/document/annotationWritePending';
 
 /**
  * `useAnnotationHistory.ts`は`useBackendApi`（PDF描画等ブラウザAPI依存を含む巨大なファサード）を
@@ -30,7 +35,9 @@ function ok<T>(data: T): Promise<MockApiResult<T>> {
 
 const apiMock = {
   registerAnnotationStyle: mock((): Promise<MockApiResult> => ok(undefined)),
+  registerAnnotationStyles: mock((): Promise<MockApiResult> => ok(undefined)),
   removeAnnotation: mock((): Promise<MockApiResult> => ok(undefined)),
+  removeAnnotations: mock((): Promise<MockApiResult> => ok(undefined)),
   // 実サービス（removeGroupMembers/restoreGroup）は成功時に更新後・復元後のAnnotationGroupを
   // そのまま返す。呼び出し元（useAnnotationHistory.ts）はDB再読込を待たずこの戻り値を直接
   // groupStoreへ反映するようになったため（Issue #109）、モックも引数を反映した形で返す。
@@ -159,6 +166,12 @@ function buildRelationalWithAddress(relational: Relational): RelationalWithAddre
 beforeEach(() => {
   setActivePinia(createPinia());
   for (const fn of Object.values(apiMock)) fn.mockClear();
+  // 各テスト間でモジュールスコープの共有Map（annotationWritePending.ts）が漏れないよう、
+  // 既存の目印を消費しておく
+  for (const id of [idA, idB, idC]) {
+    const leftover = getPendingAnnotationStyle(id);
+    if (leftover) resolveAnnotationEcho(leftover);
+  }
 });
 
 describe('recordRelationalCreated', () => {
@@ -272,6 +285,36 @@ describe('removeWithHistory（グループの部分縮小）', () => {
     // 正しく検証できていなかった）
     const updated = groupStore.groupContaining(key, groupId);
     expect(updated?.memberIds).toEqual([idB, idC]);
+  });
+});
+
+describe('removeWithHistory/removeManyWithHistory（削除時のpendingWrites取り消し。コーディネーターからの再指摘）', () => {
+  it('removeWithHistoryが成立すると、そのIDの書き込み意図（pending）を取り消す（呼ばないとpendingWritesにエントリが永久に残り続ける）', async () => {
+    const history = useAnnotationHistory();
+    // 編集直後、まだDB確定エコーが届いていない状態を模す
+    const edited = buildStyle(idA);
+    markAnnotationWriteIntent(edited);
+    expect(getPendingAnnotationStyle(idA)).toEqual(edited);
+
+    const res = await history.removeWithHistory(file, edited);
+    expect(res.ok).toBe(true);
+
+    // 削除が成立した以上、このIDへのDB確定エコーは二度と届かないため、
+    // pendingWritesのエントリも即座に取り消されていること
+    expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+  });
+
+  it('removeManyWithHistoryが成立すると、対象全件の書き込み意図（pending）を取り消す', async () => {
+    const history = useAnnotationHistory();
+    const editedA = buildStyle(idA);
+    const editedB = buildStyle(idB);
+    markAnnotationWriteIntent(editedA);
+    markAnnotationWriteIntent(editedB);
+
+    await history.removeManyWithHistory(file, [editedA, editedB]);
+
+    expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+    expect(getPendingAnnotationStyle(idB)).toBeUndefined();
   });
 });
 
