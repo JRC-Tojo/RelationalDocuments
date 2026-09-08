@@ -1,5 +1,6 @@
 import { SUPPORTED_DOCUMENT_EXTS } from 'src/models/document/common';
 import { Path } from 'src/utils/binary/path';
+import type { ContainerElement, ContainerElementFile } from 'src/models/container';
 
 export type SupportedDocumentKind = 'pdf' | 'text' | 'unsupported';
 
@@ -18,4 +19,12 @@ export function getSupportedDocumentKind(path: string): SupportedDocumentKind {
  */
 export function isSupportedDocument(path: string): boolean {
   return getSupportedDocumentKind(path) !== 'unsupported';
+}
+
+/**
+ * コンテナ要素のうち、PDFファイルであるものだけを絞り込む（コンテナ横断検索・
+ * テキストキャッシュのウォームアップ双方で対象ファイルの判定に使う共通ロジック）
+ */
+export function isPdfContainerFile(el: ContainerElement): el is ContainerElementFile {
+  return el.type === 'File' && getSupportedDocumentKind(el.path) === 'pdf';
 }

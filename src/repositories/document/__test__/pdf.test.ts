@@ -75,6 +75,7 @@ if (typeof globalThis.DOMMatrix === 'undefined') {
 
 const {
   extractTextBlocksByPageFromDoc,
+  extractAllTextBlocksByFile,
   getPageSize,
   getNumPages,
   extractTextByPage,
@@ -1182,6 +1183,88 @@ describe('extractTextByAnnot（pdfDocumentCacheをモック。実形状（contai
     // 線上の'A'のみが抽出され、外接矩形の内側だが線から離れた'B'は抽出されない
     // （旧実装は外接矩形（AABB）のみで判定していたため、両方とも抽出されてしまっていた）
     expect(res.value).toBe('A');
+    expect(releaseSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('extractAllTextBlocksByFile（pdfDocumentCacheをモック。全ページ抽出のみでクエリマッチングは持たないことを確認）', () => {
+  const testFile: FileIdentity = {
+    containerID: ContainerID.parse('44444444-4444-4444-8444-444444444444'),
+    path: 'c.pdf',
+  };
+
+  it('全ページ分のテキストブロックをページ番号（1始まり）をキーにしたMapで返す', async () => {
+    const releaseSpy = mock(() => {});
+    const page1 = {
+      str: 'AB',
+      transform: [1, 0, 0, 1, 50, 20],
+      width: 30,
+      height: 12,
+      fontName: 'f1',
+    };
+    const page2 = {
+      str: 'CD',
+      transform: [1, 0, 0, 1, 10, 10],
+      width: 20,
+      height: 8,
+      fontName: 'f1',
+    };
+    const identityViewport = { transform: [1, 0, 0, 1, 0, 0] };
+    fakeAcquireImpl = () =>
+      Promise.resolve(
+        Success({
+          document: buildFakeDoc([
+            {
+              getTextContent: () => Promise.resolve({ items: [page1], styles: {} }),
+              getViewport: () => identityViewport,
+            },
+            {
+              getTextContent: () => Promise.resolve({ items: [page2], styles: {} }),
+              getViewport: () => identityViewport,
+            },
+          ]),
+          release: releaseSpy,
+        }),
+      );
+
+    const res = await extractAllTextBlocksByFile(testFile, DUMMY_SRC);
+    expect(res.ok).toBeTrue();
+    if (!res.ok) return;
+    expect(res.value.size).toBe(2);
+    // pdfItemToBoxはベースライン起点から「上方向へheight分」広がる矩形として計算するため、
+    // y座標はitem.transformのty（ベースラインのY）からheightを引いた値になる
+    expectBoxCloseTo(res.value.get(1)?.[0], { text: 'AB', x: 50, y: 8, width: 30, height: 12 });
+    expectBoxCloseTo(res.value.get(2)?.[0], { text: 'CD', x: 10, y: 2, width: 20, height: 8 });
+    expect(releaseSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('acquirePdfDocumentが失敗した場合はFailureを伝播し、releaseは呼ばれない', async () => {
+    const acquireError = new Error('acquire failed');
+    fakeAcquireImpl = () => Promise.resolve(Failure(acquireError));
+
+    const res = await extractAllTextBlocksByFile(testFile, DUMMY_SRC);
+    expect(res.ok).toBeFalse();
+    if (res.ok) return;
+    expect(res.error).toBe(acquireError);
+  });
+
+  it('途中ページの抽出に失敗した場合はFailureを返しつつ、releaseは呼ばれる（リークしない）', async () => {
+    const releaseSpy = mock(() => {});
+    fakeAcquireImpl = () =>
+      Promise.resolve(
+        Success({
+          document: buildFakeDoc([
+            {
+              getTextContent: () => Promise.reject(new Error('getTextContent failed')),
+              getViewport: () => ({ transform: [1, 0, 0, 1, 0, 0] }),
+            },
+          ]),
+          release: releaseSpy,
+        }),
+      );
+
+    const res = await extractAllTextBlocksByFile(testFile, DUMMY_SRC);
+    expect(res.ok).toBeFalse();
     expect(releaseSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -5,7 +5,7 @@
 import type { DocumentSource } from 'src/models/document/common';
 import { Path } from 'src/utils/binary/path';
 import type { ContainerElementFile, ContainerID } from 'src/models/container';
-import { NotFoundError, Success, type Result } from 'src/models/error/result';
+import { Failure, NotFoundError, Success, type Result } from 'src/models/error/result';
 import { calcBase64Hash } from 'src/utils/binary/base64';
 import type {
   AnnotationBaseAddress,
@@ -25,8 +25,11 @@ import type { RelationalWithAddress } from 'src/models/relational/common';
 import { CONFIG_FILE_EXTS } from 'src/models/document/common';
 import { fromEntries } from 'src/utils/obj/obj';
 import type { AnnotationGroup, AnnotationGroupID } from 'src/models/document/group';
+import { TEXT_CACHE_FORMAT_VERSION, TextCacheFile } from 'src/models/document/textCache';
+import type { TextItemBox } from 'src/models/document/pdf';
 
 const CONTAINER_CONFIG_FOLDER = '.kumihimo';
+const TEXT_CACHE_FOLDER = 'textcache';
 
 /**
  * 文書設定ファイルのパスを取得する
@@ -53,6 +56,16 @@ function getRelationalFilePath(cPath: string): string {
 function getContainerSettingsFilePath(cPath: string): string {
   const path = new Path(cPath).child(CONTAINER_CONFIG_FOLDER).child('settings.json');
   return path.path;
+}
+
+/**
+ * 文書のテキストレイヤーキャッシュファイルのパスを取得する（ファイルハッシュ単位）
+ */
+function getTextCachePath(cPath: string, fileHash: string): string {
+  const targetPath = new Path(cPath)
+    .child(CONTAINER_CONFIG_FOLDER)
+    .child(TEXT_CACHE_FOLDER, `${fileHash}.json`);
+  return targetPath.path;
 }
 
 /**
@@ -332,6 +345,69 @@ export async function saveContainerSettingsFile(
 
   const settingsFilePath = getContainerSettingsFilePath(container.value.containerPath);
   const createRes = await containerService.createFile(cID, settingsFilePath, settingsSrc.value);
+  if (!createRes.ok) return createRes;
+
+  return Success();
+}
+
+/**
+ * コンテナルートに保存されている、指定ファイルハッシュの文書テキストレイヤーキャッシュを取得する
+ *
+ * `.kcfg`/`relational.json`と異なり、このキャッシュは失っても実データを損なわない使い捨て・
+ * 再生成可能なデータであるため、ファイル不存在（`NotFoundError`）に加え、バリデーション失敗・
+ * `formatVersion`不一致（将来キャッシュの形が変わった場合）も「壊れたキャッシュ」として
+ * 同じ`NotFoundError`に正規化して返す（呼び出し側は`NotFoundError`かどうかだけを見て、
+ * キャッシュなし＝再生成という単純な分岐にできる）
+ */
+export async function getTextCacheFile(
+  cID: ContainerID,
+  fileHash: string,
+): Promise<Result<TextCacheFile>> {
+  const containerService = await import('./main');
+  const container = containerService.getContainer(cID);
+  if (!container.ok) return container;
+
+  const textCachePath = getTextCachePath(container.value.containerPath, fileHash);
+  const src = await containerService.loadFileAsDocumentSource(cID, textCachePath);
+  if (!src.ok) return src;
+
+  const parsed = textRepository.loadTextContents(src.value, TextCacheFile);
+  if (!parsed.ok) return Failure(new NotFoundError('Text cache is corrupted'));
+  if (parsed.value.formatVersion !== TEXT_CACHE_FORMAT_VERSION) {
+    return Failure(new NotFoundError('Text cache format is outdated'));
+  }
+
+  return parsed;
+}
+
+/**
+ * コンテナルートに文書テキストレイヤーキャッシュを保存する（ファイルハッシュ単位）
+ */
+export async function saveTextCacheFile(
+  cID: ContainerID,
+  fileHash: string,
+  pages: Map<number, TextItemBox[]>,
+): Promise<Result<void>> {
+  const containerService = await import('./main');
+  const container = containerService.getContainer(cID);
+  if (!container.ok) return container;
+
+  const pagesRecord: Record<string, TextItemBox[]> = {};
+  for (const [pageNumber, blocks] of pages) {
+    pagesRecord[String(pageNumber)] = blocks;
+  }
+  const cacheFile: TextCacheFile = {
+    formatVersion: TEXT_CACHE_FORMAT_VERSION,
+    fileHash,
+    pages: pagesRecord,
+  };
+
+  const cacheStr = JSON.stringify(cacheFile, null, 2);
+  const cacheSrc = textRepository.encodeTextContents(cacheStr);
+  if (!cacheSrc.ok) return cacheSrc;
+
+  const textCachePath = getTextCachePath(container.value.containerPath, fileHash);
+  const createRes = await containerService.createFile(cID, textCachePath, cacheSrc.value);
   if (!createRes.ok) return createRes;
 
   return Success();
