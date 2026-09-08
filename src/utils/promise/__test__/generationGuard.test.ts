@@ -27,6 +27,7 @@ describe('createGenerationGuard', () => {
     const guard = createGenerationGuard();
     const results: string[] = [];
 
+    /** 指定時間待った後、自分の世代がまだ最新であれば`label`を`results`に記録する */
     async function run(label: string, delayMs: number): Promise<void> {
       const generation = guard.start();
       await new Promise((resolve) => setTimeout(resolve, delayMs));

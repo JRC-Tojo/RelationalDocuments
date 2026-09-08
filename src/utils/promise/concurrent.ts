@@ -12,6 +12,7 @@ export function createConcurrencyLimiter(
   let active = 0;
   const queue: (() => void)[] = [];
 
+  /** 実行枠に空きがあればキュー先頭のタスクを1件取り出して実行する */
   const dequeue = (): void => {
     if (active >= concurrency || queue.length === 0) return;
     active++;
@@ -19,10 +20,14 @@ export function createConcurrencyLimiter(
     run();
   };
 
+  /** タスクをキューへ積み、実行枠が空き次第`task`を実行してその結果を返すPromiseを返す */
   return function schedule<T>(task: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       queue.push(() => {
-        task()
+        // task()が同期的に例外を送出しても`.finally`が必ず登録されるよう、
+        // Promiseチェーンの内側で呼び出してrejectionへ変換する
+        Promise.resolve()
+          .then(task)
           .then(resolve, reject)
           .finally(() => {
             active--;

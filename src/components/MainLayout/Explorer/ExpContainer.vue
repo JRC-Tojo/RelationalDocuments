@@ -162,6 +162,11 @@ provide(ExplorerContextKey, {
  */
 const loadGuard = createGenerationGuard();
 
+/**
+ * コンテナの内容を読み込み、`loadedContainer`へ反映する
+ *
+ * `forceReload`が真の場合はキャッシュを使わず強制的に再読み込みする
+ */
 async function load(forceReload: boolean): Promise<void> {
   const generation = loadGuard.start();
   isLoading.value = true;

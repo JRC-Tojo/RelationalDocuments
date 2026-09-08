@@ -316,7 +316,7 @@ const {
 } = useDocumentSearch({
   getDocument: () => acquiredPdf?.document,
   onNavigate: (match) => void scrollToSearchMatch(match),
-  // アノテーションのテキストボックス内容もPDF自体のテキストと同様に検索対象へ含める
+  /** アノテーションのテキストボックス内容もPDF自体のテキストと同様に検索対象へ含める */
   getExtraItemsByPage: () => annotationTextItemsByPage(annotations.value),
 });
 const activeSearchMatchId = computed(() =>

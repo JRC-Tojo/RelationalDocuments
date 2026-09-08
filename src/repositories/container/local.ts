@@ -227,34 +227,40 @@ async function walkDirectory(
       onElement?.(folderElement);
       subDirWalks.push(walkDirectory(handle, cId, entryPath, onElement));
     } else {
-      // 1ファイル分のメタ情報取得タスク: サイズ・更新日時をgetFile()経由で取得する。
-      // `fileStatLimiter`に渡した時点でキューへ積まれるため、この後の`await`を待たずに
-      // 全体で共有された同時実行数の枠を消費し始める
       fileStatTasks.push(
-        fileStatLimiter(async () => {
-          let fileSize: number | undefined;
-          let updatedAt = new Date();
-          try {
-            const file = await handle.getFile();
-            fileSize = file.size;
-            updatedAt = new Date(file.lastModified);
-          } catch {
-            // メタ情報の取得に失敗しても一覧表示自体は継続する
-          }
-          const fileElement: ContainerElement = {
-            containerID: cId,
-            type: 'File',
-            path: entryPath,
-            fileSize,
-            createdAt: updatedAt,
-            updatedAt,
-            description: '',
-            genre: '',
-            tags: [],
-          };
-          onElement?.(fileElement);
-          return fileElement;
-        }),
+        fileStatLimiter(
+          /**
+           * 1ファイル分のメタ情報取得タスク
+           *
+           * サイズ・更新日時を`getFile()`経由で取得する。`fileStatLimiter`に渡した時点で
+           * キューへ積まれるため、この後の`await`を待たずに全体で共有された同時実行数の
+           * 枠を消費し始める
+           */
+          async () => {
+            let fileSize: number | undefined;
+            let updatedAt = new Date();
+            try {
+              const file = await handle.getFile();
+              fileSize = file.size;
+              updatedAt = new Date(file.lastModified);
+            } catch {
+              // メタ情報の取得に失敗しても一覧表示自体は継続する
+            }
+            const fileElement: ContainerElement = {
+              containerID: cId,
+              type: 'File',
+              path: entryPath,
+              fileSize,
+              createdAt: updatedAt,
+              updatedAt,
+              description: '',
+              genre: '',
+              tags: [],
+            };
+            onElement?.(fileElement);
+            return fileElement;
+          },
+        ),
       );
     }
   }

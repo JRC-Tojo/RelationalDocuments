@@ -141,6 +141,7 @@ async function runSearch(): Promise<void> {
     results.value = [];
     hasSearched.value = false;
     searchFailed.value = false;
+    isSearching.value = false;
     return;
   }
 

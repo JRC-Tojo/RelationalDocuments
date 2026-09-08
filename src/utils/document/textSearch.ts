@@ -69,6 +69,16 @@ function normalizeForSearch(text: string, options: Partial<TextSearchOptions>): 
  * ヒューリスティックに検出する。該当する場合は不正な正規表現と同様にマッチ0件として扱い、
  * 長い非一致テキストに対する同期的な`regex.exec`呼び出しがUIスレッドを長時間占有するのを防ぐ
  */
+/**
+ * 「単一の固定長アトム（エスケープ済み1文字・文字クラス・通常の1文字）に、正確な繰り返し数を
+ * 指定する`{n}`だけを適用した」安全な部分パターン（例: `\d{2}`, `[ab]{3}`）を判定する
+ *
+ * この形はアトム自体に曖昧さがなく、外側に量指定子が重ねられても破局的バックトラッキングを
+ * 起こさない（`(\d{2})+`等）。`{n,}`のような上限なし量指定子や`(?:ab+)+`のような内部に
+ * 別の量指定子を含む形はこの安全パターンに該当せず、従来どおり危険とみなす
+ */
+const SAFE_FIXED_REPETITION = /^(?:\\.|\[(?:\\.|[^\]\\])*\]|[^*+{}()|[\]\\])\{\d+\}$/;
+
 function isPotentiallyCatastrophicPattern(source: string): boolean {
   const groupRanges: Array<{ start: number; end: number }> = [];
   const openIndexes: number[] = [];
@@ -96,8 +106,9 @@ function isPotentiallyCatastrophicPattern(source: string): boolean {
     const followedByQuantifier =
       source[end + 1] === '*' || source[end + 1] === '+' || source[end + 1] === '{';
     if (!followedByQuantifier) return false;
-    const inner = source.slice(start + 1, end).replace(/\\./g, '');
-    return /[*+{]/.test(inner);
+    const inner = source.slice(start + 1, end);
+    if (SAFE_FIXED_REPETITION.test(inner)) return false;
+    return /[*+{]/.test(inner.replace(/\\./g, ''));
   });
 }
 
