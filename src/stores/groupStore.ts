@@ -12,6 +12,9 @@ export const useGroupStore = defineStore('annotationGroup', {
   state: () => ({
     // ファイル単位で読み込んだグループ一覧
     groupsByFileKey: {} as Record<string, AnnotationGroup[]>,
+    // ファイル単位のキャッシュ更新世代カウンタ。`refreshFile`の結果を適用してよいかどうかの
+    // 判定に使う（`applyGroupChanges`との競合防止。`refreshFile`参照）
+    groupsVersionByFileKey: {} as Record<string, number>,
   }),
 
   getters: {
@@ -75,11 +78,22 @@ export const useGroupStore = defineStore('annotationGroup', {
      * 明示的な再読込など、実際に最新状態を`.kcfg`から確認する必要がある場面専用
      */
     async refreshFile(file: ContainerElementFile): Promise<void> {
+      const fk = fileKey(file);
+      // 読み込み開始時点の世代を控えておく。`.kcfg`再読込は重く、この待機中に
+      // `applyGroupChanges`（グループ化操作等の確定結果の即時反映）が割り込んでいた場合、
+      // ここでその新しい状態を読み込み開始時点のより古い内容で上書きしてしまう
+      // （タブを開いた直後のマウント時`refreshFile`がグループ化直後に遅れて解決し、
+      // 直後に作ったグループが一瞬消える等。Issue #109）
+      const versionAtStart = this.groupsVersionByFileKey[fk] ?? 0;
       const api = useBackendApi();
       const res = await api.listAnnotationGroups(file);
       if (!res.ok) return;
 
-      this.groupsByFileKey[fileKey(file)] = res.data;
+      // 待機中に世代が進んでいれば、より新しい変更が既に反映済みと判断しこの結果は棄却する
+      if ((this.groupsVersionByFileKey[fk] ?? 0) !== versionAtStart) return;
+
+      this.groupsByFileKey[fk] = res.data;
+      this.groupsVersionByFileKey[fk] = versionAtStart + 1;
     },
 
     /**
@@ -102,6 +116,8 @@ export const useGroupStore = defineStore('annotationGroup', {
       const current = this.groupsByFileKey[fk] ?? [];
       const kept = current.filter((g) => !removeSet.has(g.id) && !upsertIds.has(g.id));
       this.groupsByFileKey[fk] = [...kept, ...upserted];
+      // 世代を進め、この時点より前に開始した`refreshFile`の結果を古い内容として棄却できるようにする
+      this.groupsVersionByFileKey[fk] = (this.groupsVersionByFileKey[fk] ?? 0) + 1;
     },
 
     /**
@@ -109,15 +125,21 @@ export const useGroupStore = defineStore('annotationGroup', {
      */
     remapFileKeys(containerID: ContainerID, pathMap: Record<string, string>): void {
       const updated: Record<string, AnnotationGroup[]> = {};
+      const updatedVersions: Record<string, number> = {};
       for (const [key, groups] of Object.entries(this.groupsByFileKey)) {
         const [cID, path] = key.split('|');
-        if (cID === containerID && path !== undefined && pathMap[path] !== undefined) {
-          updated[`${cID}|${pathMap[path]}`] = groups;
-        } else {
-          updated[key] = groups;
-        }
+        const newKey =
+          cID === containerID && path !== undefined && pathMap[path] !== undefined
+            ? `${cID}|${pathMap[path]}`
+            : key;
+        updated[newKey] = groups;
+        // 世代カウンタもキーの付け替えに追従させ、リネーム後も`refreshFile`の競合防止判定が
+        // 途切れないようにする
+        const version = this.groupsVersionByFileKey[key];
+        if (version !== undefined) updatedVersions[newKey] = version;
       }
       this.groupsByFileKey = updated;
+      this.groupsVersionByFileKey = updatedVersions;
     },
   },
 });

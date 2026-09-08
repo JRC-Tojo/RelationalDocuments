@@ -5,6 +5,11 @@ import type { AnnotationID } from 'src/models/document/pdf';
 import type { AnnotationGroup, AnnotationGroupID } from 'src/models/document/group';
 import type { AnnotationStyle } from 'src/models/document/pdf';
 import type { ContainerElementFile, ContainerID } from 'src/models/container';
+import {
+  markAnnotationWriteIntent,
+  getPendingAnnotationStyle,
+  resolveAnnotationEcho,
+} from 'src/utils/document/annotationWritePending';
 
 /**
  * Issue #109の回帰テスト：グループ化・削除操作が、`.kcfg`／アノテーションDBへの実際の
@@ -75,6 +80,7 @@ const key = `${containerID}|doc.pdf`;
 
 const idA = '00000000-0000-4000-8000-000000000001' as AnnotationID;
 const idB = '00000000-0000-4000-8000-000000000002' as AnnotationID;
+const idC = '00000000-0000-4000-8000-000000000003' as AnnotationID;
 const groupId = '00000000-0000-4000-8000-0000000000aa' as AnnotationGroupID;
 
 function dummyGroup(): AnnotationGroup {
@@ -104,6 +110,12 @@ function buildStyle(id: AnnotationID): AnnotationStyle {
 beforeEach(() => {
   setActivePinia(createPinia());
   for (const fn of Object.values(apiMock)) fn.mockClear();
+  // 各テスト間でモジュールスコープの共有Map（annotationWritePending.ts）が漏れないよう、
+  // 既存の目印を消費しておく
+  for (const id of [idA, idB, idC]) {
+    const leftover = getPendingAnnotationStyle(id);
+    if (leftover) resolveAnnotationEcho(leftover);
+  }
 });
 
 describe('groupSelected（Issue #109: グループ化直後に即座にグループとして操作できること）', () => {
@@ -180,5 +192,30 @@ describe('deleteSelected（Issue #109: Delete押下直後に選択状態が即�
     deferred.resolve({ ok: true, data: undefined });
     await pending;
     expect(apiMock.removeAnnotations).toHaveBeenCalledWith(file, [idA]);
+  });
+});
+
+describe('resolveSelected（レビュー指摘の是正確認: DB購読側にまだ反映されていない選択IDへの操作）', () => {
+  it('選択IDがdeps.annotationsにまだ存在せず、ローカルの書き込み意図（pending）にのみ存在する場合でもサイレントに空振りしない', async () => {
+    // AnnotationLayer.vueが新規描画確定時にselectedAnnotIdsを即座にセットするようになった
+    // ため、DB購読（liveQuery）側の一覧`annotations`にまだ反映されていないタイミングで
+    // Delete等のショートカット操作が行われうる（Box等ネットワーク越しのコンテナでは
+    // 十分起こりうるタイミング）。修正前はresolveSelected()が生のdeps.annotationsからしか
+    // 探さないため、この場合空配列を返し操作がサイレントに空振りしていた
+    const pendingStyle = buildStyle(idC);
+    markAnnotationWriteIntent(pendingStyle);
+
+    const annotations = ref<AnnotationStyle[]>([]); // まだDB購読側に反映されていない
+    const selectedAnnotationIds = ref<AnnotationID[]>([idC]);
+    const actions = useAnnotationActions({
+      file,
+      annotations,
+      selectedAnnotationIds,
+      currentPage: ref(1),
+    });
+
+    await actions.deleteSelected();
+
+    expect(apiMock.removeAnnotations).toHaveBeenCalledWith(file, [idC]);
   });
 });

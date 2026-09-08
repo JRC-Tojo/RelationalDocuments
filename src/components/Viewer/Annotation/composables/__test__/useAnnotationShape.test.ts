@@ -7,6 +7,7 @@ import {
   markAnnotationWriteIntent,
   resolveAnnotationEcho,
   getPendingAnnotationStyle,
+  reconcilePendingWrites,
 } from 'src/utils/document/annotationWritePending';
 
 /**
@@ -90,6 +91,38 @@ describe('displayAnnotation（症状4: スタイル変更反映の遅延対策�
 
     expect(shape.displayAnnotation.value).toEqual(edited);
     expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+  });
+});
+
+describe('ページ仮想化によるアンマウント後もpendingが孤立しないこと（Issue #109是正: ゴースト表示バグの回帰確認）', () => {
+  it('シェイプが一度もマウントされずresolveAnnotationEchoを誰も呼ばなくても、reconcilePendingWrites経由で解決されていれば後続の確定値が正しく反映される', async () => {
+    const created = buildStyle({ updatedAt: '2026-01-01T00:00:01.000Z' });
+    // 新規描画直後、DB登録のPromiseがまだ解決していない状態を模す
+    markAnnotationWriteIntent(created);
+
+    // この時点ではuseAnnotationShapeのインスタンスを一切生成しない
+    // （＝ページ仮想化によりKonvaシェイプが直後にアンマウントされ、個別watchが
+    // resolveAnnotationEchoを一度も呼べなかった状況を模す）。修正前はこの状態のまま
+    // pendingWritesのエントリが永久に孤立し、以降どんな確定値が届いても
+    // getPendingAnnotationStyleが古い内容を返し続けてしまっていた。
+    // ファイル単位のDB購読コールバック（DocumentTabView.vue）が確定済み一覧全体を渡して
+    // 解決を試みることで、シェイプのマウント状態に依存せず解決できるようにする
+    reconcilePendingWrites([created]);
+    expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+
+    // 後から（OCR再処理・別タブでの編集等の正当な外部変更で）別のupdatedAtを持つ確定値が
+    // 届いた状態で、該当ページが再びビューポート内に入りシェイプが新規マウントされたとする
+    const externalUpdate = {
+      ...created,
+      color: '#00ff00' as never,
+      updatedAt: '2026-01-01T00:00:05.000Z',
+    };
+    const props = reactive({ annotation: externalUpdate });
+    const shape = useAnnotationShape(props);
+    await nextTick();
+
+    // 孤立したpendingに凍結され続けず、新しい確定値が正しく反映されること
+    expect(shape.displayAnnotation.value).toEqual(externalUpdate);
   });
 });
 

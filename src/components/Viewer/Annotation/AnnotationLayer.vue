@@ -759,7 +759,11 @@ function returnToPointerModeUnlessSticky(): void {
  */
 function rollbackFailedAnnotationSelection(id: AnnotationID): void {
   if (editingTextId.value === id) editingTextId.value = null;
-  selectedAnnotIds.value = selectedAnnotIds.value.filter((existingId) => existingId !== id);
+  // `selectedAnnotIds`への書き込みは必ず`expandToGroups`経由にする規約（上記コメント参照）に
+  // 従い、フィルタ結果も展開してから代入する
+  selectedAnnotIds.value = expandToGroups(
+    selectedAnnotIds.value.filter((existingId) => existingId !== id),
+  );
 }
 
 /**

@@ -89,3 +89,27 @@ export function resolveAnnotationEcho(next: AnnotationStyle): boolean {
 export function getPendingAnnotationStyle(id: AnnotationID): AnnotationStyle | undefined {
   return pendingWrites.get(id);
 }
+
+/**
+ * DB購読由来の確定済み一覧`confirmed`全体を使って、まだ誰にも消費されていない書き込み意図を
+ * まとめて解決する（孤立防止。Issue #109）
+ *
+ * 通常、書き込み意図は各アノテーションシェイプ（`useAnnotationShape.ts`）内の個別`watch`が
+ * `resolveAnnotationEcho`を呼んで消費する。しかしこのプロジェクトはページを仮想化しており
+ * （`DocumentViewer.vue`の`shouldRenderPage`によるv-if）、アノテーションを編集した直後に
+ * 該当ページがビューポート外へスクロールされると、そのKonvaシェイプコンポーネント
+ * （＝`useAnnotationShape`インスタンス）ごとアンマウントされてしまい、以後DB確定エコーが
+ * 届いても誰も`resolveAnnotationEcho`を呼ばなくなる。この状態が続くと、そのIDの意図は
+ * 永久に孤立し、以後どんな確定値（他ユーザー・OCR再処理等の正当な外部変更を含む）が届いても
+ * `getPendingAnnotationStyle`が古い内容を返し続けてしまう。
+ *
+ * ファイル単位のDB購読コールバック（`DocumentTabView.vue`の`observedAnnotationStylesByFile`
+ * 購読）は、個々のシェイプのマウント状態に関わらずそのタブが開かれている間ずっと有効なため、
+ * 確定済み一覧を受け取るたびにここで全件まとめて解決を試みることで、シェイプが既に
+ * 破棄されていても意図を確実に消費できるようにする。各要素の判定自体は
+ * `resolveAnnotationEcho`と同じ（`updatedAt`が完全一致するものだけを消費する）ため、
+ * まだ自分の最新の書き込みに追いついていない中間状態を誤って解決してしまうことはない
+ */
+export function reconcilePendingWrites(confirmed: readonly AnnotationStyle[]): void {
+  for (const style of confirmed) resolveAnnotationEcho(style);
+}

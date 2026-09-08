@@ -6,6 +6,7 @@ import type { AnnotationStyle } from 'src/models/document/pdf';
 import type { ContainerElementFile, ContainerID } from 'src/models/container';
 import type { Relational, RelationalWithAddress } from 'src/models/relational/common';
 import type { RelationalEdge } from 'src/stores/relationalStore';
+import { fileKey } from 'src/utils/document/fileKey';
 
 /**
  * `useAnnotationHistory.ts`は`useBackendApi`（PDF描画等ブラウザAPI依存を含む巨大なファサード）を
@@ -32,7 +33,8 @@ const apiMock = {
   removeAnnotation: mock((): Promise<MockApiResult> => ok(undefined)),
   // 実サービス（removeGroupMembers/restoreGroup）は成功時に更新後・復元後のAnnotationGroupを
   // そのまま返す。呼び出し元（useAnnotationHistory.ts）はDB再読込を待たずこの戻り値を直接
-  // groupStoreへ反映するようになったため（Issue #109）、モックも引数を反映した形で返す
+  // groupStoreへ反映するようになったため（Issue #109）、モックも引数を反映した形で返す。
+  // 実装本体はgroupStoreのインポートが揃った後（下記）に差し替える
   removeGroupMembers: mock(
     (
       _file: ContainerElementFile,
@@ -71,6 +73,35 @@ const { useAnnotationHistory } = await import('../useAnnotationHistory');
 const { useHistoryStore } = await import('src/stores/historyStore');
 const { useRelationalStore } = await import('src/stores/relationalStore');
 const { useGroupStore } = await import('src/stores/groupStore');
+
+/**
+ * `removeGroupMembers`の既定実装を、groupStoreのインポートが揃った後に差し替える
+ *
+ * 実サービス（`services/document/annotationGroup.ts`の`removeGroupMembers`）は常に
+ * 「削除後に残ったメンバー」を`memberIds`として返す。以前のデフォルトモックは削除対象IDを
+ * そのまま返しており実装と矛盾していた（部分縮小＝グループが縮小して存続するケースの
+ * `applyGroupChanges`反映経路が、この不正確なモックのせいで実質検証されていなかった）ため、
+ * groupStoreにシードされている現在のグループ定義から実際の残存メンバーを計算するよう修正する
+ */
+apiMock.removeGroupMembers.mockImplementation(
+  (
+    fileArg: ContainerElementFile,
+    groupIdArg: AnnotationGroupID,
+    idsToRemove: AnnotationID[],
+  ): Promise<MockApiResult<AnnotationGroup>> => {
+    const current = useGroupStore().groupsByFileKey[fileKey(fileArg)]?.find(
+      (g) => g.id === groupIdArg,
+    );
+    const removeSet = new Set(idsToRemove);
+    const remaining = current ? current.memberIds.filter((id) => !removeSet.has(id)) : [];
+    return ok({
+      id: groupIdArg,
+      memberIds: remaining,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+  },
+);
 
 const containerID = '00000000-0000-4000-8000-000000000000' as ContainerID;
 const file: ContainerElementFile = {
@@ -214,6 +245,33 @@ describe('removeWithHistory（グループ巻き添え解散時の関係性保�
     expect(apiMock.restoreGroup).toHaveBeenCalledWith(file, group);
     // 解散前に捕捉しておいたグループの関係性が再登録されること（これが無いと関係性が失われたままになる）
     expect(apiMock.registRelationals).toHaveBeenCalledWith(groupRelational);
+  });
+});
+
+describe('removeWithHistory（グループの部分縮小）', () => {
+  it('メンバー削除後も残存メンバー数がMIN_GROUP_MEMBERS以上の場合、グループは解散せず縮小して存続する', async () => {
+    const history = useAnnotationHistory();
+    const groupStore = useGroupStore();
+
+    const now = '2026-01-01T00:00:00.000Z';
+    // 3件のメンバーを持つグループから1件削除しても、残り2件でMIN_GROUP_MEMBERSを満たすため
+    // removeGroupMembersの成功パス（部分縮小）を通る
+    const group = { id: groupId, memberIds: [idA, idB, idC], createdAt: now, updatedAt: now };
+    groupStore.groupsByFileKey[key] = [group];
+
+    const res = await history.removeWithHistory(file, buildStyle(idA));
+    expect(res.ok).toBe(true);
+
+    // 解散（ungroupAnnotations）ではなく部分更新（removeGroupMembers）が呼ばれること
+    expect(apiMock.removeGroupMembers).toHaveBeenCalledWith(file, groupId, [idA]);
+    expect(apiMock.ungroupAnnotations).not.toHaveBeenCalled();
+
+    // `.kcfg`の再読込（groupStore.refreshFile）を待たず、removeGroupMembersの戻り値
+    // （実装修正後の正しいモックが返す残存メンバー）でgroupStoreのキャッシュが直接更新されること
+    // （applyGroupChangesの反映経路。Issue #109是正のレビュー指摘：以前のモックはこの経路を
+    // 正しく検証できていなかった）
+    const updated = groupStore.groupContaining(key, groupId);
+    expect(updated?.memberIds).toEqual([idB, idC]);
   });
 });
 

@@ -134,6 +134,7 @@ import {
   resolveSelectedAnnotations,
   isSelectableAnnotationId,
 } from 'src/utils/document/resolveSelectedAnnotations';
+import { reconcilePendingWrites } from 'src/utils/document/annotationWritePending';
 import { useZoomControl } from './composables/useZoomControl';
 import { ANNOTATION_GEOMETRY } from 'src/components/Viewer/Annotation/annotationGeometry';
 import {
@@ -276,6 +277,11 @@ const annotationActions = useAnnotationActions({
 const observed = api.observedAnnotationStylesByFile(prop.file);
 if (observed.ok) {
   const subscription = observed.data.subscribe((value) => {
+    // ページ仮想化でシェイプ（useAnnotationShape）がアンマウントされている等の理由で、
+    // まだ誰にも消費されていない書き込み意図をここでまとめて解決する（孤立防止。Issue #109）。
+    // このコールバックはタブが開かれている間ずっと有効なため、個々のシェイプのマウント状態に
+    // 依存しない解決経路として機能する（annotationWritePending.ts参照）
+    reconcilePendingWrites(value);
     annotations.value = value;
     // まだDB購読側に反映されていなくても、ローカルで書き込みを意図した（＝いずれ必ず現れるはずの）
     // 新規作成分は選択から取りこぼさない（isSelectableAnnotationId参照）

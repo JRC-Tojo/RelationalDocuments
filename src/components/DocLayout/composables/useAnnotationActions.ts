@@ -24,6 +24,7 @@ import type {
 import type { LayerOrderAction } from 'src/utils/document/annotationOrder';
 import { fileKey } from 'src/utils/document/fileKey';
 import { markAnnotationWriteIntent } from 'src/utils/document/annotationWritePending';
+import { resolveSelectedAnnotations } from 'src/utils/document/resolveSelectedAnnotations';
 
 /** 連続ペースト・複製時に位置をずらす基準量（px、文書座標） */
 const PASTE_OFFSET_STEP = 20;
@@ -41,11 +42,18 @@ export function useAnnotationActions(deps: UseAnnotationActionsDeps) {
   const groupStore = useGroupStore();
   const history = useAnnotationHistory();
 
-  /** 選択中の注釈IDを実体（AnnotationStyle）に解決する */
+  /**
+   * 選択中の注釈IDを実体（AnnotationStyle）に解決する
+   *
+   * `AnnotationLayer.vue`が新規描画確定時に`selectedAnnotIds`を即座にセットするようになった
+   * ため（Issue #109）、DB購読（liveQuery）側の一覧`deps.annotations`にまだ反映されていない
+   * 選択IDが一時的に存在しうる。生の`deps.annotations`から`.find()`するだけだと、その間に
+   * Delete・矢印キー微調整・コピー・貼り付け・複製・重ね順変更を行うと対象が見つからず
+   * 何も起きない（サイレントな空振り）ため、ローカルの書き込み意図を優先する
+   * `resolveSelectedAnnotations`を経由して解決する
+   */
   function resolveSelected(): AnnotationStyle[] {
-    return deps.selectedAnnotationIds.value
-      .map((id) => deps.annotations.value.find((a) => a.id === id))
-      .filter((a): a is AnnotationStyle => a !== undefined);
+    return resolveSelectedAnnotations(deps.selectedAnnotationIds.value, deps.annotations.value);
   }
 
   /**

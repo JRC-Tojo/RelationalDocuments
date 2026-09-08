@@ -5,6 +5,7 @@ import {
   cancelAnnotationWriteIntent,
   resolveAnnotationEcho,
   getPendingAnnotationStyle,
+  reconcilePendingWrites,
 } from '../annotationWritePending';
 
 /**
@@ -107,5 +108,39 @@ describe('resolveAnnotationEcho', () => {
     expect(resolveAnnotationEcho(intended)).toBe(true);
     // 消費後は目印が無くなり、以降の更新は素通しになる
     expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+  });
+});
+
+describe('reconcilePendingWrites（Issue #109是正：ゴースト表示バグの回帰確認）', () => {
+  it('個別シェイプ（useAnnotationShapeのwatch）が誰も消費していなくても、確定済み一覧に一致するエコーが含まれていれば解決できる', () => {
+    const intended = buildStyle({ color: '#ff0000' as never, updatedAt: '2026-01-01T00:00:01.000Z' });
+    markAnnotationWriteIntent(intended);
+
+    // ページ仮想化でシェイプ（useAnnotationShapeインスタンス）がアンマウントされ、
+    // resolveAnnotationEchoを呼ぶものが誰もいなくなった状況を模す。まだ一致しない
+    // （中間状態の）確定値では解決しないこと
+    reconcilePendingWrites([buildStyle({ updatedAt: '2026-01-01T00:00:00.000Z' })]);
+    expect(getPendingAnnotationStyle(idA)).toEqual(intended);
+
+    // ファイル単位のDB購読コールバック（DocumentTabView.vue）が確定済み一覧全体を渡して
+    // 解決を試みる。個々のシェイプのマウント状態に依存しないこの経路で、一致するエコーを
+    // まとめて解決できること
+    reconcilePendingWrites([intended]);
+    expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+  });
+
+  it('孤立した意図が解決された後は、以降の正当な外部変更（updatedAtが異なる確定値）が凍結されずに反映される', () => {
+    const intended = buildStyle({ updatedAt: '2026-01-01T00:00:01.000Z' });
+    markAnnotationWriteIntent(intended);
+    reconcilePendingWrites([intended]);
+    expect(getPendingAnnotationStyle(idA)).toBeUndefined();
+
+    // 別タブでの編集・OCR再処理等、目印を経由しない正当な外部変更（全く新しいupdatedAt）が
+    // 修正前のゴースト状態のように永久に凍結されず、そのまま反映されること
+    const externalUpdate = buildStyle({
+      color: '#00ff00' as never,
+      updatedAt: '2026-01-01T00:00:05.000Z',
+    });
+    expect(resolveAnnotationEcho(externalUpdate)).toBe(true);
   });
 });
