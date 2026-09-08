@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { DocumentSource } from 'src/models/document/common';
 import type { TextItemBox } from 'src/models/document/pdf';
+import type { TextSearchMatch } from 'src/models/document/search';
 import { Failure, Success } from 'src/models/error/result';
 import type { FileIdentity } from 'src/utils/document/fileKey';
 import { ContainerID } from 'src/models/container';
@@ -114,7 +115,10 @@ describe('searchOpenPdfDocument（開いているPDFDocumentProxyに対する進
   test('永続キャッシュ層は経由せず、ページ単位で抽出しながら進捗的にマッチを返す', async () => {
     fixtures.extractTextBlocksByPageFromDocImpl = (_pdf, pageNumber) =>
       Promise.resolve(Success(pageNumber === 1 ? [box('hello world')] : [box('goodbye world')]));
-    const onPageMatches = mock(() => {});
+    const onPageMatches = mock(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- mock.calls[N]の型付けのためだけに引数を宣言する
+      (_pageNumber: number, _matches: TextSearchMatch[]) => {},
+    );
 
     const res = await searchOpenPdfDocument(fakePdf, 'world', { onPageMatches });
     expect(res.ok).toBeTrue();

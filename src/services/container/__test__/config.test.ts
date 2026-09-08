@@ -7,6 +7,7 @@ import type { AnnotationID, TextItemBox } from 'src/models/document/pdf';
 import type { DocumentSource } from 'src/models/document/common';
 import type { Result } from 'src/models/error/result';
 import { Failure, NotFoundError, Success } from 'src/models/error/result';
+import type { TextCacheFile } from 'src/models/document/textCache';
 import { TEXT_CACHE_FORMAT_VERSION } from 'src/models/document/textCache';
 
 // `getTextCacheFile`/`saveTextCacheFile`は`await import('./main')`経由でコンテナ本体の
@@ -210,7 +211,7 @@ describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<fileHash>.
   };
 
   test('保存済みキャッシュが存在する場合、パース済みの内容をそのまま返す', async () => {
-    const stored = {
+    const stored: TextCacheFile = {
       formatVersion: TEXT_CACHE_FORMAT_VERSION,
       fileHash,
       pages: { '1': [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }] as TextItemBox[] },

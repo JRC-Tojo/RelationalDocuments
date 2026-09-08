@@ -124,6 +124,9 @@ describe('warmContainerTextCache', () => {
         path,
         createdAt: new Date(),
         updatedAt: new Date(),
+        description: '',
+        genre: '',
+        tags: [],
       };
     }
     if (extraNonPdf) {
@@ -133,6 +136,9 @@ describe('warmContainerTextCache', () => {
         path: 'note.txt',
         createdAt: new Date(),
         updatedAt: new Date(),
+        description: '',
+        genre: '',
+        tags: [],
       };
     }
     return {
