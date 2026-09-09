@@ -594,6 +594,9 @@ async function deleteFolderImpl(
       () => cache.deleteFile(parsedContainer.data, file),
     );
     if (!delRes.ok) return delRes;
+    // `deleteFileImpl`と異なりこのループは`deleteContainerElement`を経由しないため、
+    // ここで個別に短期キャッシュ（`loadFileAsDocumentSource`）を破棄する
+    invalidateFileSourceCache(cId, file.path);
   }
 
   // 子孫のフォルダ要素情報を削除（実データは持たないため要素マップからの除去のみでよい）
