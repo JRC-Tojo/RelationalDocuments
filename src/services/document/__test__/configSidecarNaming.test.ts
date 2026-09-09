@@ -45,14 +45,8 @@ const getContainerMock = mock((): Result<Container> => {
 });
 
 const renamePathMock = mock(
-  (
-    _cID: ContainerID,
-    elem: ContainerElement,
-    newPath: string,
-  ): Promise<Result<RenamedEntry[]>> => {
-    return Promise.resolve(
-      Success([{ oldPath: elem.path, element: { ...elem, path: newPath } }]),
-    );
+  (_cID: ContainerID, elem: ContainerElement, newPath: string): Promise<Result<RenamedEntry[]>> => {
+    return Promise.resolve(Success([{ oldPath: elem.path, element: { ...elem, path: newPath } }]));
   },
 );
 
@@ -68,9 +62,8 @@ void mock.module('src/services/container/main', () => ({
 
 // getConfigPath/getLegacyConfigPathは実装（models/document/common）と同じ規則をそのまま使う
 const { Path } = await import('src/utils/binary/path');
-const { buildConfigFileName, buildLegacyConfigFileName } = await import(
-  'src/models/document/common'
-);
+const { buildConfigFileName, buildLegacyConfigFileName } =
+  await import('src/models/document/common');
 function fakeGetConfigPath(filePath: string): string {
   const p = new Path(filePath);
   return p.parent().child(buildConfigFileName(p.basename())).path;

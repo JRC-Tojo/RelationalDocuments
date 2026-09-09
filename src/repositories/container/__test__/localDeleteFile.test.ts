@@ -46,7 +46,12 @@ void mock.module('src/repositories/inMemory/fsHandleDB', () => ({
     if (fakeRootHandle === undefined) throw new Error('fakeRootHandle is not set');
     return Promise.resolve(
       Success({
-        skel: { id: containerID, name: 'container', type: 'local' as const, containerPath: '/root' },
+        skel: {
+          id: containerID,
+          name: 'container',
+          type: 'local' as const,
+          containerPath: '/root',
+        },
         handle: fakeRootHandle,
       }),
     );
