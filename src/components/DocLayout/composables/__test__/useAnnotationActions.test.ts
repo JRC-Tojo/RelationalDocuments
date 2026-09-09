@@ -62,12 +62,16 @@ const apiMock = {
     (): Promise<MockApiResult<{ style: AnnotationStyle }>> =>
       Promise.resolve({ ok: true, data: { style: buildStyle(idA) } }),
   ),
-  pasteAnnotations: mock((): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined })),
+  pasteAnnotations: mock(
+    (): Promise<MockApiResult<{ style: AnnotationStyle }[]>> =>
+      Promise.resolve({ ok: true, data: [] }),
+  ),
 };
 void mock.module('src/apis/backendApi', () => ({ useBackendApi: () => apiMock }));
 
 const { useAnnotationActions } = await import('../useAnnotationActions');
 const { useGroupStore } = await import('src/stores/groupStore');
+const { useEditorStore } = await import('src/stores/editorStore');
 
 const containerID = '00000000-0000-4000-8000-000000000000' as ContainerID;
 const file: ContainerElementFile = {
@@ -255,5 +259,279 @@ describe('reorderSelected（コーディネーターからの再指摘: DB購読
     // 成立するのにUndo履歴に記録されなかった
     expect(apiMock.reorderAnnotation).toHaveBeenCalledWith(file, idC, 'front');
     expect(historyStore.canUndo(file)).toBe(true);
+  });
+});
+
+describe('nudgeSelected（矢印キーによる微調整）', () => {
+  it('選択中の全注釈をまとめてx/yだけ移動し、1つのUndoステップとして記録する', async () => {
+    const historyStore = useHistoryStore();
+    const annotations = ref([buildStyle(idA), buildStyle(idB)]);
+    const selectedAnnotationIds = ref<AnnotationID[]>([idA, idB]);
+    const actions = useAnnotationActions({
+      file,
+      annotations,
+      selectedAnnotationIds,
+      currentPage: ref(1),
+    });
+
+    await actions.nudgeSelected(5, -3);
+
+    expect(apiMock.registerAnnotationStyles).toHaveBeenCalledTimes(1);
+    const [, styles] = apiMock.registerAnnotationStyles.mock.calls[0] as unknown as [
+      ContainerElementFile,
+      AnnotationStyle[],
+    ];
+    expect(styles.map((s) => ({ x: s.x, y: s.y }))).toEqual([
+      { x: 5, y: -3 },
+      { x: 5, y: -3 },
+    ]);
+    expect(historyStore.canUndo(file)).toBe(true);
+  });
+
+  it('選択が無い場合は何もしない', async () => {
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([]),
+      selectedAnnotationIds: ref<AnnotationID[]>([]),
+      currentPage: ref(1),
+    });
+
+    await actions.nudgeSelected(1, 1);
+
+    expect(apiMock.registerAnnotationStyles).not.toHaveBeenCalled();
+  });
+});
+
+describe('copySelected（アプリ内クリップボードへのコピー）', () => {
+  it('選択が既存グループ全体と一致する場合、値算出方法も一緒にクリップボードへ記録する', () => {
+    const editorStore = useEditorStore();
+    const groupStore = useGroupStore();
+    groupStore.groupsByFileKey[key] = [{ ...dummyGroup(), valueAggregation: { type: 'sum' } }];
+
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idA), buildStyle(idB)]),
+      selectedAnnotationIds: ref<AnnotationID[]>([idA, idB]),
+      currentPage: ref(1),
+    });
+
+    actions.copySelected();
+
+    expect(editorStore.annotationClipboard?.map((a) => a.id)).toEqual([idA, idB]);
+    expect(editorStore.annotationClipboardGroupInfo).toEqual({ valueAggregation: { type: 'sum' } });
+  });
+
+  it('選択が無い場合は何もしない', () => {
+    const editorStore = useEditorStore();
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([]),
+      selectedAnnotationIds: ref<AnnotationID[]>([]),
+      currentPage: ref(1),
+    });
+
+    actions.copySelected();
+
+    expect(editorStore.annotationClipboard).toBeNull();
+  });
+});
+
+describe('pasteClipboard（クリップボードの貼り付け）', () => {
+  it('選択中の注釈がある場合、その位置から少しずらした位置へ貼り付け、貼り付け結果を選択状態にする', async () => {
+    const editorStore = useEditorStore();
+    const historyStore = useHistoryStore();
+    editorStore.setAnnotationClipboard([buildStyle(idA)]);
+
+    const pasted = { ...buildStyle(idC), x: 999, y: 999 };
+    apiMock.pasteAnnotations.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, data: [{ style: pasted }] }),
+    );
+
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idB)]),
+      selectedAnnotationIds: ref<AnnotationID[]>([idB]),
+      currentPage: ref(2),
+    });
+
+    await actions.pasteClipboard();
+
+    expect(apiMock.pasteAnnotations).toHaveBeenCalledWith(file, [buildStyle(idA)], 2, {
+      dx: 20,
+      dy: 20,
+    });
+    expect(historyStore.canUndo(file)).toBe(true);
+  });
+
+  it('選択が無くカーソル位置も未取得の場合、コピー元から少しずらした位置へ貼り付ける', async () => {
+    const editorStore = useEditorStore();
+    editorStore.setAnnotationClipboard([buildStyle(idA)]);
+    apiMock.pasteAnnotations.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, data: [{ style: buildStyle(idC) }] }),
+    );
+
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([]),
+      selectedAnnotationIds: ref<AnnotationID[]>([]),
+      currentPage: ref(1),
+    });
+
+    await actions.pasteClipboard();
+
+    expect(apiMock.pasteAnnotations).toHaveBeenCalledWith(file, [buildStyle(idA)], 1, {
+      dx: 20,
+      dy: 20,
+    });
+  });
+
+  it('クリップボードが空の場合は何もしない', async () => {
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([]),
+      selectedAnnotationIds: ref<AnnotationID[]>([]),
+      currentPage: ref(1),
+    });
+
+    await actions.pasteClipboard();
+
+    expect(apiMock.pasteAnnotations).not.toHaveBeenCalled();
+  });
+
+  it('コピー元が丸ごと1つのグループだった場合、貼り付け後に同じ値算出方法で新しいグループを作り直す', async () => {
+    const editorStore = useEditorStore();
+    editorStore.setAnnotationClipboard([buildStyle(idA), buildStyle(idB)], {
+      valueAggregation: { type: 'sum' },
+    });
+    const createdA = buildStyle(idA);
+    const createdB = buildStyle(idB);
+    apiMock.pasteAnnotations.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, data: [{ style: createdA }, { style: createdB }] }),
+    );
+
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([]),
+      selectedAnnotationIds: ref<AnnotationID[]>([]),
+      currentPage: ref(1),
+    });
+
+    await actions.pasteClipboard();
+
+    expect(apiMock.groupAnnotations).toHaveBeenCalledWith(file, [idA, idB]);
+    expect(apiMock.updateGroupValueAggregation).toHaveBeenCalledWith(file, groupId, {
+      type: 'sum',
+    });
+  });
+});
+
+describe('duplicateSelected（選択中注釈のその場複製）', () => {
+  it('選択中の注釈をPASTE_OFFSET_STEP分ずらした位置に複製し、複製結果を選択状態にする', async () => {
+    const historyStore = useHistoryStore();
+    const duplicated = buildStyle(idC);
+    apiMock.pasteAnnotations.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, data: [{ style: duplicated }] }),
+    );
+
+    const selectedAnnotationIds = ref<AnnotationID[]>([idA]);
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idA)]),
+      selectedAnnotationIds,
+      currentPage: ref(3),
+    });
+
+    await actions.duplicateSelected();
+
+    expect(apiMock.pasteAnnotations).toHaveBeenCalledWith(file, [buildStyle(idA)], 3, {
+      dx: 20,
+      dy: 20,
+    });
+    expect(selectedAnnotationIds.value).toEqual([idC]);
+    expect(historyStore.canUndo(file)).toBe(true);
+  });
+
+  it('永続化に失敗した場合は選択状態を変えない', async () => {
+    apiMock.pasteAnnotations.mockImplementationOnce(() =>
+      Promise.resolve({ ok: false, error: new Error('write failed') }),
+    );
+
+    const selectedAnnotationIds = ref<AnnotationID[]>([idA]);
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idA)]),
+      selectedAnnotationIds,
+      currentPage: ref(1),
+    });
+
+    await actions.duplicateSelected();
+
+    expect(selectedAnnotationIds.value).toEqual([idA]);
+  });
+
+  it('選択が無い場合は何もしない', async () => {
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([]),
+      selectedAnnotationIds: ref<AnnotationID[]>([]),
+      currentPage: ref(1),
+    });
+
+    await actions.duplicateSelected();
+
+    expect(apiMock.pasteAnnotations).not.toHaveBeenCalled();
+  });
+});
+
+describe('ungroupSelected（グループ化の解除）', () => {
+  it('選択が既存グループの全メンバーと一致する場合、即座にグループを解除しUndo履歴に記録する', async () => {
+    const groupStore = useGroupStore();
+    const historyStore = useHistoryStore();
+    groupStore.groupsByFileKey[key] = [dummyGroup()];
+
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idA), buildStyle(idB)]),
+      selectedAnnotationIds: ref<AnnotationID[]>([idA, idB]),
+      currentPage: ref(1),
+    });
+
+    await actions.ungroupSelected();
+
+    expect(groupStore.matchingGroup(key, [idA, idB])).toBeUndefined();
+    expect(apiMock.ungroupAnnotations).toHaveBeenCalledWith(file, groupId);
+    expect(historyStore.canUndo(file)).toBe(true);
+  });
+
+  it('永続化に失敗した場合は解除前のグループを復元する', async () => {
+    const groupStore = useGroupStore();
+    groupStore.groupsByFileKey[key] = [dummyGroup()];
+    apiMock.ungroupAnnotations.mockImplementationOnce(() =>
+      Promise.resolve({ ok: false, error: new Error('write failed') }),
+    );
+
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idA), buildStyle(idB)]),
+      selectedAnnotationIds: ref<AnnotationID[]>([idA, idB]),
+      currentPage: ref(1),
+    });
+
+    await actions.ungroupSelected();
+
+    expect(groupStore.matchingGroup(key, [idA, idB])?.id).toBe(groupId);
+  });
+
+  it('選択が既存グループと一致しない場合は何もしない', async () => {
+    const actions = useAnnotationActions({
+      file,
+      annotations: ref([buildStyle(idA)]),
+      selectedAnnotationIds: ref<AnnotationID[]>([idA]),
+      currentPage: ref(1),
+    });
+
+    await actions.ungroupSelected();
+
+    expect(apiMock.ungroupAnnotations).not.toHaveBeenCalled();
   });
 });
