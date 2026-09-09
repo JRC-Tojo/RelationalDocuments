@@ -37,30 +37,32 @@ const apiMock = {
     (): Promise<MockApiResult<{ group: AnnotationGroup; dissolvedGroups: AnnotationGroup[] }>> =>
       Promise.resolve({ ok: true, data: { group: dummyGroup(), dissolvedGroups: [] } }),
   ),
-  ungroupAnnotations: mock((): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined })),
-  updateGroupValueAggregation: mock(
-    (): Promise<MockApiResult<AnnotationGroup>> =>
-      Promise.resolve({ ok: true, data: dummyGroup() }),
+  ungroupAnnotations: mock((): Promise<MockApiResult> =>
+    Promise.resolve({ ok: true, data: undefined }),
   ),
-  removeAnnotation: mock((): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined })),
-  removeAnnotations: mock(
-    (): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined }),
+  updateGroupValueAggregation: mock((): Promise<MockApiResult<AnnotationGroup>> =>
+    Promise.resolve({ ok: true, data: dummyGroup() }),
   ),
-  removeGroupMembers: mock(
-    (): Promise<MockApiResult<AnnotationGroup>> =>
-      Promise.resolve({ ok: true, data: dummyGroup() }),
+  removeAnnotation: mock((): Promise<MockApiResult> =>
+    Promise.resolve({ ok: true, data: undefined }),
   ),
-  restoreGroup: mock(
-    (): Promise<MockApiResult<AnnotationGroup>> =>
-      Promise.resolve({ ok: true, data: dummyGroup() }),
+  removeAnnotations: mock((): Promise<MockApiResult> =>
+    Promise.resolve({ ok: true, data: undefined }),
   ),
-  registerAnnotationStyle: mock((): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined })),
-  registerAnnotationStyles: mock(
-    (): Promise<MockApiResult> => Promise.resolve({ ok: true, data: undefined }),
+  removeGroupMembers: mock((): Promise<MockApiResult<AnnotationGroup>> =>
+    Promise.resolve({ ok: true, data: dummyGroup() }),
   ),
-  reorderAnnotation: mock(
-    (): Promise<MockApiResult<{ style: AnnotationStyle }>> =>
-      Promise.resolve({ ok: true, data: { style: buildStyle(idA) } }),
+  restoreGroup: mock((): Promise<MockApiResult<AnnotationGroup>> =>
+    Promise.resolve({ ok: true, data: dummyGroup() }),
+  ),
+  registerAnnotationStyle: mock((): Promise<MockApiResult> =>
+    Promise.resolve({ ok: true, data: undefined }),
+  ),
+  registerAnnotationStyles: mock((): Promise<MockApiResult> =>
+    Promise.resolve({ ok: true, data: undefined }),
+  ),
+  reorderAnnotation: mock((): Promise<MockApiResult<{ style: AnnotationStyle }>> =>
+    Promise.resolve({ ok: true, data: { style: buildStyle(idA) } }),
   ),
   pasteAnnotations: mock(
     (): Promise<MockApiResult<{ style: AnnotationStyle }[]>> =>
@@ -139,9 +141,10 @@ describe('groupSelected（Issue #109: グループ化直後に即座にグルー
     });
 
     // 永続化を意図的に遅延させる（手動で解決するまで完了しないPromise）
-    const deferred = createDeferred<
-      MockApiResult<{ group: AnnotationGroup; dissolvedGroups: AnnotationGroup[] }>
-    >();
+    const deferred =
+      createDeferred<
+        MockApiResult<{ group: AnnotationGroup; dissolvedGroups: AnnotationGroup[] }>
+      >();
     apiMock.groupAnnotations.mockImplementationOnce(() => deferred.promise);
 
     const pending = actions.groupSelected();
@@ -318,7 +321,9 @@ describe('copySelected（アプリ内クリップボードへのコピー）', (
     actions.copySelected();
 
     expect(editorStore.annotationClipboard?.map((a) => a.id)).toEqual([idA, idB]);
-    expect(editorStore.annotationClipboardGroupInfo).toEqual({ valueAggregation: { type: 'sum' } });
+    expect(editorStore.annotationClipboardGroupInfo).toEqual({
+      valueAggregation: { type: 'sum' },
+    });
   });
 
   it('選択が無い場合は何もしない', () => {

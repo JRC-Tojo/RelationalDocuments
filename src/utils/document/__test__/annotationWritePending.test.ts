@@ -113,7 +113,10 @@ describe('resolveAnnotationEcho', () => {
 
 describe('reconcilePendingWrites（Issue #109是正：ゴースト表示バグの回帰確認）', () => {
   it('個別シェイプ（useAnnotationShapeのwatch）が誰も消費していなくても、確定済み一覧に一致するエコーが含まれていれば解決できる', () => {
-    const intended = buildStyle({ color: '#ff0000' as never, updatedAt: '2026-01-01T00:00:01.000Z' });
+    const intended = buildStyle({
+      color: '#ff0000' as never,
+      updatedAt: '2026-01-01T00:00:01.000Z',
+    });
     markAnnotationWriteIntent(intended);
 
     // ページ仮想化でシェイプ（useAnnotationShapeインスタンス）がアンマウントされ、

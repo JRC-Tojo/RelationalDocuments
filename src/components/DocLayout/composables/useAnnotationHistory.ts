@@ -343,7 +343,8 @@ export function useAnnotationHistory() {
           await registerStyleTracked(file, removed);
           const restored = await Promise.all(affectedGroups.map((g) => api.restoreGroup(file, g)));
           const restoredGroups = restored.filter((r) => r.ok).map((r) => r.data);
-          if (restoredGroups.length > 0) groupStore.applyGroupChanges(file, { upsert: restoredGroups });
+          if (restoredGroups.length > 0)
+            groupStore.applyGroupChanges(file, { upsert: restoredGroups });
           await restoreRelationalSnapshot(
             file,
             mergeRelationalSnapshots(ownSnapshot, groupSnapshot),
@@ -401,7 +402,8 @@ export function useAnnotationHistory() {
         await registerStylesTracked(file, removedList);
         const restored = await Promise.all(affectedGroups.map((g) => api.restoreGroup(file, g)));
         const restoredGroups = restored.filter((r) => r.ok).map((r) => r.data);
-        if (restoredGroups.length > 0) groupStore.applyGroupChanges(file, { upsert: restoredGroups });
+        if (restoredGroups.length > 0)
+          groupStore.applyGroupChanges(file, { upsert: restoredGroups });
         await restoreRelationalSnapshot(file, mergeRelationalSnapshots(ownSnapshot, groupSnapshot));
       },
       redo: async () => {
