@@ -19,6 +19,7 @@ import {
   setCachedRender,
 } from 'src/repositories/document/renderCache';
 import type { TileDescriptor } from 'src/components/Viewer/tiling';
+import { runConcurrently } from 'src/utils/promise/concurrent';
 
 export type PdfDocument = pdfjsLib.PDFDocumentProxy;
 export type { AcquiredPdfDocument };
@@ -340,20 +341,36 @@ export async function generateThumbnail(
 }
 
 /**
+ * `getPageViewportSizes`で同時に発行する`pdfDocument.getPage()`呼び出しの上限数
+ *
+ * pdf.jsの`getPage()`はメインスレッドとWorkerスレッド間のメッセージ往復を伴うため、
+ * ページ数分を直列に`await`すると往復レイテンシがページ数倍そのまま蓄積し、
+ * 特にページ数の多い大判文書で「文書を開く→表示可能になるまで」の体感速度を大きく損なう
+ * （ページ内容自体のレンダリングではなく`getViewport`用のメタ情報取得のみのため、
+ * 個々の処理自体は軽い）。ある程度並列に発行することで往復レイテンシを重ね合わせて
+ * 短縮しつつ、無制限並列でWorkerのメッセージキューを埋め尽くさないよう上限を設ける
+ */
+const PAGE_VIEWPORT_FETCH_CONCURRENCY = 8;
+
+/**
  * 全ページのサイズ（スケール1でのCSS px寸法）を取得する
  *
  * 連続表示モードでページを仮想化（画面近傍のみ実描画）する際、未描画のページ分も
  * レイアウト上の高さを確保しておく必要があるため、実際のレンダリング（重い処理）を伴わない
- * メタ情報取得（`getViewport`のみ）で全ページ分のサイズを事前に取得しておく
+ * メタ情報取得（`getViewport`のみ）で全ページ分のサイズを事前に取得しておく。
+ * `runConcurrently`（`src/utils/promise/concurrent.ts`）で一定数まで並列化することで、
+ * ページ数の多い文書でも1ページずつ直列に待つ場合より短時間で完了する
  */
 export async function getPageViewportSizes(pdfDocument: PdfDocument): Promise<PageSize[]> {
-  const sizes: PageSize[] = [];
-  for (let i = 1; i <= pdfDocument.numPages; i++) {
-    const page = await pdfDocument.getPage(i);
-    const viewport = page.getViewport({ scale: 1 });
-    sizes.push({ width: viewport.width, height: viewport.height });
-  }
-  return sizes;
+  const tasks = Array.from(
+    { length: pdfDocument.numPages },
+    (_, index) => async (): Promise<PageSize> => {
+      const page = await pdfDocument.getPage(index + 1);
+      const viewport = page.getViewport({ scale: 1 });
+      return { width: viewport.width, height: viewport.height };
+    },
+  );
+  return runConcurrently(tasks, PAGE_VIEWPORT_FETCH_CONCURRENCY);
 }
 
 /**

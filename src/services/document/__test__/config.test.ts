@@ -34,8 +34,8 @@ function buildFile(path: string): ContainerElementFile {
 
 const DOC_SRC = 'AAAA' as DocumentSource;
 
-const loadFileAsDocumentSourceMock = mock((): Promise<Result<DocumentSource>> =>
-  Promise.resolve(Success(DOC_SRC)),
+const loadFileAsDocumentSourceMock = mock(
+  (): Promise<Result<DocumentSource>> => Promise.resolve(Success(DOC_SRC)),
 );
 void mock.module('src/services/container/main', () => ({
   loadFileAsDocumentSource: loadFileAsDocumentSourceMock,
@@ -43,12 +43,13 @@ void mock.module('src/services/container/main', () => ({
 
 // 文書設定ファイル（.kcfg）のフィクスチャ。各テストの冒頭で書き換える
 let documentConfigFileFixture: DocumentConfigFile | undefined;
-const getDocumentConfigFileMock = mock((): Promise<Result<DocumentConfigFile>> =>
-  Promise.resolve(
-    documentConfigFileFixture !== undefined
-      ? Success(documentConfigFileFixture)
-      : Failure(new NotFoundError('not found')),
-  ),
+const getDocumentConfigFileMock = mock(
+  (): Promise<Result<DocumentConfigFile>> =>
+    Promise.resolve(
+      documentConfigFileFixture !== undefined
+        ? Success(documentConfigFileFixture)
+        : Failure(new NotFoundError('not found')),
+    ),
 );
 const saveDocumentConfigFileMock = mock(
   (
@@ -104,8 +105,8 @@ void mock.module('src/repositories/document/renderCache', () => ({
 
 // PDFのしおり（アウトライン）取得のフィクスチャ。各テストの冒頭で書き換える
 let outlineFixture: Result<PdfOutlineEntry[]> = Success([]);
-const getOutlineMock = mock((): Promise<Result<PdfOutlineEntry[]>> =>
-  Promise.resolve(outlineFixture),
+const getOutlineMock = mock(
+  (): Promise<Result<PdfOutlineEntry[]>> => Promise.resolve(outlineFixture),
 );
 void mock.module('src/repositories/document/pdf', () => ({
   getOutline: getOutlineMock,
@@ -138,6 +139,7 @@ describe('loadConfig（PDFしおりの自動取り込み）', () => {
       { title: '第1章', level: 0, pageNumber: 1 },
       { title: '1.1', level: 1, pageNumber: 2 },
     ]);
+    loadFileAsDocumentSourceMock.mockClear();
 
     const res = await loadConfig(buildFile('doc.pdf'));
     expect(res.ok).toBeTrue();
@@ -150,6 +152,11 @@ describe('loadConfig（PDFしおりの自動取り込み）', () => {
     const saved = savedArgs();
     expect(saved.outlineImported).toBeTrue();
     expect(Object.keys(saved.bookmarks).length).toBe(2);
+
+    // ハッシュ照合用の読み込みと、しおり取り込み用の読み込みを別々に行うと大きなファイルほど
+    // I/O・base64変換が重複して遅くなるため、ファイル本体の読み込みは1回で済ませること
+    // （`loadConfigRawWithSrc`が取得済みの内容をアウトライン取り込みでも使い回す回帰テスト）
+    expect(loadFileAsDocumentSourceMock).toHaveBeenCalledTimes(1);
   });
 
   it('outlineImportedが既にtrueの場合は再度取り込まない（getOutlineを呼ばない）', async () => {
