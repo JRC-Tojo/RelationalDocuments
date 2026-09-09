@@ -57,8 +57,10 @@ const apiMock = {
   ),
   ungroupAnnotations: mock((): Promise<MockApiResult> => ok(undefined)),
   restoreGroup: mock(
-    (_file: ContainerElementFile, group: AnnotationGroup): Promise<MockApiResult<AnnotationGroup>> =>
-      ok(group),
+    (
+      _file: ContainerElementFile,
+      group: AnnotationGroup,
+    ): Promise<MockApiResult<AnnotationGroup>> => ok(group),
   ),
   registRelationals: mock((): Promise<MockApiResult> => ok(undefined)),
   removeRelationalEdge: mock((): Promise<MockApiResult> => ok(undefined)),

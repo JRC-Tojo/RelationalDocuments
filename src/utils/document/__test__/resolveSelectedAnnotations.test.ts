@@ -5,7 +5,10 @@ import {
   resolveAnnotationEcho,
   getPendingAnnotationStyle,
 } from '../annotationWritePending';
-import { resolveSelectedAnnotations, isSelectableAnnotationId } from '../resolveSelectedAnnotations';
+import {
+  resolveSelectedAnnotations,
+  isSelectableAnnotationId,
+} from '../resolveSelectedAnnotations';
 
 /**
  * Issue #109の回帰テスト：新規描画直後、まだDB購読（liveQuery）側の一覧に現れていない
