@@ -11,12 +11,12 @@
  */
 import type { DocumentSource } from 'src/models/document/common';
 import { Failure, Success, type Result } from 'src/models/error/result';
+import type { ContainerElementFile } from 'src/models/container';
 import type { TextItemBox } from 'src/models/document/pdf';
 import type { TextSearchMatch, TextSearchOptions } from 'src/models/document/search';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { findMatchesOnPage } from 'src/utils/document/textSearch';
 import { getSupportedDocumentKind } from 'src/utils/document/supportedTypes';
-import type { FileIdentity } from 'src/utils/document/fileKey';
 import * as pdfRepo from 'src/repositories/document/pdf';
 import * as textCacheService from 'src/services/document/textCache';
 
@@ -44,15 +44,15 @@ export interface SearchTextInDocOptions {
  * caseを追加し専用の実装関数へ委譲すればよい
  */
 export async function searchTextByFile(
-  file: FileIdentity,
-  src64: DocumentSource,
+  file: ContainerElementFile,
+  loadSrc: () => Promise<Result<DocumentSource>>,
   query: string,
   options: SearchTextInDocOptions = {},
 ): Promise<Result<TextSearchMatch[]>> {
   if (query.trim() === '') return Success([]);
   switch (getSupportedDocumentKind(file.path)) {
     case 'pdf':
-      return searchPdfFile(file, src64, query, options);
+      return searchPdfFile(file, loadSrc, query, options);
     default:
       return Failure(new Error(`Not supported this file type (${file.path})`));
   }
@@ -60,23 +60,30 @@ export async function searchTextByFile(
 
 /**
  * PDFファイルを対象にした検索の実装。`textCacheService.getCachedTextBlocksByFile`経由で
- * ページごとテキストブロックを取得するため、キャッシュがあればPDF自体を開かずに済む
+ * ページごとテキストブロックを取得するため、キャッシュが最新なら`loadSrc`を呼ばずPDF自体を
+ * 開かずに済む
  */
 async function searchPdfFile(
-  file: FileIdentity,
-  src64: DocumentSource,
+  file: ContainerElementFile,
+  loadSrc: () => Promise<Result<DocumentSource>>,
   query: string,
   options: SearchTextInDocOptions,
 ): Promise<Result<TextSearchMatch[]>> {
   const blocksRes = await textCacheService.getCachedTextBlocksByFile(
     file,
-    src64,
+    loadSrc,
     pdfRepo.extractAllTextBlocksByFile,
   );
   if (!blocksRes.ok) return blocksRes;
 
   const matches: TextSearchMatch[] = [];
-  for (let pageNumber = 1; pageNumber <= blocksRes.value.size; pageNumber++) {
+  // 永続キャッシュから復元した`blocksRes.value`はページ番号が1..Nで連続している保証がないため、
+  // `Map.size`をページ数とみなさず、抽出済みページとextraItemsByPageのページ番号の和集合を
+  // 昇順で走査する（抜けたページのブロック・アノテーション文字列が検索対象から漏れるのを防ぐ）
+  const pageNumbers = [
+    ...new Set([...blocksRes.value.keys(), ...(options.extraItemsByPage?.keys() ?? [])]),
+  ].sort((a, b) => a - b);
+  for (const pageNumber of pageNumbers) {
     const blocks = blocksRes.value.get(pageNumber) ?? [];
     const extraItems = options.extraItemsByPage?.get(pageNumber) ?? [];
     const pageMatches = findMatchesOnPage(

@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { Container, ContainerID } from 'src/models/container';
+import type { Container, ContainerElementFile, ContainerID } from 'src/models/container';
 import type { DocumentSource } from 'src/models/document/common';
 import type { TextItemBox } from 'src/models/document/pdf';
 import type { Result } from 'src/models/error/result';
 import { Failure, Success } from 'src/models/error/result';
-import type { FileIdentity } from 'src/utils/document/fileKey';
 import {
   extractAllTextBlocksByFileMock,
   fixtures,
@@ -16,18 +15,24 @@ import {
 // `src/services/container/config`・`src/services/container/main`・`src/repositories/document/pdf`
 // のモックは`textDependencyMocks.ts`が一括登録する（`search.test.ts`と共有し、同一パスへの
 // 競合するモック登録を避けるため）。ここでは`../textCache`（本物）をそのままテストする
-const { getCachedTextBlocksByFile, warmContainerTextCache } = await import('../textCache');
+const { getCachedTextBlocksByFile, warmContainerTextCache, beginSearchInterrupt, endSearchInterrupt } =
+  await import('../textCache');
 
-const testFile: FileIdentity = {
+const testFile: ContainerElementFile = {
   containerID: '00000000-0000-0000-0000-000000000000' as ContainerID,
+  type: 'File',
   path: 'a.pdf',
+  createdAt: new Date('2024-01-01T00:00:00Z'),
+  updatedAt: new Date('2024-01-01T00:00:00Z'),
+  description: '',
+  genre: '',
+  tags: [],
 };
 const DUMMY_SRC = btoa('dummy-src-bytes') as DocumentSource;
+const loadDummySrc = (): Promise<Result<DocumentSource>> => Promise.resolve(Success(DUMMY_SRC));
 
 beforeEach(() => {
   resetTextDependencyMocks();
-  // ファイルごとに内容（＝ハッシュ）を変え、共有ストア（ハッシュキー）上で
-  // 異なるファイル同士のキャッシュが衝突しないようにする
   fixtures.loadFileAsDocumentSourceImpl = (_cID, path) =>
     Promise.resolve(Success(btoa(`dummy-src-${path}`) as DocumentSource));
 });
@@ -38,7 +43,7 @@ describe('getCachedTextBlocksByFile', () => {
       Promise.resolve(Success(new Map([[1, [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }]]]))),
     );
 
-    const res = await getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh);
+    const res = await getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh);
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value.get(1)).toEqual([{ text: 'A', x: 0, y: 0, width: 1, height: 1 }]);
@@ -53,11 +58,11 @@ describe('getCachedTextBlocksByFile', () => {
       ),
     );
     // 1回目の呼び出しでキャッシュを温めておく
-    await getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh);
+    await getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh);
     extractFresh.mockClear();
     saveTextCacheFileMock.mockClear();
 
-    const res = await getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh);
+    const res = await getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh);
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value.get(1)).toEqual([{ text: 'FRESH', x: 0, y: 0, width: 1, height: 1 }]);
@@ -71,7 +76,7 @@ describe('getCachedTextBlocksByFile', () => {
       Promise.resolve(Failure(extractError)),
     );
 
-    const res = await getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh);
+    const res = await getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh);
     expect(res.ok).toBeFalse();
     if (res.ok) return;
     expect(res.error).toBe(extractError);
@@ -86,7 +91,7 @@ describe('getCachedTextBlocksByFile', () => {
       Promise.resolve(Success(new Map([[1, [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }]]]))),
     );
 
-    const res = await getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh);
+    const res = await getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh);
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value.get(1)).toEqual([{ text: 'A', x: 0, y: 0, width: 1, height: 1 }]);
@@ -102,8 +107,8 @@ describe('getCachedTextBlocksByFile', () => {
     });
 
     const [res1, res2] = await Promise.all([
-      getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh),
-      getCachedTextBlocksByFile(testFile, DUMMY_SRC, extractFresh),
+      getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh),
+      getCachedTextBlocksByFile(testFile, loadDummySrc, extractFresh),
     ]);
 
     expect(res1.ok).toBeTrue();
@@ -190,5 +195,51 @@ describe('warmContainerTextCache', () => {
 
     await warmContainerTextCache(container);
     expect(extractAllTextBlocksByFileMock).not.toHaveBeenCalled();
+  });
+
+  test('検索実行中に呼ばれた場合、未着手のファイルは処理を打ち切る', async () => {
+    const container = buildContainer(3, false);
+
+    beginSearchInterrupt();
+    try {
+      await warmContainerTextCache(container);
+    } finally {
+      endSearchInterrupt();
+    }
+
+    expect(loadFileAsDocumentSourceMock).not.toHaveBeenCalled();
+    expect(extractAllTextBlocksByFileMock).not.toHaveBeenCalled();
+  });
+
+  test('ウォームアップ実行中に検索が開始された場合、既に着手済みのファイルは完了まで進めるが、それ以降のファイルは打ち切る', async () => {
+    const container = buildContainer(5, false);
+    fixtures.extractDelayMs = 20;
+
+    const warmPromise = warmContainerTextCache(container);
+    // 同時実行数上限（2件）の最初の枠が着手した直後を狙って検索開始を通知する
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    beginSearchInterrupt();
+    try {
+      await warmPromise;
+    } finally {
+      endSearchInterrupt();
+    }
+
+    expect(extractAllTextBlocksByFileMock).toHaveBeenCalledTimes(2);
+  });
+
+  test('検索終了後は、次回のウォームアップが通常どおり全ファイルを処理する', async () => {
+    const container = buildContainer(2, false);
+
+    beginSearchInterrupt();
+    try {
+      await warmContainerTextCache(container);
+    } finally {
+      endSearchInterrupt();
+    }
+    expect(extractAllTextBlocksByFileMock).not.toHaveBeenCalled();
+
+    await warmContainerTextCache(container);
+    expect(extractAllTextBlocksByFileMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -3,8 +3,9 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { DocumentSource } from 'src/models/document/common';
 import type { TextItemBox } from 'src/models/document/pdf';
 import type { TextSearchMatch } from 'src/models/document/search';
+import type { Result } from 'src/models/error/result';
 import { Failure, Success } from 'src/models/error/result';
-import type { FileIdentity } from 'src/utils/document/fileKey';
+import type { ContainerElementFile } from 'src/models/container';
 import { ContainerID } from 'src/models/container';
 import {
   extractAllTextBlocksByFileMock,
@@ -25,11 +26,18 @@ function box(text: string): TextItemBox {
   return { text, x: 0, y: 0, width: 10, height: 10 };
 }
 
-const testFile: FileIdentity = {
+const testFile: ContainerElementFile = {
   containerID: ContainerID.parse('11111111-1111-4111-8111-111111111111'),
+  type: 'File',
   path: 'a.pdf',
+  createdAt: new Date('2024-01-01T00:00:00Z'),
+  updatedAt: new Date('2024-01-01T00:00:00Z'),
+  description: '',
+  genre: '',
+  tags: [],
 };
 const DUMMY_SRC = btoa('dummy') as DocumentSource;
+const loadDummySrc = (): Promise<Result<DocumentSource>> => Promise.resolve(Success(DUMMY_SRC));
 
 beforeEach(() => {
   resetTextDependencyMocks();
@@ -37,7 +45,7 @@ beforeEach(() => {
 
 describe('searchTextByFile（拡張子ディスパッチ）', () => {
   test('クエリが空文字の場合はキャッシュ層を呼ばずSuccess([])を返す', async () => {
-    const res = await searchTextByFile(testFile, DUMMY_SRC, '  ');
+    const res = await searchTextByFile(testFile, loadDummySrc, '  ');
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value).toEqual([]);
@@ -46,8 +54,8 @@ describe('searchTextByFile（拡張子ディスパッチ）', () => {
   });
 
   test('PDF以外の拡張子は「Not supported this file type」で失敗する', async () => {
-    const unsupportedFile: FileIdentity = { ...testFile, path: 'a.unsupported-ext' };
-    const res = await searchTextByFile(unsupportedFile, DUMMY_SRC, 'query');
+    const unsupportedFile: ContainerElementFile = { ...testFile, path: 'a.unsupported-ext' };
+    const res = await searchTextByFile(unsupportedFile, loadDummySrc, 'query');
     expect(res.ok).toBeFalse();
     if (res.ok) return;
     expect(res.error.message).toContain('Not supported this file type');
@@ -62,7 +70,7 @@ describe('searchTextByFile（拡張子ディスパッチ）', () => {
     );
     const onPageMatches = mock(() => {});
 
-    const res = await searchTextByFile(testFile, DUMMY_SRC, 'world', { onPageMatches });
+    const res = await searchTextByFile(testFile, loadDummySrc, 'world', { onPageMatches });
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value).toHaveLength(1);
@@ -76,10 +84,10 @@ describe('searchTextByFile（拡張子ディスパッチ）', () => {
     extractAllTextBlocksByFileMock.mockImplementationOnce(() =>
       Promise.resolve(Success(new Map([[1, [box('hello world')]]]))),
     );
-    await searchTextByFile(testFile, DUMMY_SRC, 'world');
+    await searchTextByFile(testFile, loadDummySrc, 'world');
     extractAllTextBlocksByFileMock.mockClear();
 
-    const res = await searchTextByFile(testFile, DUMMY_SRC, 'world');
+    const res = await searchTextByFile(testFile, loadDummySrc, 'world');
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value).toHaveLength(1);
@@ -91,7 +99,7 @@ describe('searchTextByFile（拡張子ディスパッチ）', () => {
       Promise.resolve(Success(new Map([[1, [box('hello')]]]))),
     );
 
-    const res = await searchTextByFile(testFile, DUMMY_SRC, 'annotation-text', {
+    const res = await searchTextByFile(testFile, loadDummySrc, 'annotation-text', {
       extraItemsByPage: new Map([[1, [box('annotation-text here')]]]),
     });
     expect(res.ok).toBeTrue();

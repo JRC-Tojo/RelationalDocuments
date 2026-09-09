@@ -107,12 +107,24 @@ import {
 } from 'src/components/Dialog/confirmDialog';
 import { saveDocument } from 'src/utils/document/saveDocument';
 import { createGenerationGuard } from 'src/utils/promise/generationGuard';
+import { createConcurrencyLimiter } from 'src/utils/promise/concurrent';
 
 interface Prop {
   container: ContainerSkel;
 }
 const prop = defineProps<Prop>();
 const emit = defineEmits<{ closed: [] }>();
+
+/**
+ * 起動直後は登録済みコンテナ数だけ`ExpContainer`が同時にマウントされ、それぞれが独立して
+ * 初回の`load(false)`を呼ぶため、コンテナ数が多いと際限なく並列に初回読み込みが発行されて
+ * しまう（`SaveAsDialog.vue`の`CONTAINER_LOAD_CONCURRENCY`と同じ懸念）。モジュールスコープの
+ * 共有リミッターを介し、マウント時の初回読み込みだけ同時実行数を抑える（展開・リロード・
+ * ファイル操作後などユーザー操作起点の`load()`呼び出しはこのリミッターを経由させず、
+ * 他コンテナの初回読み込み待ちでレスポンスが遅れないようにする）
+ */
+const INITIAL_LOAD_CONCURRENCY = 4;
+const initialLoadLimiter = createConcurrencyLimiter(INITIAL_LOAD_CONCURRENCY);
 
 const { t: $t } = useI18n();
 const explorerStore = useExplorerStore();
@@ -441,8 +453,9 @@ watch(expanded, (isExpanded) => {
 
 onMounted(() => {
   // 展開状態に関わらず読み込みを試行する（折りたたみ中でもエラー状態を把握できるようにするため。
-  // 実データ内容は読まないメタ情報のみの取得のため、コストは小さい）
-  void load(false);
+  // 実データ内容は読まないメタ情報のみの取得のため、コストは小さい）。起動直後の初回読み込みは
+  // 共有リミッターを介し、登録済みコンテナ数分が無制限に並列発行されるのを防ぐ
+  void initialLoadLimiter(() => load(false));
   window.addEventListener('focus', onFocus);
   pollTimer = setInterval(() => void checkForChanges(), 30000);
 });

@@ -67,7 +67,12 @@
               </q-item-section>
               <q-item-section class="search-view-file-header__path">
                 <q-item-label lines="1" class="search-view-file-header__path-text">
-                  {{ containerNameOf(result.file.containerID) }} › {{ result.file.path }}
+                  {{
+                    $t('searchPanel.fileHeaderPath', {
+                      containerName: containerNameOf(result.file.containerID),
+                      path: result.file.path,
+                    })
+                  }}
                 </q-item-label>
               </q-item-section>
               <q-item-section side>

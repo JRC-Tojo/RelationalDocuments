@@ -9,6 +9,8 @@ import type { Result } from 'src/models/error/result';
 import { Failure, NotFoundError, Success } from 'src/models/error/result';
 import type { TextCacheFile } from 'src/models/document/textCache';
 import { TEXT_CACHE_FORMAT_VERSION } from 'src/models/document/textCache';
+import { calcBase64Hash, uint8ArrayToBase64 } from 'src/utils/binary/base64';
+import { fileKey } from 'src/utils/document/fileKey';
 
 // `getTextCacheFile`/`saveTextCacheFile`は`await import('./main')`経由でコンテナ本体の
 // 取得・ファイル読み書きを行うため、`src/services/container/main`をモック化してテストする
@@ -198,9 +200,19 @@ describe('buildCachedRelationalFile', () => {
   });
 });
 
-describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<fileHash>.json）', () => {
+describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<key>.json）', () => {
   const cID = '00000000-0000-0000-0000-000000000000' as ContainerID;
-  const fileHash = 'a'.repeat(64);
+  const testFile: ContainerElementFile = {
+    containerID: cID,
+    type: 'File',
+    path: 'docs/a.pdf',
+    fileSize: 1234,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-02T03:04:05Z'),
+    description: '',
+    genre: '',
+    tags: [],
+  };
 
   containerFixture = {
     id: cID,
@@ -210,17 +222,28 @@ describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<fileHash>.
     elements: {},
   };
 
+  /** `getTextCacheKey`（config.ts内の非公開関数）と同じ手順でキャッシュキーを計算する */
+  async function expectedCacheKey(): Promise<string> {
+    const encodedRes = uint8ArrayToBase64(new TextEncoder().encode(fileKey(testFile)));
+    if (!encodedRes.ok) throw encodedRes.error;
+    const hashRes = await calcBase64Hash(encodedRes.value);
+    if (!hashRes.ok) throw hashRes.error;
+    return hashRes.value;
+  }
+
   test('保存済みキャッシュが存在する場合、パース済みの内容をそのまま返す', async () => {
     const stored: TextCacheFile = {
       formatVersion: TEXT_CACHE_FORMAT_VERSION,
-      fileHash,
+      path: testFile.path,
+      fileSize: testFile.fileSize,
+      updatedAt: testFile.updatedAt,
       pages: { '1': [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }] as TextItemBox[] },
     };
     fileSrcFixture = Success(
       Buffer.from(JSON.stringify(stored)).toString('base64') as DocumentSource,
     );
 
-    const res = await getTextCacheFile(cID, fileHash);
+    const res = await getTextCacheFile(testFile);
     expect(res.ok).toBeTrue();
     if (!res.ok) return;
     expect(res.value).toEqual(stored);
@@ -229,7 +252,7 @@ describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<fileHash>.
   test('キャッシュファイルが存在しない場合はNotFoundErrorを返す', async () => {
     fileSrcFixture = Failure(new NotFoundError('not found'));
 
-    const res = await getTextCacheFile(cID, fileHash);
+    const res = await getTextCacheFile(testFile);
     expect(res.ok).toBeFalse();
     if (res.ok) return;
     expect(res.error).toBeInstanceOf(NotFoundError);
@@ -238,14 +261,15 @@ describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<fileHash>.
   test('formatVersionが現行と異なる場合は「壊れたキャッシュ」としてNotFoundErrorを返す（黙って再生成させる）', async () => {
     const stored = {
       formatVersion: 999,
-      fileHash,
+      path: testFile.path,
+      updatedAt: testFile.updatedAt,
       pages: {},
     };
     fileSrcFixture = Success(
       Buffer.from(JSON.stringify(stored)).toString('base64') as DocumentSource,
     );
 
-    const res = await getTextCacheFile(cID, fileHash);
+    const res = await getTextCacheFile(testFile);
     expect(res.ok).toBeFalse();
     if (res.ok) return;
     expect(res.error).toBeInstanceOf(NotFoundError);
@@ -258,31 +282,34 @@ describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<fileHash>.
       ) as DocumentSource,
     );
 
-    const res = await getTextCacheFile(cID, fileHash);
+    const res = await getTextCacheFile(testFile);
     expect(res.ok).toBeFalse();
     if (res.ok) return;
     expect(res.error).toBeInstanceOf(NotFoundError);
   });
 
-  test('保存時はページ番号（数値）をキー文字列に変換したJSONとしてcreateFileへ渡す', async () => {
+  test('保存時はページ番号（数値）をキー文字列に変換し、path・fileSize・updatedAtを含むJSONとしてcreateFileへ渡す', async () => {
     createFileMock.mockClear();
     const pages = new Map<number, TextItemBox[]>([
       [1, [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }]],
       [2, []],
     ]);
 
-    const res = await saveTextCacheFile(cID, fileHash, pages);
+    const res = await saveTextCacheFile(testFile, pages);
     expect(res.ok).toBeTrue();
     expect(createFileMock).toHaveBeenCalledTimes(1);
 
     const [calledContainerID, calledPath, calledSrc] = createFileMock.mock.calls[0]!;
     expect(calledContainerID).toBe(cID);
-    expect(calledPath).toBe(`/test-container/.kumihimo/textcache/${fileHash}.json`);
+    const key = await expectedCacheKey();
+    expect(calledPath).toBe(`/test-container/.kumihimo/textcache/${key}.json`);
 
     const decoded = JSON.parse(Buffer.from(calledSrc, 'base64').toString('utf-8'));
     expect(decoded).toEqual({
       formatVersion: TEXT_CACHE_FORMAT_VERSION,
-      fileHash,
+      path: testFile.path,
+      fileSize: testFile.fileSize,
+      updatedAt: testFile.updatedAt.toISOString(),
       pages: {
         '1': [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }],
         '2': [],

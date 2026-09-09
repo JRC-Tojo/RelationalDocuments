@@ -11,14 +11,14 @@
  */
 import { mock } from 'bun:test';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import type { ContainerID } from 'src/models/container';
+import type { ContainerElementFile, ContainerID } from 'src/models/container';
 import type { DocumentSource } from 'src/models/document/common';
 import type { TextItemBox } from 'src/models/document/pdf';
 import type { TextCacheFile } from 'src/models/document/textCache';
 import { TEXT_CACHE_FORMAT_VERSION } from 'src/models/document/textCache';
 import type { Result } from 'src/models/error/result';
 import { Failure, NotFoundError, Success } from 'src/models/error/result';
-import type { FileIdentity } from 'src/utils/document/fileKey';
+import { fileKey, type FileIdentity } from 'src/utils/document/fileKey';
 
 /** テストごとに書き換え可能な差し替え可能実装・状態をまとめて保持する（プロパティのミューテートのみ許可） */
 export const fixtures = {
@@ -40,27 +40,23 @@ export const fixtures = {
   maxConcurrentExtractions: 0,
 };
 
-/** ハッシュをキーにした簡易テキストキャッシュストア（`.kumihimo/textcache/<hash>.json`の代替） */
+/** `fileKey`（containerID+path）をキーにした簡易テキストキャッシュストア（`.kumihimo/textcache/<key>.json`の代替） */
 export const textCacheStore = new Map<string, TextCacheFile>();
 
-export const getTextCacheFileMock = mock(
-  (_cID: ContainerID, fileHash: string): Promise<Result<TextCacheFile>> => {
-    const found = textCacheStore.get(fileHash);
-    return Promise.resolve(found ? Success(found) : Failure(new NotFoundError('not found')));
-  },
-);
+export const getTextCacheFileMock = mock((file: FileIdentity): Promise<Result<TextCacheFile>> => {
+  const found = textCacheStore.get(fileKey(file));
+  return Promise.resolve(found ? Success(found) : Failure(new NotFoundError('not found')));
+});
 
 export const saveTextCacheFileMock = mock(
-  (
-    _cID: ContainerID,
-    fileHash: string,
-    pages: Map<number, TextItemBox[]>,
-  ): Promise<Result<void>> => {
+  (file: ContainerElementFile, pages: Map<number, TextItemBox[]>): Promise<Result<void>> => {
     const pagesRecord: Record<string, TextItemBox[]> = {};
     for (const [pageNumber, blocks] of pages) pagesRecord[String(pageNumber)] = blocks;
-    textCacheStore.set(fileHash, {
+    textCacheStore.set(fileKey(file), {
       formatVersion: TEXT_CACHE_FORMAT_VERSION,
-      fileHash,
+      path: file.path,
+      fileSize: file.fileSize,
+      updatedAt: file.updatedAt,
       pages: pagesRecord,
     });
     return Promise.resolve(Success());

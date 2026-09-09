@@ -15,8 +15,13 @@ export function loadTextContents<T extends z.ZodType>(
 export function loadTextContents(src: DocumentSource, targetZodType?: z.ZodType): Result<unknown> {
   try {
     // 1. BASE64文字列をUTF-8のテキストにデコード
+    // `Uint8Array.from(binaryString, cb)`はイテレータ経由で1文字ごとにコールバックを呼ぶため、
+    // 巨大な文字列（テキストキャッシュ等）ではfor文に比べ大幅に遅くなる。`base64.ts`の
+    // 各関数と同じ単純なfor文へ揃える
     const binaryString = atob(src);
-    const bytes = Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
     const decodedText = new TextDecoder().decode(bytes);
 
     // 2. Zodの型定義が与えられている場合
