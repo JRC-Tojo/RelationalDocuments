@@ -64,9 +64,8 @@ const apiMock = {
   reorderAnnotation: mock((): Promise<MockApiResult<{ style: AnnotationStyle }>> =>
     Promise.resolve({ ok: true, data: { style: buildStyle(idA) } }),
   ),
-  pasteAnnotations: mock(
-    (): Promise<MockApiResult<{ style: AnnotationStyle }[]>> =>
-      Promise.resolve({ ok: true, data: [] }),
+  pasteAnnotations: mock((): Promise<MockApiResult<{ style: AnnotationStyle }[]>> =>
+    Promise.resolve({ ok: true, data: [] }),
   ),
 };
 void mock.module('src/apis/backendApi', () => ({ useBackendApi: () => apiMock }));
