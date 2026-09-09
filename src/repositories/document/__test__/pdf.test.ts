@@ -967,15 +967,13 @@ function setupCanvasDom(): void {
   global.window = dom.window as unknown as Window & typeof globalThis;
   global.document = dom.window.document;
   global.HTMLCanvasElement = dom.window.HTMLCanvasElement;
-  // 環境によって`document.createElement`の型定義に`webview`タグ（WebviewTag）等の
-  // オーバーロードが混在することがあり、単純な`(tagName: string) => HTMLElement`型の関数を
-  // そのまま代入すると型が合わなくなるため、代入時にのみ型を合わせる（実装自体はテスト用スタブ）
-  global.document.createElement = ((tagName: string) => {
+  // `document.createElement('canvas')`のみnode-canvasの実装へ差し替えるテスト用スタブ
+  global.document.createElement = (tagName: string) => {
     if (tagName === 'canvas') {
       return createCanvas(100, 100) as unknown as HTMLCanvasElement;
     }
     return dom.window.document.createElement(tagName);
-  }) as unknown as Document['createElement'];
+  };
 }
 
 describe('renderPageToCanvasFromDoc / renderPageToCanvas / extractImageFromRegion / extractAnnotationContextPreview（Canvas依存）', () => {
@@ -997,12 +995,12 @@ describe('renderPageToCanvasFromDoc / renderPageToCanvas / extractImageFromRegio
 
   it('renderPageToCanvasFromDoc: Canvas 2Dコンテキストが取得できない場合はFailureを返す', async () => {
     const originalCreateElement = document.createElement.bind(document);
-    document.createElement = ((tagName: string) => {
+    document.createElement = (tagName: string) => {
       if (tagName === 'canvas') {
         return { width: 0, height: 0, getContext: () => null } as unknown as HTMLCanvasElement;
       }
       return originalCreateElement(tagName);
-    }) as unknown as Document['createElement'];
+    };
 
     try {
       const fakeDoc = buildFakeDoc([buildFakePage({ viewport: { width: 10, height: 10 } })]);
