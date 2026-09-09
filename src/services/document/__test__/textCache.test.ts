@@ -15,8 +15,12 @@ import {
 // `src/services/container/config`・`src/services/container/main`・`src/repositories/document/pdf`
 // のモックは`textDependencyMocks.ts`が一括登録する（`search.test.ts`と共有し、同一パスへの
 // 競合するモック登録を避けるため）。ここでは`../textCache`（本物）をそのままテストする
-const { getCachedTextBlocksByFile, warmContainerTextCache, beginSearchInterrupt, endSearchInterrupt } =
-  await import('../textCache');
+const {
+  getCachedTextBlocksByFile,
+  warmContainerTextCache,
+  beginSearchInterrupt,
+  endSearchInterrupt,
+} = await import('../textCache');
 
 const testFile: ContainerElementFile = {
   containerID: '00000000-0000-0000-0000-000000000000' as ContainerID,

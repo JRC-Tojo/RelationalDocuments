@@ -452,7 +452,11 @@ export async function saveTextCacheFile(
   if (!cacheSrc.ok) return cacheSrc;
 
   const textCachePath = getTextCachePath(container.value.containerPath, keyRes.value);
-  const createRes = await containerService.createFile(file.containerID, textCachePath, cacheSrc.value);
+  const createRes = await containerService.createFile(
+    file.containerID,
+    textCachePath,
+    cacheSrc.value,
+  );
   if (!createRes.ok) return createRes;
 
   return Success();
