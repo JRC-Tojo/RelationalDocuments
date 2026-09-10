@@ -362,6 +362,7 @@ const PAGE_VIEWPORT_FETCH_CONCURRENCY = 8;
  * ページ数の多い文書でも1ページずつ直列に待つ場合より短時間で完了する
  */
 export async function getPageViewportSizes(pdfDocument: PdfDocument): Promise<PageSize[]> {
+  // ページ番号順に、各ページのビューポート取得タスクを生成する
   const tasks = Array.from(
     { length: pdfDocument.numPages },
     (_, index) => async (): Promise<PageSize> => {
@@ -370,6 +371,7 @@ export async function getPageViewportSizes(pdfDocument: PdfDocument): Promise<Pa
       return { width: viewport.width, height: viewport.height };
     },
   );
+  // 同時実行数を上限まで制限しつつ並列実行し、結果はタスク生成順（＝ページ番号順）を保持する
   return runConcurrently(tasks, PAGE_VIEWPORT_FETCH_CONCURRENCY);
 }
 

@@ -83,7 +83,7 @@ describe('getPageViewportSizes', () => {
     expect(maxInFlight).toBeGreaterThan(1);
   });
 
-  it('並列数はWorkerを専有しすぎないよう上限（8）以内に収まる', async () => {
+  it('並列数はWorkerを専有しすぎないよう上限（8）に収まり、かつ上限まで使い切る', async () => {
     let inFlight = 0;
     let maxInFlight = 0;
     const pdf = createFakePdfDocument(50, 5, {
@@ -98,7 +98,7 @@ describe('getPageViewportSizes', () => {
 
     await getPageViewportSizes(pdf);
 
-    expect(maxInFlight).toBeLessThanOrEqual(8);
+    expect(maxInFlight).toBe(8);
   });
 
   it('ページ数が0件でも空配列を返す', async () => {

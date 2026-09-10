@@ -510,8 +510,11 @@ export async function loadFileAsDocumentSource(
   fileSourceCache.set(key, resultPromise, FILE_SOURCE_CACHE_TTL_MS);
 
   const result = await resultPromise;
-  // 失敗した場合はキャッシュに残さない（一時的なI/Oエラー等をTTL満了までそのまま返し続けないため）
-  if (!result.ok) fileSourceCache.delete(key);
+  // 失敗した場合はキャッシュに残さない（一時的なI/Oエラー等をTTL満了までそのまま返し続けないため）。
+  // ただし現在のキャッシュ値が自分自身のPromiseである場合のみ削除する。
+  // 自身が無効化された後に登録された新しい読み込み（後続のキャッシュエントリ）を誤って
+  // 削除してしまうと、後続呼び出しがそのエントリへ合流できず重複読み込みが発生するため
+  if (!result.ok && fileSourceCache.get(key) === resultPromise) fileSourceCache.delete(key);
   return result;
 }
 
