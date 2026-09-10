@@ -313,6 +313,7 @@ const {
   goToPrevious: searchGoToPrevious,
   open: openSearch,
   close: closeSearch,
+  runSearch: runDocumentSearch,
 } = useDocumentSearch({
   getDocument: () => acquiredPdf?.document,
   onNavigate: (match) => void scrollToSearchMatch(match),
@@ -322,6 +323,20 @@ const {
 const activeSearchMatchId = computed(() =>
   searchActiveMatch.value ? searchMatchDomId(searchActiveMatch.value) : undefined,
 );
+
+/**
+ * コンテナ横断検索（SearchView.vue）の結果クリックから渡された検索クエリを、
+ * このタブのCtrl+F相当の文書内検索として自動実行する。
+ * `editorStore.openTab`の`searchQuery`引数（`pendingTabFocus.searchQuery`経由）を消費する側の共通処理。
+ * デバウンスを待たず即座に検索を実行することで、コンテナ横断検索のヒット箇所が
+ * 開いた瞬間からPDF上にハイライトされた状態になる
+ */
+async function applyPendingSearchQuery(searchQueryValue: string | undefined): Promise<void> {
+  if (searchQueryValue === undefined || searchQueryValue === '') return;
+  openSearch();
+  searchQuery.value = searchQueryValue;
+  await runDocumentSearch();
+}
 
 /**
  * 検索マッチへ実際にジャンプする（ページ移動 + そのページ内でのハイライト位置へのスクロール）
@@ -895,6 +910,9 @@ onMounted(async () => {
     if (initialTabFocus.annotId !== undefined) {
       await scrollToAnnotation(initialTabFocus.annotId);
     }
+    // コンテナ横断検索の結果クリックから開かれた場合、そのクエリで文書内検索を自動実行し、
+    // ヒット箇所をPDF上にハイライトする
+    await applyPendingSearchQuery(initialTabFocus.searchQuery);
   } else if (storedTabViewState !== undefined) {
     // 明示的な遷移要求がない場合、前回このタブを表示していた際の状態へ復元する
     // （ページ番号自体は既にcurrentPageの初期値へ反映済みのため、ここではpageCount確定後の
@@ -939,6 +957,9 @@ async function consumePendingTabFocus() {
   }
   await scrollToCurrentPage(viewer.value?.scrollHeight ?? 0);
   if (pending.annotId !== undefined) await scrollToAnnotation(pending.annotId);
+  // コンテナ横断検索の結果クリックから開かれた場合、そのクエリで文書内検索を自動実行し、
+  // ヒット箇所をPDF上にハイライトする（初回マウント時の`initialTabFocus`側と同じ処理）
+  await applyPendingSearchQuery(pending.searchQuery);
 }
 
 watch(annotations, (newAnnots, oldAnnots) => {
