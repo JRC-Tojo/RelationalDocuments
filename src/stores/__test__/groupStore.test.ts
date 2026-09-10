@@ -11,8 +11,8 @@ import type { ContainerElementFile, ContainerID } from 'src/models/container';
  * `refreshFile`のみが`useBackendApi`を使うため、`listAnnotationGroups`のみモック化する
  */
 const apiMock = {
-  listAnnotationGroups: mock(
-    (): Promise<{ ok: true; data: AnnotationGroup[] }> => Promise.resolve({ ok: true, data: [] }),
+  listAnnotationGroups: mock((): Promise<{ ok: true; data: AnnotationGroup[] }> =>
+    Promise.resolve({ ok: true, data: [] }),
   ),
 };
 void mock.module('src/apis/backendApi', () => ({ useBackendApi: () => apiMock }));

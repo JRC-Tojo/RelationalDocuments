@@ -3,8 +3,14 @@ import { createPinia, setActivePinia } from 'pinia';
 import { useHistoryStore, type HistoryCommand } from '../historyStore';
 import type { ContainerID } from 'src/models/container';
 
-const fileA = { containerID: '00000000-0000-4000-8000-0000000000c1' as ContainerID, path: '/a.pdf' };
-const fileB = { containerID: '00000000-0000-4000-8000-0000000000c1' as ContainerID, path: '/b.pdf' };
+const fileA = {
+  containerID: '00000000-0000-4000-8000-0000000000c1' as ContainerID,
+  path: '/a.pdf',
+};
+const fileB = {
+  containerID: '00000000-0000-4000-8000-0000000000c1' as ContainerID,
+  path: '/b.pdf',
+};
 
 function buildCommand(): HistoryCommand & { undoCalls: number; redoCalls: number } {
   const command = {
