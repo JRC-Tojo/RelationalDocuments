@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, mock } from 'bun:test';
 import type { AnnotationID } from 'src/models/document/pdf';
 import type { AnnotationGroupID } from 'src/models/document/group';
+import type { ContainerElementFile, ContainerID } from 'src/models/container';
 import type { RelationalEndpointID } from 'src/models/relational/fileSchema';
 import {
   decideRelationalOnAnnotationsAdded,
   decideRelationalOnSelectionChanged,
   decideRelationalContinuousRestart,
+  relationalWaitingMessage,
+  showRelationalWaitingNotify,
+  startRelationalDefine,
 } from '../useRelationalDefine';
 
 const idA = '00000000-0000-4000-8000-000000000001' as AnnotationID;
@@ -210,5 +214,82 @@ describe('decideRelationalContinuousRestart', () => {
       lastPairedId: undefined,
     });
     expect(decision).toEqual({ start: true, clearLastPaired: false, annotId: idA, mode: 'equal' });
+  });
+});
+
+/** vue-i18nの`t`の複雑なオーバーロード型を満たす必要が無いよう、テストでは単純なfakeへキャストして使う */
+function buildFakeT(): Parameters<typeof relationalWaitingMessage>[0] {
+  const fn = mock((key: string, params?: Record<string, unknown>) =>
+    params ? `${key}:${JSON.stringify(params)}` : key,
+  );
+  return fn as unknown as Parameters<typeof relationalWaitingMessage>[0];
+}
+
+describe('relationalWaitingMessage', () => {
+  it('equalモードでは「等しい」用のラベルを埋め込んだメッセージキーを組み立てる', () => {
+    const t = buildFakeT();
+    const message = relationalWaitingMessage(t, 'equal');
+
+    expect(message).toBe(
+      'pdfEditor.tools.relational.waitingMessage:{"mode":"pdfEditor.tools.relational.equal"}',
+    );
+  });
+
+  it('linkモードでは「関連」用のラベルを埋め込んだメッセージキーを組み立てる', () => {
+    const t = buildFakeT();
+    const message = relationalWaitingMessage(t, 'link');
+
+    expect(message).toBe(
+      'pdfEditor.tools.relational.waitingMessage:{"mode":"pdfEditor.tools.relational.link"}',
+    );
+  });
+});
+
+describe('showRelationalWaitingNotify', () => {
+  it('組み立てた待機メッセージを、フッターのステータスメッセージ領域へ投稿する', () => {
+    const postStatusMessage = mock(() => {});
+    const editorStore = { postStatusMessage } as unknown as Parameters<
+      typeof showRelationalWaitingNotify
+    >[0];
+    const t = buildFakeT();
+
+    showRelationalWaitingNotify(editorStore, t, 'link');
+
+    expect(postStatusMessage).toHaveBeenCalledWith(
+      'relational-waiting',
+      'pdfEditor.tools.relational.waitingMessage:{"mode":"pdfEditor.tools.relational.link"}',
+    );
+  });
+});
+
+describe('startRelationalDefine', () => {
+  it('モードを設定し、待機状態を開始したうえで、待機メッセージを通知する', () => {
+    const postStatusMessage = mock(() => {});
+    const startRelationalPending = mock(() => {});
+    const editorStore = {
+      relationalMode: undefined as string | undefined,
+      postStatusMessage,
+      startRelationalPending,
+    } as unknown as Parameters<typeof startRelationalDefine>[0];
+    const t = buildFakeT();
+    const file: ContainerElementFile = {
+      containerID: '00000000-0000-4000-8000-0000000000c1' as ContainerID,
+      type: 'File',
+      path: '/doc.pdf',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      description: '',
+      genre: '',
+      tags: [],
+    };
+
+    startRelationalDefine(editorStore, t, 'equal', idA, file);
+
+    expect(editorStore.relationalMode).toBe('equal');
+    expect(startRelationalPending).toHaveBeenCalledWith(idA, file);
+    expect(postStatusMessage).toHaveBeenCalledWith(
+      'relational-waiting',
+      'pdfEditor.tools.relational.waitingMessage:{"mode":"pdfEditor.tools.relational.equal"}',
+    );
   });
 });

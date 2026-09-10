@@ -6,7 +6,11 @@ import {
   type LineAnnotationStyle,
 } from 'src/models/document/pdf';
 import { DEFAULT_RELATIONAL_VERIFICATION_STYLE } from 'src/models/relational/style';
-import { applyRelationalOverrideToStyle } from '../relationalStyleOverride';
+import { hexToRgba } from 'src/utils/color/hexToRgba';
+import {
+  applyRelationalOverrideToStyle,
+  getRelationalStyleOverride,
+} from '../relationalStyleOverride';
 
 const TEST_ID = AnnotationID.parse('11111111-1111-4111-8111-111111111111');
 
@@ -46,6 +50,44 @@ function buildLine(): LineAnnotationStyle {
     points: [0, 0, 10, 10],
   };
 }
+
+describe('getRelationalStyleOverride', () => {
+  it('検証保留中（pending）は元のスタイルを使ってほしいのでundefinedを返す', () => {
+    expect(
+      getRelationalStyleOverride('pending', DEFAULT_RELATIONAL_VERIFICATION_STYLE),
+    ).toBeUndefined();
+  });
+
+  it('関連なし（undefined）は元のスタイルを使ってほしいのでundefinedを返す', () => {
+    expect(
+      getRelationalStyleOverride(undefined, DEFAULT_RELATIONAL_VERIFICATION_STYLE),
+    ).toBeUndefined();
+  });
+
+  it('okの場合、検証スタイルのok設定からstroke/strokeWidth/fillを組み立てる', () => {
+    const okStyle = DEFAULT_RELATIONAL_VERIFICATION_STYLE.ok;
+    expect(getRelationalStyleOverride('ok', DEFAULT_RELATIONAL_VERIFICATION_STYLE)).toEqual({
+      stroke: okStyle.strokeColor,
+      strokeWidth: okStyle.strokeWidth,
+      fill: hexToRgba(okStyle.fillColor, okStyle.fillOpacity),
+    });
+  });
+
+  it('ngの場合、検証スタイルのng設定からstroke/strokeWidth/fillを組み立てる', () => {
+    const ngStyle = DEFAULT_RELATIONAL_VERIFICATION_STYLE.ng;
+    expect(getRelationalStyleOverride('ng', DEFAULT_RELATIONAL_VERIFICATION_STYLE)).toEqual({
+      stroke: ngStyle.strokeColor,
+      strokeWidth: ngStyle.strokeWidth,
+      fill: hexToRgba(ngStyle.fillColor, ngStyle.fillOpacity),
+    });
+  });
+
+  it('errorの場合は専用の見た目を用意せず、ngと同じスタイルで警告表示する', () => {
+    expect(getRelationalStyleOverride('error', DEFAULT_RELATIONAL_VERIFICATION_STYLE)).toEqual(
+      getRelationalStyleOverride('ng', DEFAULT_RELATIONAL_VERIFICATION_STYLE),
+    );
+  });
+});
 
 describe('applyRelationalOverrideToStyle', () => {
   it('statusがpending/undefinedの場合は元のannotationをそのまま返す', () => {
