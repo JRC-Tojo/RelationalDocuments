@@ -227,9 +227,17 @@ export const useEditorStore = defineStore('editor', {
 
     // `openTab`にページ番号を指定した際に記録される、遷移先ページの情報。
     // DocumentTabView.vueは自分宛て（containerID・pathが一致）であればこれを消費し、
-    // 該当ページへ移動する（対象アノテーションがあれば選択状態にもする）
+    // 該当ページへ移動する（対象アノテーションがあれば選択状態にもする）。
+    // `searchQuery`はコンテナ横断検索（SearchView.vue）の結果クリックから開いた場合に、
+    // 文書内検索（Ctrl+F相当）を自動実行してヒット箇所をハイライトするためのクエリ文字列
     pendingTabFocus: undefined as
-      | { containerID: ContainerID; path: string; page: number; annotId: AnnotationID | undefined }
+      | {
+          containerID: ContainerID;
+          path: string;
+          page: number;
+          annotId: AnnotationID | undefined;
+          searchQuery: string | undefined;
+        }
       | undefined,
 
     // ファイル単位のブックマーク更新リビジョン。アノテーション右クリックメニューからの
@@ -414,10 +422,17 @@ export const useEditorStore = defineStore('editor', {
      * containerIDまで含めて同一性判定するため、別コンテナの同名パスファイルも正しく別タブとして開かれる。
      * `targetPage`を指定すると、開いた後にそのページへ遷移する（対象のDocumentTabView.vueが
      * `pendingTabFocus`を消費して処理する。ページ遷移とタブを開く操作を1回の呼び出しにまとめることで、
-     * 呼び出し順序に依存する別々の意図フラグを個別に扱う必要をなくしている）
+     * 呼び出し順序に依存する別々の意図フラグを個別に扱う必要をなくしている）。
+     * `searchQuery`を指定すると、開いた後にそのクエリで文書内検索を自動実行する
+     * （コンテナ横断検索の結果クリックから、Ctrl+F相当のハイライト表示につなげるために使う）
      */
-    openTab(elem: ContainerElement, targetPage?: number, focusAnnotId?: AnnotationID): void {
-      this.openTabAt(elem, this.activeSide, targetPage, focusAnnotId);
+    openTab(
+      elem: ContainerElement,
+      targetPage?: number,
+      focusAnnotId?: AnnotationID,
+      searchQuery?: string,
+    ): void {
+      this.openTabAt(elem, this.activeSide, targetPage, focusAnnotId, searchQuery);
     },
 
     /**
@@ -429,6 +444,7 @@ export const useEditorStore = defineStore('editor', {
       layoutSide: LayoutSide,
       targetPage?: number,
       focusAnnotId?: AnnotationID,
+      searchQuery?: string,
     ): void {
       if (elem.type !== 'File') return;
 
@@ -444,6 +460,7 @@ export const useEditorStore = defineStore('editor', {
           path: elem.path,
           page: targetPage,
           annotId: focusAnnotId,
+          searchQuery,
         };
       }
     },

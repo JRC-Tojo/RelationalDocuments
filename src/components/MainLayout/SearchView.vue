@@ -191,9 +191,14 @@ function fileNameOf(path: string): string {
   return new Path(path).basename();
 }
 
-/** 検索結果をクリックした際、該当文書の該当ページをタブで開く */
+/**
+ * 検索結果をクリックした際、該当文書の該当ページをタブで開く
+ *
+ * 現在の検索クエリも一緒に渡し、開いたタブ側で文書内検索（Ctrl+F相当）を自動実行させることで、
+ * コンテナ横断検索の結果クリックでもヒット箇所がPDF上にハイライト表示されるようにする
+ */
 function openResult(file: ContainerElementFile, pageNumber: number): void {
-  editorStore.openTab(file, pageNumber);
+  editorStore.openTab(file, pageNumber, undefined, query.value.trim());
 }
 
 onMounted(async () => {
