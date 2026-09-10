@@ -134,19 +134,22 @@ async function getAllContainersImpl(): Promise<Result<ContainerSkel[]>> {
 /**
  * コンテナ情報を読み込む
  *
- * コンテナ要素まですべて読み込む
+ * コンテナ要素まですべて読み込む。`onElement`を渡すと、実データ走査が発生する場合
+ * （キャッシュ済みでない、または`forceReload`時）に限り、要素が判明するたび随時通知される
  */
 export function loadContainer(
   id: ContainerID,
   forceReload: boolean = false,
+  onElement?: (element: ContainerElement) => void,
 ): Promise<Result<Container>> {
-  return withSerializedContainerCache(() => loadContainerImpl(id, forceReload));
+  return withSerializedContainerCache(() => loadContainerImpl(id, forceReload, onElement));
 }
 
 /** `loadContainer`の実処理。`withSerializedContainerCache`で直列化された状態で呼ばれる */
 async function loadContainerImpl(
   id: ContainerID,
   forceReload: boolean,
+  onElement?: (element: ContainerElement) => void,
 ): Promise<Result<Container>> {
   const c = getContainer(id);
   if (!c.ok) return c;
@@ -157,11 +160,12 @@ async function loadContainerImpl(
     if (cached.success) return Success(cached.data);
   }
 
-  // コンテナ要素情報の読み取り
+  // コンテナ要素情報の読み取り（進捗通知に対応するのは実データ走査を伴うlocalのみ。
+  // box/cacheは即座に解決するため段階的表示の対象にする必要がない）
   const loadedContainer = await switchContainerProcess(
     c.value.type,
     () => box.loadContainerElements(c.value),
-    () => local.loadContainerElements(c.value),
+    () => local.loadContainerElements(c.value, onElement),
     () => cache.loadContainerElements(c.value),
   );
   if (!loadedContainer.ok) return loadedContainer;

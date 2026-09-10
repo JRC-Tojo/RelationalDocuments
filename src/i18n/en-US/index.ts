@@ -366,9 +366,10 @@ export default {
       next: 'Find next',
       previous: 'Find previous',
       close: 'Close search',
-      searchContainer: 'Search entire container',
-      containerNoMatches: 'No matching documents',
-      pageLabel: 'Page {page}',
+      matchCase: 'Match case',
+      distinguishWidth: 'Match full/half-width',
+      distinguishWidthLabel: 'Full/Half',
+      useRegex: 'Use regular expression',
     },
     peek: {
       title: 'Relational Peek',
@@ -522,6 +523,16 @@ export default {
       deleteConfirmWithChildren: 'This will also delete its child bookmarks. Delete anyway?',
       operationFailed: 'Failed to update bookmark',
     },
+  },
+
+  searchPanel: {
+    title: 'Search',
+    placeholder: 'Search text (Enter to search)',
+    noContainers: 'No containers to search',
+    noResults: 'No matching results',
+    pageLabel: 'Page {page}',
+    searching: 'Searching...',
+    searchFailed: 'Search failed for some containers. The results shown may be incomplete',
   },
 
   plugins: {
