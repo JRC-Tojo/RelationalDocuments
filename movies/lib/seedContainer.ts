@@ -50,9 +50,13 @@ export interface SeedFile {
 
 /** `window.__kumihimoTest`が生えるまで待つ（開発ビルドのboot完了を待つ） */
 async function waitForTestHook(page: Page): Promise<void> {
-  await page.waitForFunction(() => (window as WindowWithTestHook).__kumihimoTest !== undefined, undefined, {
-    timeout: 15000,
-  });
+  await page.waitForFunction(
+    () => (window as WindowWithTestHook).__kumihimoTest !== undefined,
+    undefined,
+    {
+      timeout: 15000,
+    },
+  );
 }
 
 /**
@@ -91,7 +95,9 @@ export async function seedRealContainer(
       for (const file of encoded) {
         const fileRes = await api.saveFile(id, file.containerPath, file.base64);
         if (!fileRes.ok) {
-          throw new Error(`saveFile(${file.containerPath}) failed: ${JSON.stringify(fileRes.error)}`);
+          throw new Error(
+            `saveFile(${file.containerPath}) failed: ${JSON.stringify(fileRes.error)}`,
+          );
         }
       }
 

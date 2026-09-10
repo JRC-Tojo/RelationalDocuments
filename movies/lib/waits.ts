@@ -12,7 +12,10 @@ export function sleep(ms: number): Promise<void> {
 export async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`movies: 「${label}」が${ms}ms以内に完了しませんでした`)), ms);
+    timer = setTimeout(
+      () => reject(new Error(`movies: 「${label}」が${ms}ms以内に完了しませんでした`)),
+      ms,
+    );
   });
   try {
     return await Promise.race([promise, timeout]);

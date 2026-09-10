@@ -74,7 +74,9 @@ export const relationalEqual: Scenario = {
     // --- 1組目: 軸力 N = 82.00（表の値 ⇔ 引張フランジ応力度の式の中の値） ---
     const [axialTable, axialFormula] = await findAllTextRects(page, '82.00');
     if (!axialTable || !axialFormula) {
-      throw new Error('movies/scenarios/05: 「82.00」の出現箇所が2箇所見つかりませんでした（PDFの表示状態を確認してください）');
+      throw new Error(
+        'movies/scenarios/05: 「82.00」の出現箇所が2箇所見つかりませんでした（PDFの表示状態を確認してください）',
+      );
     }
     await drawUnderline(ctx, axialTable);
 
@@ -203,7 +205,9 @@ export const relationalEqual: Scenario = {
         '変換式・種別変更ダイアログのデモ',
       );
     } catch (e) {
-      console.warn(`movies/scenarios/05: 変換式・種別変更ダイアログのデモをスキップしました（${(e as Error).message}）`);
+      console.warn(
+        `movies/scenarios/05: 変換式・種別変更ダイアログのデモをスキップしました（${(e as Error).message}）`,
+      );
       await page.keyboard.press('Escape').catch(() => {});
     }
 

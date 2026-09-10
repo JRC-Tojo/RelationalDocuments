@@ -38,7 +38,11 @@ export async function clickMenuItem(page: Page, label: string): Promise<void> {
  * `mouse.moveTo`で瞬間移動ではなく滑らかに移動させたうえで、Playwrightの`page.mouse.click`を
  * 右ボタン指定で呼び出す
  */
-export async function rightClickLocator(page: Page, mouse: SmoothMouse, locator: Locator): Promise<void> {
+export async function rightClickLocator(
+  page: Page,
+  mouse: SmoothMouse,
+  locator: Locator,
+): Promise<void> {
   const rect = await mouse.rectOf(locator);
   const x = rect.x + rect.width / 2;
   const y = rect.y + rect.height / 2;

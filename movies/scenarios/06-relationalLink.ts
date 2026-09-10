@@ -49,7 +49,10 @@ export const relationalLink: Scenario = {
     await director.shortcut('ドラッグして四角形を描画');
     await mouse.dragCreateAnnotation(
       { x: GIRDER_LABEL_RECT.x, y: GIRDER_LABEL_RECT.y },
-      { x: GIRDER_LABEL_RECT.x + GIRDER_LABEL_RECT.width, y: GIRDER_LABEL_RECT.y + GIRDER_LABEL_RECT.height },
+      {
+        x: GIRDER_LABEL_RECT.x + GIRDER_LABEL_RECT.width,
+        y: GIRDER_LABEL_RECT.y + GIRDER_LABEL_RECT.height,
+      },
     );
     // 確定直後の見た目を視聴者が確認できるよう、次の操作へ移る前に少し間を置く
     await sleep(800);
@@ -107,7 +110,9 @@ export const relationalLink: Scenario = {
         'リンク関係性ダイアログのデモ',
       );
     } catch (e) {
-      console.warn(`movies/scenarios/06: 関係性ダイアログのデモをスキップしました（${(e as Error).message}）`);
+      console.warn(
+        `movies/scenarios/06: 関係性ダイアログのデモをスキップしました（${(e as Error).message}）`,
+      );
       await page.keyboard.press('Escape').catch(() => {});
     }
     await director.settle();

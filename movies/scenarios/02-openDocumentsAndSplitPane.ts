@@ -12,7 +12,11 @@ export const openDocumentsAndSplitPane: Scenario = {
   async run({ page, director, mouse }) {
     const calcFile = page.locator('.exp-file').filter({ hasText: '計算書.pdf' }).first();
     await mouse.clickLocator(calcFile);
-    await page.locator('.tab-item').filter({ hasText: '計算書' }).first().waitFor({ state: 'visible' });
+    await page
+      .locator('.tab-item')
+      .filter({ hasText: '計算書' })
+      .first()
+      .waitFor({ state: 'visible' });
 
     const drawingFile = page.locator('.exp-file').filter({ hasText: '一般図.pdf' }).first();
     await mouse.clickLocator(drawingFile);

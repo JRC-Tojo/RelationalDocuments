@@ -25,7 +25,11 @@ export const createContainer: Scenario = {
     );
 
     // --- ここから「画面演出」: 実際の操作手順（＋→ローカルフォルダ→フォルダを選択）を見せる ---
-    const addButton = iconButton(page, 'add', page.locator('.explorer-view, [class*="explorer"]').first());
+    const addButton = iconButton(
+      page,
+      'add',
+      page.locator('.explorer-view, [class*="explorer"]').first(),
+    );
     await mouse.clickLocator(addButton);
 
     const dialog = page.locator('.q-dialog').first();

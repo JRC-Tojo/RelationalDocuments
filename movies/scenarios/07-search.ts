@@ -52,7 +52,10 @@ export const search: Scenario = {
     const { page, director, mouse } = ctx;
 
     // --- 文書内検索（Ctrl+F） ---
-    await director.caption('文書内を検索する', 'Ctrl + F で、開いている文書の中をその場で検索できます。');
+    await director.caption(
+      '文書内を検索する',
+      'Ctrl + F で、開いている文書の中をその場で検索できます。',
+    );
 
     const calcTab = page.locator('.tab-item').filter({ hasText: '計算書' }).first();
     await mouse.clickLocator(calcTab);
@@ -119,7 +122,10 @@ export const search: Scenario = {
     await typeSlowlyZoomed(ctx, input, 'SM400');
     await page.keyboard.press('Enter');
 
-    await page.locator('.search-view-match-item').first().waitFor({ state: 'visible', timeout: 8000 });
+    await page
+      .locator('.search-view-match-item')
+      .first()
+      .waitFor({ state: 'visible', timeout: 8000 });
     await sleep(800);
     await director.settle();
 

@@ -60,7 +60,10 @@ export class SmoothMouse {
   async clickLocator(locator: Locator): Promise<void> {
     await locator.waitFor({ state: 'visible' });
     const box = await locator.boundingBox();
-    if (!box) throw new Error('要素のバウンディングボックスを取得できませんでした（非表示の可能性があります）');
+    if (!box)
+      throw new Error(
+        '要素のバウンディングボックスを取得できませんでした（非表示の可能性があります）',
+      );
     await this.click(box.x + box.width / 2, box.y + box.height / 2);
   }
 
@@ -68,7 +71,10 @@ export class SmoothMouse {
   async rectOf(locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
     await locator.waitFor({ state: 'visible' });
     const box = await locator.boundingBox();
-    if (!box) throw new Error('要素のバウンディングボックスを取得できませんでした（非表示の可能性があります）');
+    if (!box)
+      throw new Error(
+        '要素のバウンディングボックスを取得できませんでした（非表示の可能性があります）',
+      );
     return box;
   }
 
@@ -77,7 +83,10 @@ export class SmoothMouse {
    * `handleMouseUp`側の判定（15px以上・150ms以上でドラッグ確定）を確実に満たすよう、
    * 押下後に少し待ってからゆっくり目的地まで動かす
    */
-  async dragCreateAnnotation(from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
+  async dragCreateAnnotation(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+  ): Promise<void> {
     await this.moveTo(from.x, from.y);
     await this.page.mouse.down();
     await sleep(200);

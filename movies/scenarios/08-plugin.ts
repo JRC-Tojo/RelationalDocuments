@@ -26,13 +26,19 @@ export const plugin: Scenario = {
 
     const installIcon = pluginRow.locator('.q-icon:text-is("download")').first();
     if (await installIcon.isVisible().catch(() => false)) {
-      await director.caption('プラグインをインストール', 'ストアから選んでワンクリックで導入できます。');
+      await director.caption(
+        'プラグインをインストール',
+        'ストアから選んでワンクリックで導入できます。',
+      );
       await mouse.clickLocator(installIcon);
       await sleep(1000);
       await director.settle();
     }
 
-    const installedRow = page.locator('.q-item').filter({ hasText: 'ページ番号スタンパー' }).first();
+    const installedRow = page
+      .locator('.q-item')
+      .filter({ hasText: 'ページ番号スタンパー' })
+      .first();
     const runIcon = installedRow.locator('.q-icon:text-is("play_arrow")').first();
     await runIcon.waitFor({ state: 'visible', timeout: 8000 });
 

@@ -55,7 +55,11 @@ export async function findAllTextRects(page: Page, text: string): Promise<TextRe
 }
 
 /** 現在DOMに存在する`.text-layer__item`の中から、指定文字列と完全一致する要素の矩形を返す（見つからなければnull） */
-export async function findTextRect(page: Page, text: string, occurrence = 0): Promise<TextRect | null> {
+export async function findTextRect(
+  page: Page,
+  text: string,
+  occurrence = 0,
+): Promise<TextRect | null> {
   const all = await findAllTextRects(page, text);
   return all[occurrence] ?? null;
 }
@@ -64,11 +68,14 @@ export async function findTextRect(page: Page, text: string, occurrence = 0): Pr
  * 部分一致版。図面のように、文字間隔や表記ゆれ（全角/半角の記号違いなど）で完全一致が
  * 期待しづらい箇所を探すのに使う。y座標が小さい順（ページ上で上にあるものから順）に返す
  */
-export async function findAllTextRectsContaining(page: Page, substring: string): Promise<TextRect[]> {
+export async function findAllTextRectsContaining(
+  page: Page,
+  substring: string,
+): Promise<TextRect[]> {
   const boxes = await page.evaluate(
     ({ substring }) => {
-      const items = Array.from(document.querySelectorAll<HTMLElement>('.text-layer__item')).filter((el) =>
-        el.textContent?.includes(substring),
+      const items = Array.from(document.querySelectorAll<HTMLElement>('.text-layer__item')).filter(
+        (el) => el.textContent?.includes(substring),
       );
       return items.map((el) => {
         const r = el.getBoundingClientRect();

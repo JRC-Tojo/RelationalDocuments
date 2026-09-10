@@ -28,10 +28,10 @@ export class Director {
    * ずっと画面に残り続ける。操作が終わる直前には`settle()`を呼んで明示的に消すこと
    */
   async caption(title: string, desc: string): Promise<void> {
-    await this.page.evaluate(
-      ({ title, desc }) => window.__director?.caption(title, desc),
-      { title, desc },
-    );
+    await this.page.evaluate(({ title, desc }) => window.__director?.caption(title, desc), {
+      title,
+      desc,
+    });
     await sleep(600);
   }
 
@@ -68,10 +68,10 @@ export class Director {
     rect: { x: number; y: number; width: number; height: number },
     scale?: number,
   ): Promise<void> {
-    await this.page.evaluate(
-      ({ rect, scale }) => window.__director?.zoom.to(rect, scale),
-      { rect, scale },
-    );
+    await this.page.evaluate(({ rect, scale }) => window.__director?.zoom.to(rect, scale), {
+      rect,
+      scale,
+    });
     await sleep(TIMING.zoomTransition + 100);
   }
 

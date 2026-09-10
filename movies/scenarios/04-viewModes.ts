@@ -41,7 +41,9 @@ async function selectViewMode(ctx: MovieContext, label: string): Promise<void> {
     if (active) return;
 
     if (attempt === 3) {
-      throw new Error(`movies/scenarios/04: 表示モード「${label}」への切り替えが反映されませんでした`);
+      throw new Error(
+        `movies/scenarios/04: 表示モード「${label}」への切り替えが反映されませんでした`,
+      );
     }
   }
 }
