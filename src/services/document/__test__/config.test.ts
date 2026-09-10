@@ -138,6 +138,7 @@ describe('loadConfig（PDFしおりの自動取り込み）', () => {
       { title: '第1章', level: 0, pageNumber: 1 },
       { title: '1.1', level: 1, pageNumber: 2 },
     ]);
+    loadFileAsDocumentSourceMock.mockClear();
 
     const res = await loadConfig(buildFile('doc.pdf'));
     expect(res.ok).toBeTrue();
@@ -150,6 +151,11 @@ describe('loadConfig（PDFしおりの自動取り込み）', () => {
     const saved = savedArgs();
     expect(saved.outlineImported).toBeTrue();
     expect(Object.keys(saved.bookmarks).length).toBe(2);
+
+    // ハッシュ照合用の読み込みと、しおり取り込み用の読み込みを別々に行うと大きなファイルほど
+    // I/O・base64変換が重複して遅くなるため、ファイル本体の読み込みは1回で済ませること
+    // （`loadConfigRawWithSrc`が取得済みの内容をアウトライン取り込みでも使い回す回帰テスト）
+    expect(loadFileAsDocumentSourceMock).toHaveBeenCalledTimes(1);
   });
 
   it('outlineImportedが既にtrueの場合は再度取り込まない（getOutlineを呼ばない）', async () => {

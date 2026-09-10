@@ -23,6 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getBase64FileSize } from 'src/utils/binary/base64';
 import { Path } from 'src/utils/binary/path';
 import { createKeyedMutex } from 'src/utils/promise/keyedMutex';
+import { createTtlCache } from 'src/utils/cache/ttlCache';
 
 export type { RenamedEntry };
 
@@ -286,6 +287,7 @@ async function unloadContainerImpl(
 
   // キャッシュも削除
   delete cachedContainers[cId];
+  invalidateFileSourceCacheForContainer(cId);
 
   return Success();
 }
@@ -409,6 +411,10 @@ async function createFileImpl(
   const container = await addContainerElement(element, srcData);
   if (!container.ok) return container;
 
+  // 同名ファイルへの上書き保存（別名保存で既存パスを指定した場合等）に備え、
+  // 短期キャッシュ（`loadFileAsDocumentSource`）に古い内容が残っていれば破棄する
+  invalidateFileSourceCache(cId, filePathStr);
+
   return Success(element);
 }
 
@@ -428,11 +434,59 @@ async function deleteFileImpl(cId: ContainerID, file: ContainerElementFile): Pro
   if (!parsedContainer.success) return Failure(new Error('This is not a filled container'));
 
   // コンテナキャッシュの更新 & 実態データの更新
-  return deleteContainerElement(parsedContainer.data, file);
+  const deleteRes = await deleteContainerElement(parsedContainer.data, file);
+  if (deleteRes.ok) invalidateFileSourceCache(cId, file.path);
+  return deleteRes;
+}
+
+/**
+ * `loadFileAsDocumentSource`の結果を一定時間だけ使い回すための短期キャッシュ
+ *
+ * 1つの文書を開く処理（`.kcfg`のハッシュ照合→初回のみのアウトライン取り込み→
+ * ビューア表示用の本体取得、`saveDocument`の保存前後の再取得等）は、いずれも同一ファイルの
+ * 実体（ローカルディスク／Boxからの読み込み＋base64変換）を数百ミリ秒以内に連続して必要とする。
+ * 呼び出しのたびに実ファイルを読み直すと、特にファイルサイズの大きい文書でI/O・base64変換
+ * （`arrayBufferToBase64`）が重複して発生し、文書を開いてから操作可能になるまでの体感速度を
+ * 大きく損なう（この関数の実装当初からの既知の課題）。
+ *
+ * 外部エディタでの直接編集等、本アプリの操作を経ない更新を長時間見逃さないよう、TTLは
+ * 短時間（`FILE_SOURCE_CACHE_TTL_MS`）に留める。加えて、本アプリ内での更新経路
+ * （新規作成・上書き・削除・リネーム・外部変更の受け入れ）は`invalidateFileSourceCache`で
+ * 該当キーを即座に破棄するため、実質的に古い内容を返し続けることはない
+ */
+const FILE_SOURCE_CACHE_TTL_MS = 3000;
+
+// 実際のキャッシュ機構は汎用ユーティリティ（`src/utils/cache/ttlCache.ts`）へ委譲し、
+// ここではキーの作り方・TTL・破棄タイミングといったこの用途固有の知識だけを持つ
+const fileSourceCache = createTtlCache<string, Promise<Result<DocumentSource>>>();
+
+/** キャッシュのキー（コンテナIDとパスの組を一意に表す文字列）を作る */
+function fileSourceCacheKey(cId: ContainerID, path: string): string {
+  return `${cId}::${path}`;
+}
+
+/**
+ * 指定ファイルの短期キャッシュ（`loadFileAsDocumentSource`）を破棄する
+ *
+ * ファイル本体の内容が変わり得る操作（作成・上書き・削除・リネーム・外部変更の受け入れ）の
+ * 直後に呼ぶこと。TTLが短いため必須ではないが、明らかに内容が変わったタイミングで即座に
+ * 破棄しておくことで、TTL満了を待たずに次回の読み込みで新しい内容を確実に反映できる
+ */
+export function invalidateFileSourceCache(cId: ContainerID, path: string): void {
+  fileSourceCache.delete(fileSourceCacheKey(cId, path));
+}
+
+/** コンテナ単位でキャッシュを一括破棄する（コンテナの読み込み解除時に呼ぶこと） */
+function invalidateFileSourceCacheForContainer(cId: ContainerID): void {
+  const prefix = fileSourceCacheKey(cId, '');
+  fileSourceCache.deleteWhere((key) => key.startsWith(prefix));
 }
 
 /**
  * ファイルからドキュメントの本体データを読みこむ
+ *
+ * 短期間（`FILE_SOURCE_CACHE_TTL_MS`）は結果をキャッシュし、同一ファイルへの連続アクセスで
+ * 実ストレージへの重複アクセスを避ける（`fileSourceCache`のコメント参照）
  */
 export async function loadFileAsDocumentSource(
   cId: ContainerID,
@@ -441,18 +495,31 @@ export async function loadFileAsDocumentSource(
   const c = getContainer(cId);
   if (!c.ok) return c;
 
-  // TODO: 実行中の内部キャッシュによる高速化が必須
-  // 毎回アクセスしてはいけない
+  const key = fileSourceCacheKey(cId, path);
+  const cached = fileSourceCache.get(key);
+  if (cached !== undefined) return cached;
 
-  const srcData = await switchContainerProcess(
-    c.value.type,
-    () => box.loadSrcData(cId, path),
-    () => local.loadSrcData(cId, path),
-    () => cache.loadSrcData(cId, path),
-  );
-  if (!srcData.ok) return srcData;
+  const resultPromise = (async (): Promise<Result<DocumentSource>> => {
+    const srcData = await switchContainerProcess(
+      c.value.type,
+      () => box.loadSrcData(cId, path),
+      () => local.loadSrcData(cId, path),
+      () => cache.loadSrcData(cId, path),
+    );
+    if (!srcData.ok) return srcData;
 
-  return Success(DocumentSource.parse(srcData.value));
+    return Success(DocumentSource.parse(srcData.value));
+  })();
+
+  fileSourceCache.set(key, resultPromise, FILE_SOURCE_CACHE_TTL_MS);
+
+  const result = await resultPromise;
+  // 失敗した場合はキャッシュに残さない（一時的なI/Oエラー等をTTL満了までそのまま返し続けないため）。
+  // ただし現在のキャッシュ値が自分自身のPromiseである場合のみ削除する。
+  // 自身が無効化された後に登録された新しい読み込み（後続のキャッシュエントリ）を誤って
+  // 削除してしまうと、後続呼び出しがそのエントリへ合流できず重複読み込みが発生するため
+  if (!result.ok && fileSourceCache.get(key) === resultPromise) fileSourceCache.delete(key);
+  return result;
 }
 
 /**
@@ -534,6 +601,9 @@ async function deleteFolderImpl(
       () => cache.deleteFile(parsedContainer.data, file),
     );
     if (!delRes.ok) return delRes;
+    // `deleteFileImpl`と異なりこのループは`deleteContainerElement`を経由しないため、
+    // ここで個別に短期キャッシュ（`loadFileAsDocumentSource`）を破棄する
+    invalidateFileSourceCache(cId, file.path);
   }
 
   // 子孫のフォルダ要素情報を削除（実データは持たないため要素マップからの除去のみでよい）
@@ -608,6 +678,11 @@ async function renamePathImpl(
       () => cache.renameEntry(parsedContainer.data, target.path, targetNewPath, isFolder),
     );
     if (!renameRes.ok) return renameRes;
+
+    // 旧パスのキャッシュはもう有効ではなく、新パスも実体としては同じ内容のまま付け替わっただけ
+    // だが、キー自体が変わるため念のため両方を破棄しておく
+    invalidateFileSourceCache(cId, target.path);
+    invalidateFileSourceCache(cId, targetNewPath);
 
     renamed.push({ oldPath: target.path, element: newElement });
   }

@@ -70,7 +70,9 @@ interface ConfigWriteMeta {
  * トランザクション）のいずれかを経由すること。両者とも`configResource`によりファイル単位で
  * 直列化されるため、このアンロック版が並行して2重に走ることはない
  */
-async function loadConfigRaw(file: ContainerElementFile): Promise<Result<DocumentConfigFile>> {
+async function loadConfigRawWithSrc(
+  file: ContainerElementFile,
+): Promise<Result<{ configFile: DocumentConfigFile; fileSrc: DocumentSource }>> {
   // ファイルハッシュの算出（設定ファイルが無い場合の初期値としても使う）
   const fileSrc = await containerService.loadFileAsDocumentSource(file.containerID, file.path);
   if (!fileSrc.ok) return fileSrc;
@@ -99,7 +101,20 @@ async function loadConfigRaw(file: ContainerElementFile): Promise<Result<Documen
     return Failure(new DocumentConfigConflictError());
   }
 
-  return Success(configFile);
+  return Success({ configFile, fileSrc: fileSrc.value });
+}
+
+/**
+ * `loadConfigRawWithSrc`のうち、`.kcfg`情報のみを返す版（`readForMutate`用）
+ *
+ * `updateConfig`の内部読み込みはアウトライン取り込みを行わないため実ファイルの内容
+ * （`fileSrc`）自体は不要だが、`configResource`の型（`TState = DocumentConfigFile`）に
+ * 合わせるためここで剥がして返す
+ */
+async function loadConfigRaw(file: ContainerElementFile): Promise<Result<DocumentConfigFile>> {
+  const rawRes = await loadConfigRawWithSrc(file);
+  if (!rawRes.ok) return rawRes;
+  return Success(rawRes.value.configFile);
 }
 
 /**
@@ -109,16 +124,17 @@ async function loadConfigRaw(file: ContainerElementFile): Promise<Result<Documen
 async function loadConfigWithSideEffects(
   file: ContainerElementFile,
 ): Promise<Result<DocumentConfigFile>> {
-  const rawRes = await loadConfigRaw(file);
+  const rawRes = await loadConfigRawWithSrc(file);
   if (!rawRes.ok) return rawRes;
-  let configFile = rawRes.value;
+  let configFile = rawRes.value.configFile;
 
   // PDFに元々埋め込まれているしおり（アウトライン）を、初回読み込み時のみ自動でブックマークに
-  // 取り込む。取り込み済みフラグを永続化することで、以降は同じ文書を開いても重複登録しない
+  // 取り込む。取り込み済みフラグを永続化することで、以降は同じ文書を開いても重複登録しない。
+  // ファイル本体は直前の`loadConfigRawWithSrc`（ハッシュ照合用）で既に読み込み済みのため、
+  // ここで`loadFileAsDocumentSource`を再度呼ばず使い回す（大きなファイルほど二重読み込み・
+  // base64変換の重複コストが顕著なため）
   if (!configFile.outlineImported && getSupportedDocumentKind(file.path) === 'pdf') {
-    const fileSrc = await containerService.loadFileAsDocumentSource(file.containerID, file.path);
-    if (!fileSrc.ok) return fileSrc;
-    configFile = await importOutlineOnce(file, configFile, fileSrc.value);
+    configFile = await importOutlineOnce(file, configFile, rawRes.value.fileSrc);
   }
 
   // 返す前にConfigから読み取ったAnnotation情報をAnnotDBに保存する
@@ -302,6 +318,8 @@ export async function acceptExternalConfig(
   invalidatePdfDocument(file);
   // レンダリング結果キャッシュ（`renderCache.ts`）も同様に、古い内容の画像を再利用しないよう破棄する
   invalidateRenderCache(fileKey(file));
+  // `loadFileAsDocumentSource`の短期キャッシュも同様に、外部変更前の内容を返し続けないよう破棄する
+  containerService.invalidateFileSourceCache(file.containerID, file.path);
 
   return annotationService.registerAnnotationInfo(annotInfos, file, false);
 }
