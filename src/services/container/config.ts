@@ -5,8 +5,9 @@
 import type { DocumentSource } from 'src/models/document/common';
 import { Path } from 'src/utils/binary/path';
 import type { ContainerElementFile, ContainerID } from 'src/models/container';
-import { NotFoundError, Success, type Result } from 'src/models/error/result';
-import { calcBase64Hash } from 'src/utils/binary/base64';
+import { Failure, NotFoundError, Success, type Result } from 'src/models/error/result';
+import { calcBase64Hash, uint8ArrayToBase64 } from 'src/utils/binary/base64';
+import { fileKey, type FileIdentity } from 'src/utils/document/fileKey';
 import type {
   AnnotationBaseAddress,
   AnnotationInfo,
@@ -25,8 +26,12 @@ import type { RelationalWithAddress } from 'src/models/relational/common';
 import { CONFIG_FILE_EXTS } from 'src/models/document/common';
 import { fromEntries } from 'src/utils/obj/obj';
 import type { AnnotationGroup, AnnotationGroupID } from 'src/models/document/group';
+import { TEXT_CACHE_FORMAT_VERSION, TextCacheFileMeta } from 'src/models/document/textCache';
+import type { TextCacheFile } from 'src/models/document/textCache';
+import type { TextItemBox } from 'src/models/document/pdf';
 
 const CONTAINER_CONFIG_FOLDER = '.kumihimo';
+const TEXT_CACHE_FOLDER = 'textcache';
 
 /**
  * 文書設定ファイルのパスを取得する
@@ -53,6 +58,30 @@ function getRelationalFilePath(cPath: string): string {
 function getContainerSettingsFilePath(cPath: string): string {
   const path = new Path(cPath).child(CONTAINER_CONFIG_FOLDER).child('settings.json');
   return path.path;
+}
+
+/**
+ * 文書のテキストレイヤーキャッシュファイルのパスを取得する（`cacheKey`単位）
+ */
+function getTextCachePath(cPath: string, cacheKey: string): string {
+  const targetPath = new Path(cPath)
+    .child(CONTAINER_CONFIG_FOLDER)
+    .child(TEXT_CACHE_FOLDER, `${cacheKey}.json`);
+  return targetPath.path;
+}
+
+/**
+ * テキストキャッシュファイルの保存先を決めるための、ファイル単位の一意なキーを生成する
+ *
+ * キャッシュの有効性判定自体は`updatedAt`・`fileSize`で行う（`isCacheFresh`参照）ため、
+ * ここでのハッシュ化はファイル内容とは無関係で、単に`containerID`・パスという小さな文字列を
+ * ファイルシステム上安全な一意な名前に変換しているだけ（PDF本体を読み込む必要はなく、
+ * 大きなファイルでもコストは無視できるほど小さい）
+ */
+async function getTextCacheKey(file: FileIdentity): Promise<Result<string>> {
+  const encodedRes = uint8ArrayToBase64(new TextEncoder().encode(fileKey(file)));
+  if (!encodedRes.ok) return encodedRes;
+  return calcBase64Hash(encodedRes.value);
 }
 
 /**
@@ -332,6 +361,102 @@ export async function saveContainerSettingsFile(
 
   const settingsFilePath = getContainerSettingsFilePath(container.value.containerPath);
   const createRes = await containerService.createFile(cID, settingsFilePath, settingsSrc.value);
+  if (!createRes.ok) return createRes;
+
+  return Success();
+}
+
+/**
+ * コンテナルートに保存されている、指定ファイルの文書テキストレイヤーキャッシュを取得する
+ *
+ * `.kcfg`/`relational.json`と異なり、このキャッシュは失っても実データを損なわない使い捨て・
+ * 再生成可能なデータであるため、ファイル不存在（`NotFoundError`）に加え、バリデーション失敗・
+ * `formatVersion`不一致（将来キャッシュの形が変わった場合）も「壊れたキャッシュ」として
+ * 同じ`NotFoundError`に正規化して返す（呼び出し側は`NotFoundError`かどうかだけを見て、
+ * キャッシュなし＝再生成という単純な分岐にできる）。有効性（ファイルが更新されていないか）の
+ * 判定は呼び出し側（`isCacheFresh`）が返り値の`updatedAt`・`fileSize`を見て行う
+ *
+ * `pages`は`TextCacheFileMeta`（`pages`を除いた軽量スキーマ）では検証せず、自前で書き出した
+ * 信頼済みデータとして型キャストのみで扱う。大きな文書では`pages`が数十万件の`TextItemBox`を
+ * 含み得るため、要素単位でzod検証すると読み込みだけで秒単位かかることがあった
+ * （`formatVersion`が一致しない・JSONとして壊れている等、根本的に壊れたキャッシュは
+ * 引き続き検出できる）
+ */
+export async function getTextCacheFile(file: FileIdentity): Promise<Result<TextCacheFile>> {
+  const containerService = await import('./main');
+  const container = containerService.getContainer(file.containerID);
+  if (!container.ok) return container;
+
+  const keyRes = await getTextCacheKey(file);
+  if (!keyRes.ok) return keyRes;
+
+  const textCachePath = getTextCachePath(container.value.containerPath, keyRes.value);
+  const src = await containerService.loadFileAsDocumentSource(file.containerID, textCachePath);
+  if (!src.ok) return src;
+
+  const rawTextRes = textRepository.loadTextContents(src.value);
+  if (!rawTextRes.ok) return Failure(new NotFoundError('Text cache is corrupted'));
+
+  let rawParsed: unknown;
+  try {
+    rawParsed = JSON.parse(rawTextRes.value);
+  } catch {
+    return Failure(new NotFoundError('Text cache is corrupted'));
+  }
+
+  const metaRes = TextCacheFileMeta.safeParse(rawParsed);
+  if (!metaRes.success) return Failure(new NotFoundError('Text cache is corrupted'));
+  if (metaRes.data.formatVersion !== TEXT_CACHE_FORMAT_VERSION) {
+    return Failure(new NotFoundError('Text cache format is outdated'));
+  }
+
+  const pages = (rawParsed as { pages?: unknown }).pages;
+  if (typeof pages !== 'object' || pages === null) {
+    return Failure(new NotFoundError('Text cache is corrupted'));
+  }
+
+  return Success({ ...metaRes.data, pages: pages as Record<string, TextItemBox[]> });
+}
+
+/**
+ * コンテナルートに文書テキストレイヤーキャッシュを保存する（ファイル単位）
+ *
+ * 判定用に`file`時点の`path`・`fileSize`・`updatedAt`をそのままキャッシュ内容へ書き込む
+ * （次回`getTextCacheFile`で読み出した際、`isCacheFresh`がこれらを現在のファイルの値と比較する）
+ */
+export async function saveTextCacheFile(
+  file: ContainerElementFile,
+  pages: Map<number, TextItemBox[]>,
+): Promise<Result<void>> {
+  const containerService = await import('./main');
+  const container = containerService.getContainer(file.containerID);
+  if (!container.ok) return container;
+
+  const keyRes = await getTextCacheKey(file);
+  if (!keyRes.ok) return keyRes;
+
+  const pagesRecord: Record<string, TextItemBox[]> = {};
+  for (const [pageNumber, blocks] of pages) {
+    pagesRecord[String(pageNumber)] = blocks;
+  }
+  const cacheFile: TextCacheFile = {
+    formatVersion: TEXT_CACHE_FORMAT_VERSION,
+    path: file.path,
+    fileSize: file.fileSize,
+    updatedAt: file.updatedAt,
+    pages: pagesRecord,
+  };
+
+  const cacheStr = JSON.stringify(cacheFile);
+  const cacheSrc = textRepository.encodeTextContents(cacheStr);
+  if (!cacheSrc.ok) return cacheSrc;
+
+  const textCachePath = getTextCachePath(container.value.containerPath, keyRes.value);
+  const createRes = await containerService.createFile(
+    file.containerID,
+    textCachePath,
+    cacheSrc.value,
+  );
   if (!createRes.ok) return createRes;
 
   return Success();

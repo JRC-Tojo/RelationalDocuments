@@ -1,9 +1,52 @@
-import { describe, test, expect } from 'bun:test';
+import { describe, test, expect, mock } from 'bun:test';
 import { buildCachedRelationalFile } from '../config';
 import type { CachedRelationalFile } from 'src/models/relational/fileSchema';
 import type { RelationalWithAddress } from 'src/models/relational/common';
-import type { ContainerID } from 'src/models/container';
-import type { AnnotationID } from 'src/models/document/pdf';
+import type { Container, ContainerElementFile, ContainerID } from 'src/models/container';
+import type { AnnotationID, TextItemBox } from 'src/models/document/pdf';
+import type { DocumentSource } from 'src/models/document/common';
+import type { Result } from 'src/models/error/result';
+import { Failure, NotFoundError, Success } from 'src/models/error/result';
+import type { TextCacheFile } from 'src/models/document/textCache';
+import { TEXT_CACHE_FORMAT_VERSION } from 'src/models/document/textCache';
+import { calcBase64Hash, uint8ArrayToBase64 } from 'src/utils/binary/base64';
+import { fileKey } from 'src/utils/document/fileKey';
+
+// `getTextCacheFile`/`saveTextCacheFile`は`await import('./main')`経由でコンテナ本体の
+// 取得・ファイル読み書きを行うため、`src/services/container/main`をモック化してテストする
+// （`getRelationalFile`等、既存の同種サイドカーI/O関数と同じく、containerService自体は
+// このモジュールのテスト対象外とする）
+let containerFixture: Container | undefined;
+const getContainerMock = mock(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- mock.calls[N]の型付けのためだけに引数を宣言する
+  (_id: ContainerID): Result<Container> =>
+    containerFixture !== undefined
+      ? Success(containerFixture)
+      : Failure(new Error('container not found')),
+);
+let fileSrcFixture: Result<DocumentSource> = Failure(new NotFoundError('not found'));
+const loadFileAsDocumentSourceMock = mock(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- mock.calls[N]の型付けのためだけに引数を宣言する
+  (_cID: ContainerID, _path: string): Promise<Result<DocumentSource>> =>
+    Promise.resolve(fileSrcFixture),
+);
+const createFileMock = mock(
+  (
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- mock.calls[N]の型付けのためだけに引数を宣言する
+    _cID: ContainerID,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- mock.calls[N]の型付けのためだけに引数を宣言する
+    _path: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- mock.calls[N]の型付けのためだけに引数を宣言する
+    _src: DocumentSource,
+  ): Promise<Result<ContainerElementFile>> => Promise.resolve(Success({} as ContainerElementFile)),
+);
+void mock.module('src/services/container/main', () => ({
+  getContainer: getContainerMock,
+  loadFileAsDocumentSource: loadFileAsDocumentSourceMock,
+  createFile: createFileMock,
+}));
+
+const { getTextCacheFile, saveTextCacheFile } = await import('../config');
 
 describe('buildCachedRelationalFile', () => {
   const cID = '00000000-0000-0000-0000-000000000000' as ContainerID;
@@ -153,6 +196,124 @@ describe('buildCachedRelationalFile', () => {
     expect(saved.annotIdToFileInfo).toEqual({
       [b]: bAdrs,
       [c]: cAdrs,
+    });
+  });
+});
+
+describe('getTextCacheFile / saveTextCacheFile（.kumihimo/textcache/<key>.json）', () => {
+  const cID = '00000000-0000-0000-0000-000000000000' as ContainerID;
+  const testFile: ContainerElementFile = {
+    containerID: cID,
+    type: 'File',
+    path: 'docs/a.pdf',
+    fileSize: 1234,
+    createdAt: new Date('2024-01-01T00:00:00Z'),
+    updatedAt: new Date('2024-01-02T03:04:05Z'),
+    description: '',
+    genre: '',
+    tags: [],
+  };
+
+  containerFixture = {
+    id: cID,
+    name: 'test-container',
+    type: 'local',
+    containerPath: '/test-container',
+    elements: {},
+  };
+
+  /** `getTextCacheKey`（config.ts内の非公開関数）と同じ手順でキャッシュキーを計算する */
+  async function expectedCacheKey(): Promise<string> {
+    const encodedRes = uint8ArrayToBase64(new TextEncoder().encode(fileKey(testFile)));
+    if (!encodedRes.ok) throw encodedRes.error;
+    const hashRes = await calcBase64Hash(encodedRes.value);
+    if (!hashRes.ok) throw hashRes.error;
+    return hashRes.value;
+  }
+
+  test('保存済みキャッシュが存在する場合、パース済みの内容をそのまま返す', async () => {
+    const stored: TextCacheFile = {
+      formatVersion: TEXT_CACHE_FORMAT_VERSION,
+      path: testFile.path,
+      fileSize: testFile.fileSize,
+      updatedAt: testFile.updatedAt,
+      pages: { '1': [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }] as TextItemBox[] },
+    };
+    fileSrcFixture = Success(
+      Buffer.from(JSON.stringify(stored)).toString('base64') as DocumentSource,
+    );
+
+    const res = await getTextCacheFile(testFile);
+    expect(res.ok).toBeTrue();
+    if (!res.ok) return;
+    expect(res.value).toEqual(stored);
+  });
+
+  test('キャッシュファイルが存在しない場合はNotFoundErrorを返す', async () => {
+    fileSrcFixture = Failure(new NotFoundError('not found'));
+
+    const res = await getTextCacheFile(testFile);
+    expect(res.ok).toBeFalse();
+    if (res.ok) return;
+    expect(res.error).toBeInstanceOf(NotFoundError);
+  });
+
+  test('formatVersionが現行と異なる場合は「壊れたキャッシュ」としてNotFoundErrorを返す（黙って再生成させる）', async () => {
+    const stored = {
+      formatVersion: 999,
+      path: testFile.path,
+      updatedAt: testFile.updatedAt,
+      pages: {},
+    };
+    fileSrcFixture = Success(
+      Buffer.from(JSON.stringify(stored)).toString('base64') as DocumentSource,
+    );
+
+    const res = await getTextCacheFile(testFile);
+    expect(res.ok).toBeFalse();
+    if (res.ok) return;
+    expect(res.error).toBeInstanceOf(NotFoundError);
+  });
+
+  test('スキーマとして不正な内容（バリデーション失敗）の場合もNotFoundErrorを返す', async () => {
+    fileSrcFixture = Success(
+      Buffer.from(JSON.stringify({ not: 'a valid text cache file' })).toString(
+        'base64',
+      ) as DocumentSource,
+    );
+
+    const res = await getTextCacheFile(testFile);
+    expect(res.ok).toBeFalse();
+    if (res.ok) return;
+    expect(res.error).toBeInstanceOf(NotFoundError);
+  });
+
+  test('保存時はページ番号（数値）をキー文字列に変換し、path・fileSize・updatedAtを含むJSONとしてcreateFileへ渡す', async () => {
+    createFileMock.mockClear();
+    const pages = new Map<number, TextItemBox[]>([
+      [1, [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }]],
+      [2, []],
+    ]);
+
+    const res = await saveTextCacheFile(testFile, pages);
+    expect(res.ok).toBeTrue();
+    expect(createFileMock).toHaveBeenCalledTimes(1);
+
+    const [calledContainerID, calledPath, calledSrc] = createFileMock.mock.calls[0]!;
+    expect(calledContainerID).toBe(cID);
+    const key = await expectedCacheKey();
+    expect(calledPath).toBe(`/test-container/.kumihimo/textcache/${key}.json`);
+
+    const decoded = JSON.parse(Buffer.from(calledSrc, 'base64').toString('utf-8'));
+    expect(decoded).toEqual({
+      formatVersion: TEXT_CACHE_FORMAT_VERSION,
+      path: testFile.path,
+      fileSize: testFile.fileSize,
+      updatedAt: testFile.updatedAt.toISOString(),
+      pages: {
+        '1': [{ text: 'A', x: 0, y: 0, width: 1, height: 1 }],
+        '2': [],
+      },
     });
   });
 });

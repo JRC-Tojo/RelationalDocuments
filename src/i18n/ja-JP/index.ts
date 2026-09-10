@@ -532,6 +532,7 @@ export default {
     pageLabel: '{page}ページ',
     searching: '検索中...',
     searchFailed: '一部のコンテナで検索に失敗しました。表示中の結果は不完全な可能性があります',
+    fileHeaderPath: '{containerName} › {path}',
   },
 
   plugins: {

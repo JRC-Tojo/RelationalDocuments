@@ -54,11 +54,26 @@
             :key="fileKey(result.file)"
             dense
             default-opened
+            switch-toggle-side
             header-class="search-view-file-header"
+            expand-icon-class="search-view-toggle-icon"
           >
             <template #header>
-              <q-item-section>
-                {{ containerNameOf(result.file.containerID) }} › {{ result.file.path }}
+              <!-- ファイルパスの長さに関わらず常に1行で表示する。ファイル名を主として表示し、
+                   その横の余白にコンテナ名・フルパスを小さく薄い文字で添え、収まらない分は
+                   `...`で省略する -->
+              <q-item-section class="search-view-file-header__name">
+                <q-item-label lines="1">{{ fileNameOf(result.file.path) }}</q-item-label>
+              </q-item-section>
+              <q-item-section class="search-view-file-header__path">
+                <q-item-label lines="1" class="search-view-file-header__path-text">
+                  {{
+                    $t('searchPanel.fileHeaderPath', {
+                      containerName: containerNameOf(result.file.containerID),
+                      path: result.file.path,
+                    })
+                  }}
+                </q-item-label>
               </q-item-section>
               <q-item-section side>
                 <q-badge outline color="primary">{{ result.matches.length }}</q-badge>
@@ -70,6 +85,7 @@
               :key="`${fileKey(result.file)}-${idx}`"
               clickable
               dense
+              class="search-view-match-item"
               :title="$t('searchPanel.pageLabel', { page: match.pageNumber })"
               @click="openResult(result.file, match.pageNumber)"
             >
@@ -100,6 +116,7 @@ import { onMounted, ref } from 'vue';
 import { useBackendApi } from 'src/apis/backendApi';
 import { useEditorStore } from 'src/stores/editorStore';
 import { fileKey } from 'src/utils/document/fileKey';
+import { Path } from 'src/utils/binary/path';
 import { createGenerationGuard } from 'src/utils/promise/generationGuard';
 import SearchOptionToggles from 'src/components/Search/SearchOptionToggles.vue';
 import type { ContainerElementFile, ContainerID, ContainerSkel } from 'src/models/container';
@@ -169,6 +186,11 @@ function containerNameOf(cId: ContainerID): string {
   return containers.value.find((c) => c.id === cId)?.name ?? cId;
 }
 
+/** ヘッダーに主として表示するファイル名（パスの末尾要素） */
+function fileNameOf(path: string): string {
+  return new Path(path).basename();
+}
+
 /** 検索結果をクリックした際、該当文書の該当ページをタブで開く */
 function openResult(file: ContainerElementFile, pageNumber: number): void {
   editorStore.openTab(file, pageNumber);
@@ -199,9 +221,57 @@ onMounted(async () => {
   overflow-y: auto;
 }
 
-.search-view-file-header {
+// 既定のq-item左パディング（16px）から1文字分程度（約12px）を切り詰め、その分の余白に
+// switch-toggle-sideで左側へ移した展開矢印（.search-view-toggle-icon）を収める。折り畳み内の
+// 各結果アイテム（.search-view-match-item）も同じ左パディングへ揃え、見た目のインデントを一致させる。
+// `header-class`/`expand-icon-class`で指定した要素はq-expansion-item自身が内部で描画する
+// （このコンポーネントの`<template>`が直接生成する要素ではない）ため、scoped CSSの通常のセレクタ
+// では届かず`:deep()`を使う必要がある
+:deep(.search-view-file-header) {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  padding-left: 4px;
   font-weight: 500;
-  word-break: break-all;
+}
+
+:deep(.search-view-toggle-icon) {
+  min-width: 20px;
+  padding-right: 0;
+
+  .q-icon {
+    font-size: 18px;
+  }
+}
+
+// ファイル名を主として優先表示するため、フルパス側は`flex-basis: 0`にして「自身の内容量に応じた
+// 分配」ではなく「ファイル名が使った残りの余白のみ」を使うようにする。ファイル名が短い場合は
+// フルパス側がその分多く広がり、ファイル名が長い場合はファイル名自身が省略記号で収まる
+.search-view-file-header__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 70%;
+  padding: 0;
+}
+
+.search-view-file-header__path {
+  flex: 1 1 0%;
+  min-width: 0;
+  padding: 0;
+  margin-left: 6px;
+}
+
+.search-view-file-header__path-text {
+  color: $grey-7;
+  font-size: 11px;
+}
+
+.body--dark .search-view-file-header__path-text {
+  color: $grey-5;
+}
+
+.search-view-match-item {
+  padding-left: 4px;
 }
 
 .search-view-snippet {

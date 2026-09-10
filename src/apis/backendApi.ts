@@ -17,7 +17,10 @@ import * as pdfRepo from 'src/repositories/document/pdf';
 import * as localFontAccessRepo from 'src/repositories/document/localFontAccess';
 import * as textRepo from 'src/repositories/document/text';
 import * as documentService from 'src/services/document/config';
+import * as searchService from 'src/services/document/search';
+import * as textCacheService from 'src/services/document/textCache';
 import { createConcurrencyLimiter } from 'src/utils/promise/concurrent';
+import { isPdfContainerFile } from 'src/utils/document/supportedTypes';
 import type {
   Container,
   ContainerElement,
@@ -165,6 +168,9 @@ class BackendApi {
     if (loadedContainers.ok) {
       const initRelation = await relationalService.loadRelationals(id);
       if (!initRelation.ok) return toApiResponse(initRelation, 'CONTAINER_LOAD_FAILED');
+      // コンテナ内の全PDFのテキストレイヤーキャッシュを、応答をブロックせずバックグラウンドで
+      // 温めておく（コンテナ横断検索の初回実行時点である程度キャッシュが効いた状態を狙う）
+      void textCacheService.warmContainerTextCache(loadedContainers.value);
     }
     return toApiResponse(loadedContainers, 'CONTAINER_LOAD_FAILED');
   }
@@ -284,7 +290,7 @@ class BackendApi {
 
   /**
    * 指定ファイルのアノテーションのうちテキストボックス（type: 'text'）の内容を、
-   * `pdfRepo.searchTextByFile`の`extraItemsByPage`にそのまま渡せる形で取得する
+   * `searchService.searchTextByFile`の`extraItemsByPage`にそのまま渡せる形で取得する
    *
    * 取得に失敗した場合はPDF自体のテキストのみで検索を続行する（アノテーションが検索対象から
    * 漏れるだけで、文書自体の検索結果までブロックする必要はないため）
@@ -310,14 +316,19 @@ class BackendApi {
     query: string,
     searchOptions?: Partial<TextSearchOptions>,
   ): Promise<ApiResponse<TextSearchMatch[]>> {
-    const docSrc = await containerService.loadFileAsDocumentSource(file.containerID, file.path);
-    if (!docSrc.ok) return toApiResponse(docSrc, 'INVALID_DOCUMENT');
-    const extraItemsByPage = await this.getAnnotationSearchItemsByPage(file);
-    const res = await pdfRepo.searchTextByFile(file, docSrc.value, query, {
-      searchOptions,
-      extraItemsByPage,
-    });
-    return toApiResponse(res, 'DOC_SEARCH_FAILED');
+    textCacheService.beginSearchInterrupt();
+    try {
+      const extraItemsByPage = await this.getAnnotationSearchItemsByPage(file);
+      const res = await searchService.searchTextByFile(
+        file,
+        () => containerService.loadFileAsDocumentSource(file.containerID, file.path),
+        query,
+        { searchOptions, extraItemsByPage },
+      );
+      return toApiResponse(res, 'DOC_SEARCH_FAILED');
+    } finally {
+      textCacheService.endSearchInterrupt();
+    }
   }
 
   /**
@@ -341,34 +352,36 @@ class BackendApi {
       CONTAINER_SEARCH_CONCURRENCY,
     ),
   ): Promise<ApiResponse<ContainerTextSearchResult[]>> {
-    const containerRes = await containerService.loadContainer(cId, false);
-    if (!containerRes.ok) return toApiResponse(containerRes, 'CONTAINER_SEARCH_FAILED');
+    textCacheService.beginSearchInterrupt();
+    try {
+      const containerRes = await containerService.loadContainer(cId, false);
+      if (!containerRes.ok) return toApiResponse(containerRes, 'CONTAINER_SEARCH_FAILED');
 
-    const pdfFiles = Object.values(containerRes.value.elements).filter(
-      (el): el is ContainerElementFile =>
-        el.type === 'File' && el.path.toLowerCase().endsWith('.pdf'),
-    );
+      const pdfFiles = Object.values(containerRes.value.elements).filter(isPdfContainerFile);
 
-    const searchTasks = pdfFiles.map(
-      (file) => async (): Promise<ContainerTextSearchResult | undefined> => {
-        const docSrc = await containerService.loadFileAsDocumentSource(file.containerID, file.path);
-        if (!docSrc.ok) return undefined;
-        const extraItemsByPage = await this.getAnnotationSearchItemsByPage(file);
-        const matchesRes = await pdfRepo.searchTextByFile(file, docSrc.value, query, {
-          searchOptions,
-          extraItemsByPage,
-        });
-        if (!matchesRes.ok || matchesRes.value.length === 0) return undefined;
+      const searchTasks = pdfFiles.map(
+        (file) => async (): Promise<ContainerTextSearchResult | undefined> => {
+          const extraItemsByPage = await this.getAnnotationSearchItemsByPage(file);
+          const matchesRes = await searchService.searchTextByFile(
+            file,
+            () => containerService.loadFileAsDocumentSource(file.containerID, file.path),
+            query,
+            { searchOptions, extraItemsByPage },
+          );
+          if (!matchesRes.ok || matchesRes.value.length === 0) return undefined;
 
-        const result: ContainerTextSearchResult = { file, matches: matchesRes.value };
-        onResult?.(result);
-        return result;
-      },
-    );
+          const result: ContainerTextSearchResult = { file, matches: matchesRes.value };
+          onResult?.(result);
+          return result;
+        },
+      );
 
-    const settled = await Promise.all(searchTasks.map((task) => limiter(task)));
-    const results = settled.filter((r): r is ContainerTextSearchResult => r !== undefined);
-    return toApiResponse(Success(results), 'CONTAINER_SEARCH_FAILED');
+      const settled = await Promise.all(searchTasks.map((task) => limiter(task)));
+      const results = settled.filter((r): r is ContainerTextSearchResult => r !== undefined);
+      return toApiResponse(Success(results), 'CONTAINER_SEARCH_FAILED');
+    } finally {
+      textCacheService.endSearchInterrupt();
+    }
   }
 
   /**

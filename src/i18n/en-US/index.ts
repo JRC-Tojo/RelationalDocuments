@@ -533,6 +533,7 @@ export default {
     pageLabel: 'Page {page}',
     searching: 'Searching...',
     searchFailed: 'Search failed for some containers. The results shown may be incomplete',
+    fileHeaderPath: '{containerName} › {path}',
   },
 
   plugins: {

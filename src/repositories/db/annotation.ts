@@ -24,6 +24,15 @@ class AnnotationDexieDB extends Dexie {
     this.version(1).stores({
       annotations: 'id, containerID, filePath, isTemporary, isDeleted, updatedAt',
     });
+    // ファイル単位の問い合わせ（`containerID`+`filePath`の完全一致）は元々`containerID`単体の
+    // インデックスで絞り込んだ後にJS側で`filePath`をフィルタしていたため、コンテナ内の
+    // アノテーション総数に比例して遅くなっていた（大きな文書での検索が数秒単位で遅延する原因の
+    // 一つだった）。複合インデックスを追加し、ファイル単位の問い合わせをインデックスだけで
+    // 完結させる
+    this.version(2).stores({
+      annotations:
+        'id, containerID, filePath, isTemporary, isDeleted, updatedAt, [containerID+filePath]',
+    });
   }
 }
 
@@ -184,9 +193,8 @@ export async function deleteAnnotationsForFile(file: ContainerElementFile): Prom
 
   try {
     await db.annotations
-      .where('containerID')
-      .equals(file.containerID)
-      .filter((row) => row.filePath === file.path)
+      .where('[containerID+filePath]')
+      .equals([file.containerID, file.path])
       .delete();
     return Success();
   } catch (error) {
@@ -205,9 +213,9 @@ export async function getAnnotationsByFile(
 
   try {
     const rows = await db.annotations
-      .where('containerID')
-      .equals(file.containerID)
-      .filter((row) => row.filePath === file.path && !row.isDeleted)
+      .where('[containerID+filePath]')
+      .equals([file.containerID, file.path])
+      .filter((row) => !row.isDeleted)
       .toArray();
     return Success(rows.map((row) => row.annotationInfo));
   } catch (error) {
@@ -226,9 +234,9 @@ export async function countTemporaryAnnotations(
 
   try {
     const count = await db.annotations
-      .where('containerID')
-      .equals(file.containerID)
-      .filter((row) => row.filePath === file.path && row.isTemporary && !row.isDeleted)
+      .where('[containerID+filePath]')
+      .equals([file.containerID, file.path])
+      .filter((row) => row.isTemporary && !row.isDeleted)
       .count();
     return Success(count);
   } catch (error) {
@@ -269,9 +277,9 @@ export async function registerConfigAnnotationInfos(
   try {
     await db.transaction('rw', db.annotations, async () => {
       const temporaryRows = await db.annotations
-        .where('containerID')
-        .equals(file.containerID)
-        .filter((row) => row.filePath === file.path && row.isTemporary)
+        .where('[containerID+filePath]')
+        .equals([file.containerID, file.path])
+        .filter((row) => row.isTemporary)
         .toArray();
       const temporaryIds = new Set(temporaryRows.map((row) => row.id));
 
@@ -303,9 +311,9 @@ export async function getTemporaryAnnotationIds(
 
   try {
     const rows = await db.annotations
-      .where('containerID')
-      .equals(file.containerID)
-      .filter((row) => row.filePath === file.path && row.isTemporary)
+      .where('[containerID+filePath]')
+      .equals([file.containerID, file.path])
+      .filter((row) => row.isTemporary)
       .toArray();
     return Success(new Set(rows.map((row) => row.id)));
   } catch (error) {
@@ -321,9 +329,9 @@ export function observedAnnotationStylesByFile(
 ): Observable<AnnotationStyle[]> {
   const observed = liveQuery(() =>
     db.annotations
-      .where('containerID')
-      .equals(file.containerID)
-      .filter((row) => row.filePath === file.path && !row.isDeleted)
+      .where('[containerID+filePath]')
+      .equals([file.containerID, file.path])
+      .filter((row) => !row.isDeleted)
       .toArray((annotRec) => annotRec.map((annot) => annot.annotationInfo.style)),
   );
 
@@ -342,9 +350,9 @@ export async function commitAnnotations(
   try {
     const query = file
       ? db.annotations
-          .where('containerID')
-          .equals(file.containerID)
-          .filter((row) => row.filePath === file.path && row.isTemporary && !row.isDeleted)
+          .where('[containerID+filePath]')
+          .equals([file.containerID, file.path])
+          .filter((row) => row.isTemporary && !row.isDeleted)
       : db.annotations.filter((row) => row.isTemporary && !row.isDeleted);
 
     const rows = await query.toArray();
@@ -380,9 +388,8 @@ export async function remapFilePath(
 
   try {
     await db.annotations
-      .where('containerID')
-      .equals(containerID)
-      .filter((row) => row.filePath === oldPath)
+      .where('[containerID+filePath]')
+      .equals([containerID, oldPath])
       .modify({ filePath: newPath, updatedAt: new Date().toISOString() });
     return Success();
   } catch (error) {
